@@ -33,10 +33,19 @@ export function useSearch(surgeons, vendors, query) {
     return surgeons.filter(s =>
       s.name.toLowerCase().includes(q) ||
       s.specialty.toLowerCase().includes(q) ||
-      (s.nicknames || []).some(n =>
-        n.nickname.toLowerCase().includes(q) || n.actual.toLowerCase().includes(q)
+      (s.procedures || []).some(p =>
+        p.name?.toLowerCase().includes(q) ||
+        (p.nicknames || []).some(n =>
+          n.nickname.toLowerCase().includes(q) || n.actual.toLowerCase().includes(q)
+        ) ||
+        (p.tips || '').toLowerCase().includes(q) ||
+        (p.equipment || '').toLowerCase().includes(q) ||
+        p.glove?.model?.toLowerCase().includes(q) ||
+        (p.sutures || []).some(su =>
+          su.name.toLowerCase().includes(q) || (su.needle || '').toLowerCase().includes(q)
+        )
       ) ||
-      (s.tips || '').toLowerCase().includes(q) ||
+      // Legacy fallback for unmigrated data
       s.gloveModel?.toLowerCase().includes(q)
     );
   })();

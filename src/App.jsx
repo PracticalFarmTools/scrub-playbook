@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react';
 import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
-import { DEMO_SURGEONS } from './data/defaults';
+import { DEMO_SURGEONS, migrateSurgeonData } from './data/defaults';
 import { STORAGE_KEY } from './data/constants';
 import { useLocalStorage, useSearch } from './hooks/usePlaybook';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
@@ -28,6 +28,12 @@ export default function App() {
   const { isOnline } = useNetworkStatus();
   const { log: auditLog, addEntry: addAudit } = useAuditLog();
   const searchDebounce = useRef(null);
+
+  // ── One-time migration: flat format → procedure-first ──
+  useEffect(() => {
+    const needsMigration = surgeons.some(s => !s.procedures);
+    if (needsMigration) setSurgeons(migrateSurgeonData(surgeons));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { q, filteredSurgeons, filteredVendors, hasVendorResults } = useSearch(surgeons, SURGICAL_VENDORS, search);
 

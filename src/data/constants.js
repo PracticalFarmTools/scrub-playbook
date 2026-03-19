@@ -8,4 +8,7 @@ export const SPECIALTIES = [
 
 export const ASSIST_ROLES = ["PA", "Resident", "Fellow", "NP", "RNFA"];
 
+export const GOWN_SIZES = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+export const GOWN_TYPES = ['Standard', 'Breathable', 'Reinforced', 'Impervious'];
+
 export const STORAGE_KEY = 'scrubplaybook_surgeons';
