@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { X, Plus, Trash2, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
-import { SUTURE_LIBRARY, SUTURE_SIZES, NEEDLE_TYPES } from '../data/sutures';
+import { SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
+import { SURGICAL_NEEDLES, NEEDLE_LIST } from '../data/needles';
 import { SPECIALTIES, ASSIST_ROLES, GOWN_SIZES, GOWN_TYPES } from '../data/constants';
 import SearchableDropdown from './SearchableDropdown';
 
@@ -56,7 +57,7 @@ export default function AddSurgeonModal({ onClose, onSave }) {
 
   // Per-procedure suture builder
   const [sutureState, setSutureState] = useState({});
-  const getSutureDraft = (procIdx) => sutureState[procIdx] || { material: SUTURE_LIBRARY[0]?.name || '', size: '3-0', needle: NEEDLE_TYPES[0]?.code || '' };
+  const getSutureDraft = (procIdx) => sutureState[procIdx] || { material: SUTURE_LIBRARY[0]?.name || '', size: '3-0', needle: NEEDLE_LIST[0]?.name || '' };
 
   // Nickname builder per procedure
   const [nickState, setNickState] = useState({});
@@ -318,8 +319,12 @@ export default function AddSurgeonModal({ onClose, onSave }) {
                             <div className="flex-1">
                               <label className={labelClass}>Needle</label>
                               <select value={draft.needle} onChange={e => setSutureState(prev => ({ ...prev, [pi]: { ...getSutureDraft(pi), needle: e.target.value } }))} className={inputClass}>
-                                {NEEDLE_TYPES.map(n => <option key={n.code} value={n.code}>{n.code}</option>)}
-                              </select>
+                {SURGICAL_NEEDLES.map(cat => (
+                  <optgroup key={cat.category} label={cat.category}>
+                    {cat.items.map(n => <option key={n} value={n}>{n}</option>)}
+                  </optgroup>
+                ))}
+              </select>
                             </div>
                             <button type="button" onClick={() => addSuture(pi)}
                               className="shrink-0 w-10 h-10 rounded-xl bg-medical-600 text-white flex items-center justify-center hover:bg-medical-700 active:scale-95 transition-all cursor-pointer shadow-md shadow-medical-600/20">

@@ -1,7 +1,8 @@
 import { memo, useState, useMemo } from 'react';
 import { Trash2, ChevronDown, ChevronUp, User, Scissors, Stethoscope, Edit3, Check, X, ExternalLink, Plus, UserPlus, Clock, Shield } from 'lucide-react';
 import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
-import { SUTURE_LIBRARY, SUTURE_SIZES, NEEDLE_TYPES } from '../data/sutures';
+import { SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
+import { SURGICAL_NEEDLES, NEEDLE_LIST, getSimilarNeedles } from '../data/needles';
 import { ASSIST_ROLES, GOWN_SIZES, GOWN_TYPES } from '../data/constants';
 import SearchableDropdown from './SearchableDropdown';
 
@@ -130,7 +131,7 @@ function InlineSutureEdit({ procedure, onSave, onCancel }) {
   const [sutures, setSutures] = useState([...(procedure.sutures || [])]);
   const [material, setMaterial] = useState(SUTURE_LIBRARY[0]?.name || '');
   const [size, setSize] = useState('3-0');
-  const [needle, setNeedle] = useState(NEEDLE_TYPES[0]?.code || '');
+  const [needle, setNeedle] = useState(NEEDLE_LIST[0]?.name || '');
   const inputClass = "w-full rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-medical-400/50";
 
   const addSuture = () => {
@@ -157,7 +158,11 @@ function InlineSutureEdit({ procedure, onSave, onCancel }) {
         <div>
           <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Needle</p>
           <select value={needle} onChange={e => setNeedle(e.target.value)} className={inputClass}>
-            {NEEDLE_TYPES.map(n => <option key={n.code} value={n.code}>{n.code}</option>)}
+            {SURGICAL_NEEDLES.map(cat => (
+              <optgroup key={cat.category} label={cat.category}>
+                {cat.items.map(n => <option key={n} value={n}>{n}</option>)}
+              </optgroup>
+            ))}
           </select>
         </div>
       </div>
@@ -296,12 +301,21 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
           <div className="flex items-center gap-1.5 mt-3 -mb-1 overflow-x-auto scrollbar-hide">
             {procedures.map((p, i) => (
               <button key={p.id} onClick={() => { setActiveTab(i); setEditing(null); }}
-                className={`px-3 py-1.5 rounded-t-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   i === activeTab
                     ? 'bg-white text-medical-700 shadow-sm'
                     : 'text-medical-200 hover:text-white hover:bg-white/10'
                 }`}>
                 {p.name}
+                {p.status && (
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider leading-none ${
+                    p.status === 'OPEN'
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-amber-400 text-slate-900'
+                  }`}>
+                    {p.status}
+                  </span>
+                )}
               </button>
             ))}
             {!showAddProc ? (
@@ -341,11 +355,16 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
                   <span className="text-sm font-bold text-medical-700">Size {proc.glove?.size}</span>
                 </div>
                 {proc.doubleGlove && proc.underGlove && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     <Shield size={12} className="text-amber-500" />
                     <span className="text-[11px] font-bold text-amber-600 uppercase">Double-Gloved</span>
                     <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 text-xs">
-                      <span className="font-medium text-amber-700">Under: {proc.underGlove.model} · {proc.underGlove.size}</span>
+                      <span className="font-bold text-amber-800">Over:</span>
+                      <span className="font-medium text-amber-700">{proc.glove?.model} · {proc.glove?.size}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-300 rounded-full px-3 py-1 text-xs">
+                      <span className="font-bold text-slate-600">Under:</span>
+                      <span className="font-medium text-slate-500">{proc.underGlove.model} · {proc.underGlove.size}</span>
                     </span>
                   </div>
                 )}
@@ -379,14 +398,27 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
             {editing === 'sutures' ? (
               <InlineSutureEdit procedure={proc} onCancel={() => setEditing(null)} onSave={(updates) => updateProcedure(proc.id, updates)} />
             ) : proc.sutures?.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {proc.sutures.map((s, i) => (
-                  <span key={i} className="suture-pill inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm"
-                    style={{ backgroundColor: s.color, color: s.textColor, animationDelay: `${i * 60}ms` }}>
-                    {s.size} {s.name}
-                    {s.needle && <span className="opacity-75">· {s.needle}</span>}
-                  </span>
-                ))}
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {proc.sutures.map((s, i) => (
+                    <span key={i} className="suture-pill inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm"
+                      style={{ backgroundColor: s.color, color: s.textColor, animationDelay: `${i * 60}ms` }}>
+                      {s.size} {s.name}
+                      {s.needle && <span className="opacity-75">· {s.needle}</span>}
+                    </span>
+                  ))}
+                </div>
+                {/* Needle equivalency labels */}
+                {proc.sutures.filter(s => s.needle).map((s, i) => {
+                  const similar = getSimilarNeedles(s.needle);
+                  if (!similar.equivalents) return null;
+                  return (
+                    <div key={`eq-${i}`} className="flex items-center gap-1.5 text-[10px]">
+                      <span className="font-bold text-slate-400 uppercase">Alt for {s.needle}:</span>
+                      <span className="text-medical-600 font-semibold">{similar.equivalents}</span>
+                    </div>
+                  );
+                })}
               </div>
             ) : <p className="text-sm text-slate-300 italic">No sutures — tap edit to add</p>}
           </div>
