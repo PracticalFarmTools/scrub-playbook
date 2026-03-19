@@ -155,3 +155,47 @@
   border-color: transparent;
 }
 
+/* Status badge tap feedback */
+.status-badge:active {
+  animation: status-pulse 0.25s ease-out;
+}
+@keyframes status-pulse {
+  0% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 0 4px transparent; }
+  100% { box-shadow: none; }
+}
+
+/* Procedure tab delete button */
+.proc-tab-delete {
+  font-size: 0;
+  line-height: 0;
+}
+@media (hover: none) {
+  /* On touch devices, always show delete on non-active tabs */
+  .proc-tab-delete {
+    opacity: 0.6 !important;
+  }
+}
+
+/* Nickname / Link row — hover-reveal pencil & trash */
+.nickname-row .nickname-action {
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.nickname-row:hover .nickname-action {
+  opacity: 1;
+}
+@media (hover: none) {
+  .nickname-row .nickname-action {
+    opacity: 0.6 !important;
+  }
+}
+
+/* Reorder arrows */
+.reorder-arrow {
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.reorder-arrow:active {
+  transform: scale(0.85);
+}
+

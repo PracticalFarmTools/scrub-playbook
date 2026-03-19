@@ -14,10 +14,20 @@ import { VendorResults, VendorLibrary } from './components/VendorPanels';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
 
+/** Pure helper — resolve vendor name strings to vendor objects. */
 function resolveVendorLinks(vendorNames) {
   return vendorNames
     .map(name => SURGICAL_VENDORS.find(v => v.name.toLowerCase().includes(name.toLowerCase())))
     .filter(Boolean);
+}
+
+/** Pure helper — sort surgeons alphabetically by last name. */
+function sortByLastName(list) {
+  return [...list].sort((a, b) => {
+    const lastA = a.name.split(' ').pop().toLowerCase();
+    const lastB = b.name.split(' ').pop().toLowerCase();
+    return lastA.localeCompare(lastB);
+  });
 }
 
 export default function App() {
@@ -36,13 +46,12 @@ export default function App() {
     return ['All', ...Array.from(set).sort()];
   }, [surgeons]);
 
-  // ── Sort helper: alphabetical by last name ──
-  const sortByLastName = (list) =>
-    [...list].sort((a, b) => {
-      const lastA = a.name.split(' ').pop().toLowerCase();
-      const lastB = b.name.split(' ').pop().toLowerCase();
-      return lastA.localeCompare(lastB);
-    });
+  // ── Pre-resolve vendor links once per surgeon list change ──
+  const vendorLinkMap = useMemo(() => {
+    const map = new Map();
+    surgeons.forEach(s => map.set(s.id, resolveVendorLinks(s.vendorLinks || [])));
+    return map;
+  }, [surgeons]);
 
   // ── One-time migration: flat format → procedure-first ──
   useEffect(() => {
@@ -83,13 +92,13 @@ export default function App() {
 
   const openModal = useCallback(() => setShowModal(true), []);
 
-  const handleSearch = (e) => {
+  const handleSearch = useCallback((e) => {
     setSearch(e.target.value);
     clearTimeout(searchDebounce.current);
     searchDebounce.current = setTimeout(() => {
       if (e.target.value.trim()) hapticLight();
     }, 300);
-  };
+  }, []);
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-slate-100">
@@ -134,7 +143,7 @@ export default function App() {
           <div className="relative">
             <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input type="text" value={search} onChange={handleSearch}
-              placeholder="Search surgeons, instruments, vendors…"
+              placeholder="Search Portal — surgeons, procedures, nicknames…"
               className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-medical-400/40 focus:bg-white transition-all" />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -181,7 +190,7 @@ export default function App() {
                 <SurgeonCard
                   key={s.id}
                   surgeon={s}
-                  vendorLinks={resolveVendorLinks(s.vendorLinks || [])}
+                  vendorLinks={vendorLinkMap.get(s.id) || []}
                   index={i}
                   onDelete={deleteSurgeon}
                   onUpdate={updateSurgeon}
@@ -196,7 +205,7 @@ export default function App() {
         {/* ═══ RECENT ACTIVITY FEED ═══ */}
         {auditLog.length > 0 && (
           <div className="mt-8">
-            <RecentActivity log={auditLog} maxItems={10} />
+            <RecentActivity log={auditLog} />
           </div>
         )}
       </main>

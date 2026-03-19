@@ -17,7 +17,11 @@ export function useAuditLog() {
   const [log, setLog] = useState(loadLog);
 
   useEffect(() => {
-    localStorage.setItem(AUDIT_KEY, JSON.stringify(log));
+    try {
+      localStorage.setItem(AUDIT_KEY, JSON.stringify(log));
+    } catch (e) {
+      console.warn('Audit log save failed (storage full):', e);
+    }
   }, [log]);
 
   const addEntry = useCallback(({ action, surgeonName, user, note }) => {

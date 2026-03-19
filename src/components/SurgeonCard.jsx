@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { Trash2, ChevronDown, ChevronUp, User, Scissors, Stethoscope, Edit3, Check, X, ExternalLink, Plus, UserPlus, Clock, Shield } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, User, Scissors, Stethoscope, Edit3, Check, X, ExternalLink, Plus, UserPlus, Clock, Shield, ArrowUp, ArrowDown } from 'lucide-react';
 import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
 import { SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
 import { SURGICAL_NEEDLES, NEEDLE_LIST, getSimilarNeedles } from '../data/needles';
@@ -187,6 +187,16 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
   const [showAddProc, setShowAddProc] = useState(false);
   const [newProcName, setNewProcName] = useState('');
 
+  // Nickname editing
+  const [editingNickIdx, setEditingNickIdx] = useState(null);
+  const [nickDraft, setNickDraft] = useState({ nickname: '', actual: '' });
+  const [showAddNick, setShowAddNick] = useState(false);
+
+  // Librarian link editing
+  const [editingLinkIdx, setEditingLinkIdx] = useState(null);
+  const [linkDraft, setLinkDraft] = useState({ name: '', url: '' });
+  const [showAddLink, setShowAddLink] = useState(false);
+
   // History
   const [showHistory, setShowHistory] = useState(false);
   const cardHistory = auditLog.filter(e => e.surgeonName === surgeon.name);
@@ -224,7 +234,6 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
   const saveTips = () => {
     if (!proc) return;
     updateProcedure(proc.id, { tips: tipDraft });
-    setTipNote('');
     setEditing(null);
   };
 
@@ -232,6 +241,82 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
     if (!proc) return;
     updateProcedure(proc.id, { equipment: equipDraft });
     setEditing(null);
+  };
+
+  // ── Toggle procedure status OPEN ↔ HOLD ──
+  const toggleStatus = (procId) => {
+    const target = procedures.find(p => p.id === procId);
+    if (!target) return;
+    const next = target.status === 'OPEN' ? 'HOLD' : 'OPEN';
+    const newProcs = procedures.map(p => p.id === procId ? { ...p, status: next } : p);
+    onUpdate({ ...surgeon, procedures: newProcs });
+    if (onAudit) onAudit({ action: `Status changed: ${target.name} → ${next}`, surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+  };
+
+  // ── Delete a procedure (cannot delete last one) ──
+  const deleteProcedure = (procId) => {
+    if (procedures.length <= 1) return;
+    const target = procedures.find(p => p.id === procId);
+    if (!target) return;
+    if (!window.confirm(`Delete "${target.name}" from ${surgeon.name}? This cannot be undone.`)) return;
+    const newProcs = procedures.filter(p => p.id !== procId);
+    onUpdate({ ...surgeon, procedures: newProcs });
+    if (onAudit) onAudit({ action: `Procedure Deleted: ${target.name}`, surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+    if (activeTab >= newProcs.length) setActiveTab(newProcs.length - 1);
+    setEditing(null);
+  };
+
+  // ── Move a procedure up or down ──
+  const moveProcedure = (idx, direction) => {
+    const target = idx + direction;
+    if (target < 0 || target >= procedures.length) return;
+    const newProcs = [...procedures];
+    [newProcs[idx], newProcs[target]] = [newProcs[target], newProcs[idx]];
+    onUpdate({ ...surgeon, procedures: newProcs });
+    if (onAudit) onAudit({ action: `Procedure Reordered: ${newProcs[target].name} ${direction === -1 ? '↑' : '↓'}`, surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+    setActiveTab(target);
+  };
+
+  // ── Nickname CRUD helpers ──
+  const saveNickname = (procId, idx, nick) => {
+    const nicks = [...(proc?.nicknames || [])];
+    nicks[idx] = nick;
+    updateProcedure(procId, { nicknames: nicks });
+    setEditingNickIdx(null);
+  };
+  const deleteNickname = (procId, idx) => {
+    const nicks = (proc?.nicknames || []).filter((_, i) => i !== idx);
+    updateProcedure(procId, { nicknames: nicks });
+  };
+  const addNickname = (procId) => {
+    if (!nickDraft.nickname.trim() || !nickDraft.actual.trim()) return;
+    const nicks = [...(proc?.nicknames || []), { ...nickDraft }];
+    updateProcedure(procId, { nicknames: nicks });
+    setNickDraft({ nickname: '', actual: '' });
+    setShowAddNick(false);
+  };
+
+  // ── Librarian Link CRUD helpers ──
+  const saveLink = (idx, link) => {
+    const links = [...(surgeon.vendorLinks || [])];
+    links[idx] = link.name;
+    onUpdate({ ...surgeon, vendorLinks: links });
+    if (onAudit) onAudit({ action: `Vendor Link Updated: ${link.name}`, surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+    setEditingLinkIdx(null);
+  };
+  const deleteLink = (idx) => {
+    const removed = surgeon.vendorLinks[idx];
+    const links = surgeon.vendorLinks.filter((_, i) => i !== idx);
+    onUpdate({ ...surgeon, vendorLinks: links });
+    if (onAudit) onAudit({ action: `Vendor Link Removed: ${removed}`, surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+  };
+  const addLink = () => {
+    if (!linkDraft.name.trim()) return;
+    const links = [...(surgeon.vendorLinks || []), linkDraft.name.trim()];
+    onUpdate({ ...surgeon, vendorLinks: links });
+    if (onAudit) onAudit({ action: `Vendor Link Added: ${linkDraft.name}`, surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+    setLinkDraft({ name: '', url: '' });
+    setShowAddLink(false);
   };
 
   const saveAssist = () => {
@@ -279,25 +364,51 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
         {/* ── Procedure Tabs ── */}
         {procedures.length > 0 && (
           <div className="flex items-center gap-1.5 mt-3 -mb-1 overflow-x-auto scrollbar-hide">
-            {procedures.map((p, i) => (
-              <button key={p.id} onClick={() => { setActiveTab(i); setEditing(null); }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  i === activeTab
-                    ? 'bg-white text-medical-700 shadow-sm'
-                    : 'text-medical-200 hover:text-white hover:bg-white/10'
-                }`}>
-                {p.name}
-                {p.status && (
-                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider leading-none ${
-                    p.status === 'OPEN'
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-amber-400 text-slate-900'
-                  }`}>
-                    {p.status}
-                  </span>
-                )}
+            {/* Reorder arrows for active tab */}
+            {procedures.length > 1 && activeTab > 0 && (
+              <button onClick={() => moveProcedure(activeTab, -1)}
+                className="reorder-arrow p-1 text-medical-300 hover:text-white transition-all cursor-pointer" title="Move left">
+                <ArrowUp size={13} className="rotate-[-90deg]" />
               </button>
+            )}
+            {procedures.map((p, i) => (
+              <div key={p.id} className="relative group/tab flex-shrink-0">
+                <button onClick={() => { setActiveTab(i); setEditing(null); }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    i === activeTab
+                      ? 'bg-white text-medical-700 shadow-sm'
+                      : 'text-medical-200 hover:text-white hover:bg-white/10'
+                  }`}>
+                  {p.name}
+                  {p.status && (
+                    <span onClick={(e) => { e.stopPropagation(); toggleStatus(p.id); }}
+                      className={`status-badge px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider leading-none cursor-pointer hover:scale-110 active:scale-90 transition-transform ${
+                        p.status === 'OPEN'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-amber-400 text-slate-900'
+                      }`}
+                      title={`Tap to switch to ${p.status === 'OPEN' ? 'HOLD' : 'OPEN'}`}>
+                      {p.status}
+                    </span>
+                  )}
+                </button>
+                {/* Delete procedure (hidden on last procedure, visible on hover) */}
+                {procedures.length > 1 && i !== activeTab && (
+                  <button onClick={() => deleteProcedure(p.id)}
+                    className="proc-tab-delete absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/tab:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                    title={`Delete ${p.name}`}>
+                    <X size={9} strokeWidth={3} />
+                  </button>
+                )}
+              </div>
             ))}
+            {/* Reorder arrows for active tab */}
+            {procedures.length > 1 && activeTab < procedures.length - 1 && (
+              <button onClick={() => moveProcedure(activeTab, 1)}
+                className="reorder-arrow p-1 text-medical-300 hover:text-white transition-all cursor-pointer" title="Move right">
+                <ArrowDown size={13} className="rotate-[-90deg]" />
+              </button>
+            )}
             {!showAddProc ? (
               <button onClick={() => setShowAddProc(true)} className="px-2 py-1.5 text-medical-300 hover:text-white transition-colors cursor-pointer" title="Add procedure">
                 <Plus size={14} />
@@ -428,18 +539,52 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
       )}
 
       {/* ── Librarian Links ── */}
-      {vendorLinks.length > 0 && (
+      {surgeon.vendorLinks?.length > 0 && (
         <div className="px-5 py-3 border-b border-slate-100">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Librarian Links</p>
-          <div className="flex flex-wrap gap-2">
-            {vendorLinks.map((v, i) => (
-              <a key={i} href={v.url} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-medical-50 text-medical-700 border border-medical-200 hover:bg-medical-100 hover:border-medical-400 transition-all group">
-                {v.name}
-                <ExternalLink size={11} className="opacity-50 group-hover:opacity-100" />
-              </a>
-            ))}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">📋 Librarian Links</p>
+            <button onClick={() => { setLinkDraft({ name: '', url: '' }); setShowAddLink(true); }}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-medical-600 hover:text-medical-700 cursor-pointer">
+              <Plus size={12} /> Add
+            </button>
           </div>
+          <div className="flex flex-wrap gap-2">
+            {surgeon.vendorLinks.map((linkName, i) => {
+              const resolved = vendorLinks.find(v => v.name.toLowerCase().includes(linkName.toLowerCase()));
+              return editingLinkIdx === i ? (
+                <div key={i} className="flex items-center gap-1.5 bg-medical-50 border border-medical-200 rounded-full px-3 py-1">
+                  <input value={linkDraft.name} onChange={e => setLinkDraft(d => ({ ...d, name: e.target.value }))}
+                    className="w-28 text-xs bg-transparent border-none focus:outline-none text-medical-800 font-semibold" autoFocus
+                    onKeyDown={e => e.key === 'Enter' && saveLink(i, linkDraft)} />
+                  <button onClick={() => saveLink(i, linkDraft)} className="text-emerald-500 hover:text-emerald-400 cursor-pointer"><Check size={12} /></button>
+                  <button onClick={() => setEditingLinkIdx(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={12} /></button>
+                </div>
+              ) : (
+                <div key={i} className="nickname-row inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-medical-50 text-medical-700 border border-medical-200 group/link">
+                  {resolved?.url ? (
+                    <a href={resolved.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{linkName}</a>
+                  ) : (
+                    <span>{linkName}</span>
+                  )}
+                  <ExternalLink size={11} className="opacity-50" />
+                  <button onClick={() => { setLinkDraft({ name: linkName, url: '' }); setEditingLinkIdx(i); }}
+                    className="nickname-action text-slate-300 hover:text-medical-600 cursor-pointer ml-1"><Edit3 size={11} /></button>
+                  <button onClick={() => deleteLink(i)}
+                    className="nickname-action text-slate-300 hover:text-rose-500 cursor-pointer"><Trash2 size={11} /></button>
+                </div>
+              );
+            })}
+          </div>
+          {showAddLink && (
+            <div className="flex items-center gap-2 mt-2">
+              <input value={linkDraft.name} onChange={e => setLinkDraft(d => ({ ...d, name: e.target.value }))}
+                placeholder="Vendor name…" autoFocus
+                className="flex-1 text-xs px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-medical-400/50"
+                onKeyDown={e => e.key === 'Enter' && addLink()} />
+              <button onClick={addLink} className="text-emerald-500 hover:text-emerald-400 cursor-pointer"><Check size={14} /></button>
+              <button onClick={() => { setShowAddLink(false); setLinkDraft({ name: '', url: '' }); }} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={14} /></button>
+            </div>
+          )}
         </div>
       )}
 
@@ -483,18 +628,61 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
           )}
 
           {/* ── Nicknames ── */}
-          {proc?.nicknames?.length > 0 && (
+          {proc && (
             <div className="px-5 py-4 bg-slate-800 border-t border-slate-700">
-              <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">Instrument Nicknames</p>
-              <div className="space-y-1">
-                {proc.nicknames.map((n, i) => (
-                  <div key={i} className="flex items-baseline gap-2 text-sm">
-                    <span className="text-white font-semibold">"{n.nickname}"</span>
-                    <span className="text-slate-500">→</span>
-                    <span className="text-slate-300">{n.actual}</span>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Instrument Nicknames</p>
+                <button onClick={() => { setNickDraft({ nickname: '', actual: '' }); setShowAddNick(true); }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer">
+                  <Plus size={12} /> Add
+                </button>
               </div>
+              {proc.nicknames?.length > 0 ? (
+                <div className="space-y-1.5">
+                  {proc.nicknames.map((n, i) => (
+                    editingNickIdx === i ? (
+                      <div key={i} className="flex items-center gap-2 bg-slate-700 rounded-lg px-3 py-2">
+                        <input value={nickDraft.nickname} onChange={e => setNickDraft(d => ({ ...d, nickname: e.target.value }))}
+                          placeholder="Nickname…" autoFocus
+                          className="flex-1 text-sm bg-transparent border-b border-slate-500 text-white focus:outline-none focus:border-emerald-400 px-1 py-0.5" />
+                        <span className="text-slate-500 text-sm">→</span>
+                        <input value={nickDraft.actual} onChange={e => setNickDraft(d => ({ ...d, actual: e.target.value }))}
+                          placeholder="Actual instrument…"
+                          className="flex-1 text-sm bg-transparent border-b border-slate-500 text-slate-300 focus:outline-none focus:border-emerald-400 px-1 py-0.5"
+                          onKeyDown={e => e.key === 'Enter' && saveNickname(proc.id, i, nickDraft)} />
+                        <button onClick={() => saveNickname(proc.id, i, nickDraft)} className="text-emerald-400 hover:text-emerald-300 cursor-pointer"><Check size={14} /></button>
+                        <button onClick={() => setEditingNickIdx(null)} className="text-slate-400 hover:text-white cursor-pointer"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <div key={i} className="nickname-row flex items-center gap-2 text-sm group/nick rounded-lg px-2 py-1.5 -mx-2 hover:bg-slate-700/50 transition-colors">
+                        <span className="text-white font-semibold">"{n.nickname}"</span>
+                        <span className="text-slate-500">→</span>
+                        <span className="text-slate-300 flex-1">{n.actual}</span>
+                        <button onClick={() => { setNickDraft({ ...n }); setEditingNickIdx(i); }}
+                          className="nickname-action text-slate-500 hover:text-emerald-400 cursor-pointer transition-colors"><Edit3 size={12} /></button>
+                        <button onClick={() => deleteNickname(proc.id, i)}
+                          className="nickname-action text-slate-500 hover:text-rose-400 cursor-pointer transition-colors"><Trash2 size={12} /></button>
+                      </div>
+                    )
+                  ))}
+                </div>
+              ) : !showAddNick && (
+                <p className="text-sm text-slate-500 italic">No nicknames — tap Add to create one.</p>
+              )}
+              {showAddNick && (
+                <div className="flex items-center gap-2 bg-slate-700 rounded-lg px-3 py-2 mt-2">
+                  <input value={nickDraft.nickname} onChange={e => setNickDraft(d => ({ ...d, nickname: e.target.value }))}
+                    placeholder='e.g. "The Cobb"' autoFocus
+                    className="flex-1 text-sm bg-transparent border-b border-slate-500 text-white focus:outline-none focus:border-emerald-400 px-1 py-0.5 placeholder-slate-500" />
+                  <span className="text-slate-500 text-sm">→</span>
+                  <input value={nickDraft.actual} onChange={e => setNickDraft(d => ({ ...d, actual: e.target.value }))}
+                    placeholder="Cobb Elevator"
+                    className="flex-1 text-sm bg-transparent border-b border-slate-500 text-slate-300 focus:outline-none focus:border-emerald-400 px-1 py-0.5 placeholder-slate-500"
+                    onKeyDown={e => e.key === 'Enter' && addNickname(proc.id)} />
+                  <button onClick={() => addNickname(proc.id)} className="text-emerald-400 hover:text-emerald-300 cursor-pointer"><Check size={14} /></button>
+                  <button onClick={() => { setShowAddNick(false); setNickDraft({ nickname: '', actual: '' }); }} className="text-slate-400 hover:text-white cursor-pointer"><X size={14} /></button>
+                </div>
+              )}
             </div>
           )}
 

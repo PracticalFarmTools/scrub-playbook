@@ -26,39 +26,60 @@ export function useLocalStorage(key, defaultValue) {
 }
 
 /**
+ * Lightweight fuzzy matcher: every query token must appear somewhere in the text.
+ * "phaco needle" matches "Likes the Phaco tip. Calls it The Needle."
+ */
+function fuzzyMatch(text, tokens) {
+  const lower = text.toLowerCase();
+  return tokens.every(t => lower.includes(t));
+}
+
+/**
+ * Build a flat searchable string for an entire surgeon record.
+ * Includes name, specialty, procedure names, nicknames, tips,
+ * equipment, glove models, sutures, needles, and vendor links.
+ */
+function buildSearchBlob(surgeon) {
+  const parts = [surgeon.name, surgeon.specialty];
+  (surgeon.procedures || []).forEach(p => {
+    parts.push(p.name || '');
+    parts.push(p.tips || '');
+    parts.push(p.equipment || '');
+    parts.push(p.glove?.model || '');
+    parts.push(p.glove?.brand || '');
+    (p.nicknames || []).forEach(n => {
+      parts.push(n.nickname);
+      parts.push(n.actual);
+    });
+    (p.sutures || []).forEach(s => {
+      parts.push(s.name);
+      parts.push(s.needle || '');
+    });
+  });
+  (surgeon.vendorLinks || []).forEach(v => parts.push(typeof v === 'string' ? v : v.name || ''));
+  // Legacy
+  if (surgeon.gloveModel) parts.push(surgeon.gloveModel);
+  return parts.join(' ');
+}
+
+/**
  * Custom hook for filtered search across surgeons and vendors.
- * Returns memoized filtered results to avoid unnecessary re-computation.
+ * Uses fuzzy token matching — all query words must appear somewhere
+ * in the surgeon's combined searchable fields.
  */
 export function useSearch(surgeons, vendors, query) {
   const q = query.toLowerCase().trim();
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
 
   const filteredSurgeons = useMemo(() => {
-    if (!q) return surgeons;
-    return surgeons.filter(s =>
-      s.name.toLowerCase().includes(q) ||
-      s.specialty.toLowerCase().includes(q) ||
-      (s.procedures || []).some(p =>
-        p.name?.toLowerCase().includes(q) ||
-        (p.nicknames || []).some(n =>
-          n.nickname.toLowerCase().includes(q) || n.actual.toLowerCase().includes(q)
-        ) ||
-        (p.tips || '').toLowerCase().includes(q) ||
-        (p.equipment || '').toLowerCase().includes(q) ||
-        p.glove?.model?.toLowerCase().includes(q) ||
-        (p.sutures || []).some(su =>
-          su.name.toLowerCase().includes(q) || (su.needle || '').toLowerCase().includes(q)
-        )
-      ) ||
-      // Legacy fallback for unmigrated data
-      s.gloveModel?.toLowerCase().includes(q)
-    );
+    if (!tokens.length) return surgeons;
+    return surgeons.filter(s => fuzzyMatch(buildSearchBlob(s), tokens));
   }, [surgeons, q]);
 
   const filteredVendors = useMemo(() => {
-    if (!q) return vendors;
+    if (!tokens.length) return vendors;
     return vendors.filter(v =>
-      v.name.toLowerCase().includes(q) ||
-      v.alias.toLowerCase().includes(q)
+      fuzzyMatch(`${v.name} ${v.alias}`, tokens)
     );
   }, [vendors, q]);
 

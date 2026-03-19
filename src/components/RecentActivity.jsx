@@ -1,14 +1,20 @@
-import { Clock, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, FileText, ChevronDown } from 'lucide-react';
 import { timeAgo } from '../utils/formatters';
 
 /**
- * Recent Activity feed for the main dashboard.
- * Shows the last N audit log entries with optional notes.
+ * Recent Activity feed — collapsible.
+ * Shows 3 most recent by default with a "See More" toggle.
  */
-export default function RecentActivity({ log, maxItems = 8 }) {
+const COLLAPSED_COUNT = 3;
+
+export default function RecentActivity({ log }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!log || log.length === 0) return null;
 
-  const items = log.slice(0, maxItems);
+  const items = expanded ? log : log.slice(0, COLLAPSED_COUNT);
+  const hasMore = log.length > COLLAPSED_COUNT;
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -46,6 +52,13 @@ export default function RecentActivity({ log, maxItems = 8 }) {
           </div>
         ))}
       </div>
+      {hasMore && (
+        <button onClick={() => setExpanded(e => !e)}
+          className="w-full mt-3 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-medical-600 hover:bg-medical-50 transition-all cursor-pointer">
+          <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          {expanded ? 'Show Less' : `See ${log.length - COLLAPSED_COUNT} More`}
+        </button>
+      )}
     </div>
   );
 }

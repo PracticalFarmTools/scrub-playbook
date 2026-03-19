@@ -1,16 +1,36 @@
-# React + Vite
+# ScrubPlaybook
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Your Surgeons. Your Rules.** 🩺
 
-Currently, two official plugins are available:
+A mobile-first personal reference app built by scrub techs, for scrub techs. Track surgeon preferences, glove specs, sutures, instrument nicknames, and tech-to-tech tips — all offline-capable and stored locally in your browser.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- **Surgeon Cards** — Per-procedure gloves, gowns, sutures, equipment, and tips
+- **Instrument Nicknames** — Map surgeon slang to real instrument names
+- **Fuzzy Search Portal** — Find any surgeon, procedure, or nickname instantly
+- **Edit Engine** — Full CRUD on nicknames, procedures, vendor links, and more
+- **Vendor IFU Library** — Quick-link to manufacturer instructions for use
+- **Audit Trail** — Timestamped log of every change made
+- **Offline-First** — All data stays in localStorage; works without internet
+- **PWA Ready** — Installable on iOS and Android home screens
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 19 (Vite 8) |
+| Styling | Tailwind CSS 4 |
+| Icons | Lucide React |
+| Data | localStorage — no backend |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Quick Start
+
+```bash
+npm install
+npm run dev
+```
+
+## Disclaimer
+
+This tool is a **personal reference aid** and is not a substitute for official manufacturer Instructions for Use (IFU), facility-specific policies, or surgeon-verified preference cards. Always confirm preferences directly with the surgical team before each procedure. No patient-identifiable information (PHI) should be entered.
