@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
+import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Filter } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { DEMO_SURGEONS, migrateSurgeonData } from './data/defaults';
 import { STORAGE_KEY } from './data/constants';
@@ -23,11 +23,26 @@ function resolveVendorLinks(vendorNames) {
 export default function App() {
   const [surgeons, setSurgeons] = useLocalStorage(STORAGE_KEY, DEMO_SURGEONS);
   const [search, setSearch] = useState('');
+  const [specialty, setSpecialty] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
   const { isOnline } = useNetworkStatus();
   const { log: auditLog, addEntry: addAudit } = useAuditLog();
   const searchDebounce = useRef(null);
+
+  // ── Derive unique specialties from live data ──
+  const specialties = useMemo(() => {
+    const set = new Set(surgeons.map(s => s.specialty).filter(Boolean));
+    return ['All', ...Array.from(set).sort()];
+  }, [surgeons]);
+
+  // ── Sort helper: alphabetical by last name ──
+  const sortByLastName = (list) =>
+    [...list].sort((a, b) => {
+      const lastA = a.name.split(' ').pop().toLowerCase();
+      const lastB = b.name.split(' ').pop().toLowerCase();
+      return lastA.localeCompare(lastB);
+    });
 
   // ── One-time migration: flat format → procedure-first ──
   useEffect(() => {
@@ -35,7 +50,15 @@ export default function App() {
     if (needsMigration) setSurgeons(migrateSurgeonData(surgeons));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { q, filteredSurgeons, filteredVendors, hasVendorResults } = useSearch(surgeons, SURGICAL_VENDORS, search);
+  const { q, filteredSurgeons: searchedSurgeons, filteredVendors, hasVendorResults } = useSearch(surgeons, SURGICAL_VENDORS, search);
+
+  // ── Chain: search results → specialty filter → alphabetical sort ──
+  const filteredSurgeons = useMemo(() => {
+    const afterFilter = specialty === 'All'
+      ? searchedSurgeons
+      : searchedSurgeons.filter(s => s.specialty === specialty);
+    return sortByLastName(afterFilter);
+  }, [searchedSurgeons, specialty]);
 
   // ── Haptic + Audit-enhanced callbacks ──
   const addSurgeon = useCallback((data) => {
@@ -119,6 +142,20 @@ export default function App() {
               </button>
             )}
           </div>
+
+          {/* ═══ SPECIALTY FILTER BAR ═══ */}
+          <div className="filter-bar mt-3">
+            {specialties.map(s => (
+              <button
+                key={s}
+                onClick={() => { setSpecialty(s); hapticLight(); }}
+                className={`filter-pill ${specialty === s ? 'filter-pill-active' : ''}`}
+              >
+                {s === 'All' && <Filter size={13} className="inline -mt-px mr-1" />}
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -135,6 +172,7 @@ export default function App() {
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 {filteredSurgeons.length} Surgeon{filteredSurgeons.length !== 1 ? 's' : ''}
+                {specialty !== 'All' && ` — ${specialty}`}
                 {q && ` matching "${search}"`}
               </p>
             </div>

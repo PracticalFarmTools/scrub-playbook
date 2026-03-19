@@ -106,3 +106,52 @@
   animation: slide-over-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Specialty filter bar */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+.filter-bar::-webkit-scrollbar {
+  display: none;
+}
+.filter-pill {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1.5px solid var(--color-slate-200);
+  background: var(--color-slate-50);
+  color: var(--color-slate-500);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-pill:hover {
+  background: var(--color-medical-50);
+  border-color: var(--color-medical-200);
+  color: var(--color-medical-600);
+}
+.filter-pill:active {
+  transform: scale(0.95);
+}
+.filter-pill-active {
+  background: linear-gradient(135deg, var(--color-medical-600), var(--color-medical-700));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+.filter-pill-active:hover {
+  background: linear-gradient(135deg, var(--color-medical-700), var(--color-medical-800));
+  color: white;
+  border-color: transparent;
+}
+
