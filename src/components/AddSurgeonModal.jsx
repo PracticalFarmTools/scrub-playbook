@@ -1,23 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { X, Plus, Trash2, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
 import { SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
 import { SURGICAL_NEEDLES, NEEDLE_LIST } from '../data/needles';
-import { SPECIALTIES, ASSIST_ROLES, GOWN_SIZES, GOWN_TYPES } from '../data/constants';
+import { SPECIALTIES, ASSIST_ROLES, GOWN_SIZES, GOWN_TYPES, GLOVE_COLORS } from '../data/constants';
 import SearchableDropdown from './SearchableDropdown';
 
 // ── Static dropdown options ──
-const GLOVE_COLORS_MAP = {
-  'Green': '#22c55e', 'Blue': '#3b82f6', 'White': '#e2e8f0',
-  'Straw/Tan': '#d4a574', 'Ivory': '#f5f0e8', 'Brown/Green': '#6b7a3d',
-  'Dark Brown': '#5c3a1e', 'Cream': '#f5e6c8', 'Straw': '#d4a574',
-};
-
 const GLOVE_OPTIONS = SURGICAL_GLOVES.map(g => ({
   value: g.id,
   label: `${g.model}`,
   sublabel: `${g.brand} · ${g.type} · ${g.alias}`,
-  color: GLOVE_COLORS_MAP[g.color] || '#94a3b8',
+  color: GLOVE_COLORS[g.color] || '#94a3b8',
 }));
 
 const SUTURE_OPTIONS = SUTURE_LIBRARY.map(s => ({

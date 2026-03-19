@@ -2,18 +2,14 @@ import { useState, useEffect } from 'react';
 
 /**
  * Hook that tracks online/offline status.
- * Returns { isOnline, wasEverOffline }
+ * Returns { isOnline }
  */
 export function useNetworkStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [wasEverOffline, setWasEverOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
-    const goOffline = () => {
-      setIsOnline(false);
-      setWasEverOffline(true);
-    };
+    const goOffline = () => setIsOnline(false);
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
     return () => {
@@ -22,5 +18,6 @@ export function useNetworkStatus() {
     };
   }, []);
 
-  return { isOnline, wasEverOffline };
+  return { isOnline };
 }
+

@@ -60,16 +60,3 @@ export const SUTURE_SIZES = [
   "0", "1", "2", "5"
 ];
 
-export const NEEDLE_TYPES = [
-  { code: "CT", description: "Circle Taper (General Closure)" },
-  { code: "CT-1", description: "Circle Taper Large (Fascia)" },
-  { code: "SH", description: "Small Half-Circle Taper" },
-  { code: "RB-1", description: "Round Body Small (Bowel)" },
-  { code: "FS", description: "For Skin (Reverse Cutting)" },
-  { code: "FS-2", description: "For Skin Small (Face/Plastics)" },
-  { code: "PS", description: "Plastic Skin (Premium Cutting)" },
-  { code: "X-1", description: "Extra Small Taper (Eye/Micro)" },
-  { code: "KS", description: "Keith Straight Needle" },
-  { code: "UR-6", description: "Urology Taper" },
-  { code: "CP", description: "Cutting Point (Tendon)" },
-];

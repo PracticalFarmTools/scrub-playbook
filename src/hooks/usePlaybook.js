@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 /**
  * Custom hook for persisting state in localStorage.
@@ -15,7 +15,11 @@ export function useLocalStorage(key, defaultValue) {
   });
 
   useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.warn('localStorage quota exceeded, data not saved:', e);
+    }
   }, [key, value]);
 
   return [value, setValue];
@@ -28,7 +32,7 @@ export function useLocalStorage(key, defaultValue) {
 export function useSearch(surgeons, vendors, query) {
   const q = query.toLowerCase().trim();
 
-  const filteredSurgeons = (() => {
+  const filteredSurgeons = useMemo(() => {
     if (!q) return surgeons;
     return surgeons.filter(s =>
       s.name.toLowerCase().includes(q) ||
@@ -48,17 +52,18 @@ export function useSearch(surgeons, vendors, query) {
       // Legacy fallback for unmigrated data
       s.gloveModel?.toLowerCase().includes(q)
     );
-  })();
+  }, [surgeons, q]);
 
-  const filteredVendors = (() => {
+  const filteredVendors = useMemo(() => {
     if (!q) return vendors;
     return vendors.filter(v =>
       v.name.toLowerCase().includes(q) ||
       v.alias.toLowerCase().includes(q)
     );
-  })();
+  }, [vendors, q]);
 
   const hasVendorResults = q && filteredVendors.length > 0 && filteredVendors.length < vendors.length;
 
   return { q, filteredSurgeons, filteredVendors, hasVendorResults };
 }
+

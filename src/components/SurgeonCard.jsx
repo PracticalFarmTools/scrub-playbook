@@ -1,18 +1,13 @@
-import { memo, useState, useMemo } from 'react';
+import { memo, useState } from 'react';
 import { Trash2, ChevronDown, ChevronUp, User, Scissors, Stethoscope, Edit3, Check, X, ExternalLink, Plus, UserPlus, Clock, Shield } from 'lucide-react';
 import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
 import { SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
 import { SURGICAL_NEEDLES, NEEDLE_LIST, getSimilarNeedles } from '../data/needles';
-import { ASSIST_ROLES, GOWN_SIZES, GOWN_TYPES } from '../data/constants';
+import { ASSIST_ROLES, GOWN_SIZES, GOWN_TYPES, GLOVE_COLORS } from '../data/constants';
+import { timeAgo, formatDate } from '../utils/formatters';
 import SearchableDropdown from './SearchableDropdown';
 
 // ── Static option lists ──
-const GLOVE_COLORS = {
-  'Green': '#22c55e', 'Blue': '#3b82f6', 'White': '#e2e8f0',
-  'Straw/Tan': '#d4a574', 'Straw': '#d4a574', 'Ivory': '#f5f0e8',
-  'Brown/Green': '#6b7a3d', 'Dark Brown': '#5c3a1e', 'Cream': '#f5e6c8',
-};
-
 const GLOVE_OPTIONS = SURGICAL_GLOVES.map(g => ({
   id: g.id, value: g.id, label: `${g.brand} – ${g.model}`, model: g.model, brand: g.brand, color: g.color,
   sublabel: `${g.type} · ${g.alias}`,
@@ -23,20 +18,6 @@ const SUTURE_OPTIONS = SUTURE_LIBRARY.map(s => ({
   sublabel: `${s.type} · ${s.structure} · ${s.alias}`,
   color: s.color,
 }));
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function timeAgo(iso) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 const EMPTY_ASSIST = { name: '', role: 'PA', gloveId: SURGICAL_GLOVES[0]?.id, gloveSize: '7.0' };
 
@@ -198,7 +179,6 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
   const [editing, setEditing] = useState(null); // 'glove' | 'gown' | 'sutures' | 'tips' | 'equipment'
   const [tipDraft, setTipDraft] = useState('');
   const [equipDraft, setEquipDraft] = useState('');
-  const [tipNote, setTipNote] = useState('');
 
   // Quick-Add states
   const [showAssistForm, setShowAssistForm] = useState(false);
@@ -288,7 +268,7 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
               {surgeon.specialty}
             </p>
           </div>
-          <button onClick={() => onDelete(surgeon.id)} className="text-medical-300 hover:text-rose-400 transition-colors p-1 -mr-1 -mt-1 cursor-pointer" aria-label="Delete surgeon">
+          <button onClick={() => { if (window.confirm(`Delete ${surgeon.name}? This cannot be undone.`)) onDelete(surgeon.id); }} className="text-medical-300 hover:text-rose-400 transition-colors p-1 -mr-1 -mt-1 cursor-pointer" aria-label="Delete surgeon">
             <Trash2 size={16} />
           </button>
         </div>
