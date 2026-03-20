@@ -1,18 +1,23 @@
 import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Filter } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { DEMO_SURGEONS, migrateSurgeonData } from './data/defaults';
-import { STORAGE_KEY } from './data/constants';
+import { DEFAULT_HOSPITAL, HOSPITALS } from './data/hospitals';
+import { makeStorageKey, makeAuditKey, makeOrderKey, makeLatexKey, makeTrayKey } from './data/constants';
 import { useLocalStorage, useSearch } from './hooks/usePlaybook';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuditLog } from './hooks/useAuditLog';
+import { useImagePreloader } from './hooks/useImagePreloader';
 import { hapticLight, hapticSuccess } from './utils/haptics';
 import SurgeonCard from './components/SurgeonCard';
 import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
-import { VendorResults, VendorLibrary } from './components/VendorPanels';
+import AppHeader from './components/AppHeader';
+import { VendorResults, VendorLibrary, TrayResults } from './components/VendorPanels';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
+const HospitalSelector = lazy(() => import('./components/HospitalSelector'));
+const TraySelector = lazy(() => import('./components/tray/TraySelector'));
+const TrayCountSheet = lazy(() => import('./components/tray/TrayCountSheet'));
 
 /** Pure helper — resolve vendor name strings to vendor objects. */
 function resolveVendorLinks(vendorNames) {
@@ -21,9 +26,16 @@ function resolveVendorLinks(vendorNames) {
     .filter(Boolean);
 }
 
-/** Pure helper — sort surgeons alphabetically by last name. */
-function sortByLastName(list) {
+/** Pure helper — sort surgeons: on-call first, then custom order, then alphabetical by last name. */
+function sortSurgeons(list, customOrder) {
   return [...list].sort((a, b) => {
+    if (a.onCall && !b.onCall) return -1;
+    if (!a.onCall && b.onCall) return 1;
+    const idxA = customOrder.indexOf(a.id);
+    const idxB = customOrder.indexOf(b.id);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
     const lastA = a.name.split(' ').pop().toLowerCase();
     const lastB = b.name.split(' ').pop().toLowerCase();
     return lastA.localeCompare(lastB);
@@ -31,45 +43,68 @@ function sortByLastName(list) {
 }
 
 export default function App() {
-  const [surgeons, setSurgeons] = useLocalStorage(STORAGE_KEY, DEMO_SURGEONS);
+  // ── Hospital workspace ──
+  const [hospital, setHospital] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('scrubplaybook_hospital'));
+      return saved && HOSPITALS.find(h => h.id === saved.id) ? saved : DEFAULT_HOSPITAL;
+    } catch { return DEFAULT_HOSPITAL; }
+  });
+  const [showHospitalPicker, setShowHospitalPicker] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('scrubplaybook_hospital', JSON.stringify(hospital));
+  }, [hospital]);
+
+  // ── Per-hospital storage keys ──
+  const storageKey = useMemo(() => makeStorageKey(hospital.id), [hospital.id]);
+  const auditKey = useMemo(() => makeAuditKey(hospital.id), [hospital.id]);
+  const orderKey = useMemo(() => makeOrderKey(hospital.id), [hospital.id]);
+  const latexKey = useMemo(() => makeLatexKey(hospital.id), [hospital.id]);
+  const trayKey = useMemo(() => makeTrayKey(hospital.id), [hospital.id]);
+
+  // ── Core state (isolated per hospital) ──
+  const [surgeons, setSurgeons] = useLocalStorage(storageKey, DEMO_SURGEONS);
   const [search, setSearch] = useState('');
   const [specialty, setSpecialty] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
+  const [latexFree, setLatexFree] = useLocalStorage(latexKey, false);
+  const [customOrder, setCustomOrder] = useLocalStorage(orderKey, []);
+  const [hospitalTrays, setHospitalTrays] = useLocalStorage(trayKey, []);
+  const [draggedId, setDraggedId] = useState(null);
+  const [showTraySelector, setShowTraySelector] = useState(false);
+  const [openTray, setOpenTray] = useState(null);
   const { isOnline } = useNetworkStatus();
-  const { log: auditLog, addEntry: addAudit } = useAuditLog();
+  const { log: auditLog, addEntry: addAudit } = useAuditLog(auditKey);
   const searchDebounce = useRef(null);
 
-  // ── Derive unique specialties from live data ──
+  // Pre-fetch instrument photos for active hospital trays
+  useImagePreloader(hospitalTrays);
+
   const specialties = useMemo(() => {
     const set = new Set(surgeons.map(s => s.specialty).filter(Boolean));
     return ['All', ...Array.from(set).sort()];
   }, [surgeons]);
 
-  // ── Pre-resolve vendor links once per surgeon list change ──
   const vendorLinkMap = useMemo(() => {
     const map = new Map();
     surgeons.forEach(s => map.set(s.id, resolveVendorLinks(s.vendorLinks || [])));
     return map;
   }, [surgeons]);
 
-  // ── One-time migration: flat format → procedure-first ──
   useEffect(() => {
     const needsMigration = surgeons.some(s => !s.procedures);
     if (needsMigration) setSurgeons(migrateSurgeonData(surgeons));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storageKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { q, filteredSurgeons: searchedSurgeons, filteredVendors, hasVendorResults } = useSearch(surgeons, SURGICAL_VENDORS, search);
+  const { q, filteredSurgeons: searchedSurgeons, filteredVendors, hasVendorResults, filteredTrays, hasTrayResults } = useSearch(surgeons, SURGICAL_VENDORS, search);
 
-  // ── Chain: search results → specialty filter → alphabetical sort ──
   const filteredSurgeons = useMemo(() => {
-    const afterFilter = specialty === 'All'
-      ? searchedSurgeons
-      : searchedSurgeons.filter(s => s.specialty === specialty);
-    return sortByLastName(afterFilter);
-  }, [searchedSurgeons, specialty]);
+    const afterFilter = specialty === 'All' ? searchedSurgeons : searchedSurgeons.filter(s => s.specialty === specialty);
+    return sortSurgeons(afterFilter, customOrder);
+  }, [searchedSurgeons, specialty, customOrder]);
 
-  // ── Haptic + Audit-enhanced callbacks ──
   const addSurgeon = useCallback((data) => {
     setSurgeons(prev => [data, ...prev]);
     addAudit({ action: 'Surgeon Created', surgeonName: data.name, user: data.addedBy || 'Kyle', note: data.changeNote || null });
@@ -100,79 +135,35 @@ export default function App() {
     }, 300);
   }, []);
 
+  const handleDragStart = useCallback((id) => { setDraggedId(id); }, []);
+  const handleDragOver = useCallback((e) => { e.preventDefault(); }, []);
+  const handleDrop = useCallback((targetId) => {
+    if (!draggedId || draggedId === targetId) { setDraggedId(null); return; }
+    const ids = filteredSurgeons.map(s => s.id);
+    const fromIdx = ids.indexOf(draggedId);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) { setDraggedId(null); return; }
+    const newOrder = [...ids];
+    newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, draggedId);
+    setCustomOrder(newOrder);
+    setDraggedId(null);
+    hapticLight();
+  }, [draggedId, filteredSurgeons]);
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-slate-100">
-      {/* ═══ HEADER ═══ */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
-        <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-medical-600 to-medical-800 flex items-center justify-center shadow-lg shadow-medical-600/20">
-                <BookOpen size={18} className="text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">ScrubPlaybook</h1>
-                  <div className="relative group">
-                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
-                      isOnline ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'
-                    }`}>
-                      {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
-                      {isOnline ? '' : 'Offline'}
-                    </div>
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-1 bg-slate-900 text-white text-[10px] rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      {isOnline ? 'Synced — data saved locally' : 'Offline — using cached data'}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-400 tracking-wide">YOUR SURGEONS. YOUR RULES.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowVendors(v => !v)}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Vendor Library">
-                <Menu size={20} />
-              </button>
-              <button onClick={openModal}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-medical-600 to-medical-700 text-white font-semibold text-sm shadow-lg shadow-medical-600/25 hover:from-medical-700 hover:to-medical-800 active:scale-[0.97] transition-all cursor-pointer">
-                <Plus size={16} />
-                <span className="hidden sm:inline">Add Surgeon</span>
-              </button>
-            </div>
-          </div>
-          <div className="relative">
-            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={search} onChange={handleSearch}
-              placeholder="Search Portal — surgeons, procedures, nicknames…"
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-medical-400/40 focus:bg-white transition-all" />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={16} />
-              </button>
-            )}
-          </div>
+      <AppHeader
+        search={search} onSearch={handleSearch} specialty={specialty} setSpecialty={setSpecialty} specialties={specialties}
+        latexFree={latexFree} setLatexFree={setLatexFree} showVendors={showVendors} setShowVendors={setShowVendors}
+        onAddSurgeon={openModal} isOnline={isOnline} hospital={hospital} onHospitalClick={() => setShowHospitalPicker(true)}
+        onTraysClick={() => setShowTraySelector(true)}
+      />
 
-          {/* ═══ SPECIALTY FILTER BAR ═══ */}
-          <div className="filter-bar mt-3">
-            {specialties.map(s => (
-              <button
-                key={s}
-                onClick={() => { setSpecialty(s); hapticLight(); }}
-                className={`filter-pill ${specialty === s ? 'filter-pill-active' : ''}`}
-              >
-                {s === 'All' && <Filter size={13} className="inline -mt-px mr-1" />}
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      {/* ═══ VENDOR PANELS ═══ */}
       {hasVendorResults && <VendorResults vendors={filteredVendors} />}
+      {hasTrayResults && <TrayResults trays={filteredTrays} />}
       {showVendors && !q && <VendorLibrary onClose={() => setShowVendors(false)} />}
 
-      {/* ═══ BENTO GRID ═══ */}
       <main className="max-w-5xl mx-auto px-4 py-6">
         {filteredSurgeons.length === 0 ? (
           <EmptyState hasQuery={!!q} searchTerm={search} onAddSurgeon={openModal} />
@@ -187,30 +178,19 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredSurgeons.map((s, i) => (
-                <SurgeonCard
-                  key={s.id}
-                  surgeon={s}
-                  vendorLinks={vendorLinkMap.get(s.id) || []}
-                  index={i}
-                  onDelete={deleteSurgeon}
-                  onUpdate={updateSurgeon}
-                  onAudit={addAudit}
-                  auditLog={auditLog}
-                />
+                <SurgeonCard key={s.id} surgeon={s} vendorLinks={vendorLinkMap.get(s.id) || []} index={i}
+                  onDelete={deleteSurgeon} onUpdate={updateSurgeon} onAudit={addAudit} auditLog={auditLog}
+                  latexFree={latexFree} onDragStart={handleDragStart} onDragOver={handleDragOver}
+                  onDrop={handleDrop} isDragging={draggedId === s.id} />
               ))}
             </div>
           </>
         )}
-
-        {/* ═══ RECENT ACTIVITY FEED ═══ */}
         {auditLog.length > 0 && (
-          <div className="mt-8">
-            <RecentActivity log={auditLog} />
-          </div>
+          <div className="mt-8"><RecentActivity log={auditLog} /></div>
         )}
       </main>
 
-      {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-slate-200/60 mt-4">
         <div className="max-w-5xl mx-auto px-4 py-6 text-center space-y-2">
           <p className="text-xs text-slate-400">ScrubPlaybook — Built by Scrub Techs, for Scrub Techs 🩺</p>
@@ -219,18 +199,46 @@ export default function App() {
             Always confirm preferences directly with the surgical team before each procedure.
             No patient-identifiable information (PHI) should be entered.
             Aligned with{' '}
-            <a href="https://www.ast.org" target="_blank" rel="noopener noreferrer" className="text-medical-500 hover:text-medical-600 underline">
-              AST
-            </a>{' '}
+            <a href="https://www.ast.org" target="_blank" rel="noopener noreferrer" className="text-medical-500 hover:text-medical-600 underline">AST</a>{' '}
             standards of practice.
           </p>
         </div>
       </footer>
 
-      {/* ═══ MODAL ═══ */}
       {showModal && (
         <Suspense fallback={null}>
           <AddSurgeonModal onClose={() => setShowModal(false)} onSave={addSurgeon} />
+        </Suspense>
+      )}
+
+      {showHospitalPicker && (
+        <Suspense fallback={null}>
+          <HospitalSelector current={hospital} onSelect={setHospital} onClose={() => setShowHospitalPicker(false)} />
+        </Suspense>
+      )}
+
+      {showTraySelector && (
+        <Suspense fallback={null}>
+          <TraySelector
+            hospitalTrays={hospitalTrays}
+            hospitalName={hospital.name}
+            onImport={(tray) => setHospitalTrays(prev => [...prev, tray])}
+            onOpen={(tray) => setOpenTray(tray)}
+            onClose={() => setShowTraySelector(false)}
+          />
+        </Suspense>
+      )}
+
+      {openTray && (
+        <Suspense fallback={null}>
+          <TrayCountSheet
+            tray={openTray}
+            onUpdate={(updated) => {
+              setHospitalTrays(prev => prev.map(t => t.id === updated.id ? updated : t));
+              setOpenTray(updated);
+            }}
+            onClose={() => setOpenTray(null)}
+          />
         </Suspense>
       )}
     </div>

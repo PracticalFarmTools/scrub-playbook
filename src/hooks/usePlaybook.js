@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { MASTER_TRAYS } from '../data/trays';
 
 /**
  * Custom hook for persisting state in localStorage.
@@ -38,6 +39,7 @@ function fuzzyMatch(text, tokens) {
  * Build a flat searchable string for an entire surgeon record.
  * Includes name, specialty, procedure names, nicknames, tips,
  * equipment, glove models, sutures, needles, and vendor links.
+ * NOTE: Does NOT include tray instruments — those are searched separately.
  */
 function buildSearchBlob(surgeon) {
   const parts = [surgeon.name, surgeon.specialty];
@@ -63,9 +65,10 @@ function buildSearchBlob(surgeon) {
 }
 
 /**
- * Custom hook for filtered search across surgeons and vendors.
+ * Custom hook for filtered search across surgeons, vendors, and tray instruments.
  * Uses fuzzy token matching — all query words must appear somewhere
- * in the surgeon's combined searchable fields.
+ * in the searchable fields. Tray instrument search is kept separate
+ * from surgeon search to avoid cluttering results.
  */
 export function useSearch(surgeons, vendors, query) {
   const q = query.toLowerCase().trim();
@@ -83,8 +86,22 @@ export function useSearch(surgeons, vendors, query) {
     );
   }, [vendors, q]);
 
-  const hasVendorResults = q && filteredVendors.length > 0 && filteredVendors.length < vendors.length;
+  /** Search tray instruments — returns trays with matched instruments */
+  const filteredTrays = useMemo(() => {
+    if (!tokens.length) return [];
+    return MASTER_TRAYS
+      .map(tray => {
+        const matched = tray.instruments.filter(inst =>
+          fuzzyMatch(`${inst.name} ${inst.specs}`, tokens)
+        );
+        return matched.length > 0 ? { ...tray, matchedInstruments: matched } : null;
+      })
+      .filter(Boolean);
+  }, [q]);
 
-  return { q, filteredSurgeons, filteredVendors, hasVendorResults };
+  const hasVendorResults = q && filteredVendors.length > 0 && filteredVendors.length < vendors.length;
+  const hasTrayResults = q && filteredTrays.length > 0;
+
+  return { q, filteredSurgeons, filteredVendors, hasVendorResults, filteredTrays, hasTrayResults };
 }
 

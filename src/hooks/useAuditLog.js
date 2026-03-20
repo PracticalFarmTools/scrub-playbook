@@ -1,28 +1,33 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const AUDIT_KEY = 'scrubplaybook_audit';
 const MAX_ENTRIES = 100;
 
-function loadLog() {
+function loadLog(key) {
   try {
-    return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
+    return JSON.parse(localStorage.getItem(key) || '[]');
   } catch { return []; }
 }
 
 /**
  * Hook for the audit trail.
+ * Accepts an optional storage key for per-hospital isolation.
  * Stores up to 100 entries in localStorage, newest first.
  */
-export function useAuditLog() {
-  const [log, setLog] = useState(loadLog);
+export function useAuditLog(storageKey = 'scrubplaybook_audit') {
+  const [log, setLog] = useState(() => loadLog(storageKey));
+
+  // Re-load when storage key changes (hospital switch)
+  useEffect(() => {
+    setLog(loadLog(storageKey));
+  }, [storageKey]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(AUDIT_KEY, JSON.stringify(log));
+      localStorage.setItem(storageKey, JSON.stringify(log));
     } catch (e) {
       console.warn('Audit log save failed (storage full):', e);
     }
-  }, [log]);
+  }, [storageKey, log]);
 
   const addEntry = useCallback(({ action, surgeonName, user, note }) => {
     const entry = {

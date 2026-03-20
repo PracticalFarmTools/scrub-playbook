@@ -31,6 +31,11 @@ export const DEMO_SURGEONS = [
           { name: 'Nylon/Ethilon', color: '#2ECC71', textColor: 'white', size: '10-0', needle: 'TG-140-8' },
           { name: 'Vicryl', color: '#8E44AD', textColor: 'white', size: '10-0', needle: 'TG-140-8' },
         ],
+        draping: {
+          drapeType: 'Eye-Drape',
+          sequence: ['Head Drape', 'Eye Drape / 3M Steri-Drape', 'Speculum'],
+          postDrapeGloveChange: true,
+        },
         equipment: 'Alcon Centurion on right side. BSS on field at all times. Phaco tip ready.',
         tips: 'Room lights OFF for the start. Surgeon calls the Phaco tip "The Needle". Centurion on his right side. Quiet OR.',
         nicknames: [
@@ -100,6 +105,11 @@ export const DEMO_SURGEONS = [
           { name: 'Monocryl', color: '#F1948A', textColor: 'black', size: '3-0', needle: 'PS-2' },
           { name: 'Nylon/Ethilon', color: '#2ECC71', textColor: 'white', size: '4-0', needle: 'FS-2' },
         ],
+        draping: {
+          drapeType: 'Extremity',
+          sequence: ['Stockinette', 'Extremity Drape', 'Ioban', 'Tourniquet check'],
+          postDrapeGloveChange: false,
+        },
         equipment: 'Zimmer Persona system. Tourniquet at 275mmHg. Pulse lavage ready.',
         tips: 'Bovie at 35/35. Prefers Army-Navy over Richardsons. Always wants a damp lap on the field. Announce tourniquet time every 30 min.',
         nicknames: [

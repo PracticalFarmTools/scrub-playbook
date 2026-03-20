@@ -98,16 +98,21 @@ export default function SearchableDropdown({
                 onClick={() => handleSelect(opt)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-medical-50 transition-colors cursor-pointer ${
                   opt.value === value ? 'bg-medical-50 font-semibold' : ''
-                }`}
+                } ${opt.isLatex ? 'glove-option-latex' : ''}`}
               >
                 {opt.color && (
                   <span className="w-4 h-4 rounded-full shrink-0 border border-black/10" style={{ backgroundColor: opt.color }} />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-slate-800 truncate">{opt.label}</p>
-                  {opt.sublabel && <p className="text-[11px] text-slate-400 truncate">{opt.sublabel}</p>}
+                  <p className={`truncate ${opt.isLatex ? 'text-red-600' : 'text-slate-800'}`}>
+                    {opt.isLatex && <span className="mr-1">⚠️</span>}{opt.label}
+                  </p>
+                  {opt.sublabel && <p className={`text-[11px] truncate ${opt.isLatex ? 'text-red-400' : 'text-slate-400'}`}>{opt.sublabel}</p>}
                 </div>
-                {opt.value === value && (
+                {opt.isLatex && (
+                  <span className="text-[10px] font-black text-red-500 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 shrink-0 uppercase tracking-wider">⚠ Latex</span>
+                )}
+                {opt.value === value && !opt.isLatex && (
                   <span className="text-medical-600 text-xs font-bold shrink-0">✓</span>
                 )}
               </button>

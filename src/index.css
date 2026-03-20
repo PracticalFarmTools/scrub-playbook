@@ -199,3 +199,407 @@
   transform: scale(0.85);
 }
 
+/* ═══ LEGIBILITY STANDARD ═══ */
+/* Material names (Vicryl, Biogel Eclipse, etc.) — readable at OR distance */
+.material-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+/* Needle point codes (PS-2, CT-1, TG-140-8, etc.) — match material sizing */
+.needle-label {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+/* ═══ ON-CALL CARD ═══ */
+.card-on-call {
+  border-left: 4px solid #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 30%);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.15), 0 4px 12px rgba(245, 158, 11, 0.1);
+}
+@keyframes star-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.star-toggle:active {
+  animation: star-pulse 0.3s ease-out;
+}
+
+/* ═══ DRAG & DROP ═══ */
+.card-dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.card-drag-over {
+  border-top: 3px solid var(--color-medical-500);
+  transition: border-color 0.15s ease;
+}
+.drag-handle {
+  cursor: grab;
+  opacity: 0.35;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.drag-handle:hover {
+  opacity: 1;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ═══ DRAPING INSTRUCTION ═══ */
+.draping-callout {
+  background: linear-gradient(135deg, #fefce8, #fef9c3);
+  border: 1.5px solid #fbbf24;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-top: 8px;
+}
+
+/* ═══ LATEX-FREE BADGE ═══ */
+.latex-free-active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.4);
+  animation: lf-glow 2.5s ease-in-out infinite;
+}
+@keyframes lf-glow {
+  0%, 100% { box-shadow: 0 2px 12px rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 2px 20px rgba(239, 68, 68, 0.65); }
+}
+
+/* Latex warning pill on the glove badge */
+.latex-warning-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 4px 10px;
+  margin-top: 6px;
+  animation: latex-warn-pulse 2s ease-in-out infinite;
+}
+@keyframes latex-warn-pulse {
+  0%, 100% { border-color: #fca5a5; }
+  50% { border-color: #ef4444; }
+}
+
+/* Red-highlighted dropdown option for latex gloves */
+.glove-option-latex {
+  background: #fef2f2 !important;
+  border-left: 3px solid #ef4444;
+}
+.glove-option-latex:hover {
+  background: #fee2e2 !important;
+}
+
+/* ═══ SIDE SELECTOR (Mirror Logic) ═══ */
+.side-selector {
+  display: inline-flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+}
+.side-pill {
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  border: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.side-pill:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+.side-pill:active {
+  transform: scale(0.95);
+}
+.side-pill-right {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.4);
+}
+.side-pill-left {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4);
+}
+
+/* Resolved token inline highlight */
+.token-resolved {
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+.token-unresolved {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* ═══ SCOUT GRID TABLE (Dark Mode for low-light OR) ═══ */
+.scout-grid-table {
+  border: 1px solid #334155;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.scout-grid-header {
+  display: grid;
+  grid-template-columns: 3fr 4fr 5fr;
+  gap: 0;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.scout-grid-row {
+  display: grid;
+  grid-template-columns: 3fr 4fr 5fr;
+  gap: 0;
+  padding: 8px 12px;
+  align-items: center;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  transition: background 0.15s ease;
+}
+.scout-grid-row:last-child {
+  border-bottom: none;
+}
+.scout-grid-row-even {
+  background: #0f172a;
+}
+.scout-grid-row:hover {
+  background: #1a2e6b;
+}
+
+/* ═══ VERIFIED-BY FOOTER (Chain of Custody) ═══ */
+.verified-footer {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  padding: 10px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ═══ GLOVE PEEL ALERT (Full-Width Banner) ═══ */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+.glove-peel-alert {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3), 0 4px 16px rgba(245, 158, 11, 0.2);
+  background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+  border: 2px solid #f59e0b !important;
+  border-radius: 12px;
+  margin: 0 0 8px 0;
+}
+
+/* ═══ CLICK-TO-VERIFY MODAL ═══ */
+@keyframes verify-modal-in {
+  0% { opacity: 0; transform: scale(0.9) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes verify-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.verify-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: verify-backdrop-in 0.2s ease-out;
+  padding: 24px;
+}
+.verify-modal-card {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  padding: 28px 32px 24px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  animation: verify-modal-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.verify-details-grid {
+  margin-top: 8px;
+  border-top: 1px solid var(--color-slate-200);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.verify-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.verify-detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-slate-400);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.verify-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-slate-800);
+}
+
+/* Clickable instrument name in tray table */
+.verify-name-btn {
+  all: unset;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  border-bottom: 1.5px dotted var(--color-slate-300);
+  padding-bottom: 1px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.verify-name-btn:hover {
+  border-bottom-color: var(--color-medical-500);
+  color: var(--color-medical-700);
+}
+.verify-name-btn:active {
+  transform: scale(0.98);
+}
+
+/* ═══ INSTRUMENT INSPECTOR — Mobile-First Bottom Sheet ═══ */
+@keyframes inspector-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes inspector-slide-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+@keyframes inspector-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes inspector-backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.inspector-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: inspector-backdrop-in 0.2s ease-out;
+}
+.inspector-backdrop-dismiss {
+  animation: inspector-backdrop-out 0.25s ease-in forwards;
+}
+
+.inspector-sheet {
+  position: relative;
+  background: white;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow:
+    0 -8px 40px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  animation: inspector-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-overflow-scrolling: touch;
+}
+.inspector-sheet-dismiss {
+  animation: inspector-slide-down 0.25s ease-in forwards;
+}
+
+/* Drag handle — swipe affordance */
+.inspector-drag-handle-area {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+}
+.inspector-drag-handle-area:active {
+  cursor: grabbing;
+}
+.inspector-drag-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-slate-300);
+  transition: background 0.15s ease;
+}
+.inspector-drag-handle-area:hover .inspector-drag-handle {
+  background: var(--color-slate-400);
+}
+
+/* Large Close button — one-handed thumb reach */
+.inspector-close-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, var(--color-slate-100), var(--color-slate-200));
+  color: var(--color-slate-600);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.inspector-close-btn:hover {
+  background: linear-gradient(135deg, var(--color-slate-200), var(--color-slate-300));
+  color: var(--color-slate-800);
+}
+.inspector-close-btn:active {
+  transform: scale(0.98);
+  background: var(--color-slate-300);
+}
+
+/* Safe-area padding for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .inspector-close-btn {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}
