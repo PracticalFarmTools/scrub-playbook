@@ -1,7 +1,16 @@
 import { memo, useState } from 'react';
-import { Trash2, ChevronDown, ChevronUp, User, Scissors, Stethoscope, Edit3, Check, X, ExternalLink, Plus, UserPlus, Clock, FileText } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, User, Scissors, Stethoscope, Edit3, Check, X, ExternalLink, Plus, UserPlus, Clock, FileText, MapPin, ShieldCheck, ShieldAlert, ShieldQuestion, Share2 } from 'lucide-react';
 import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
-import { ASSIST_ROLES } from '../data/constants';
+import { ASSIST_ROLES, CARD_STATUS } from '../data/constants';
+import MicButton from './MicButton';
+import ShareCardModal from './ShareCardModal';
+
+// ── Verification status: badge + next-action config ──
+const STATUS_META = {
+  [CARD_STATUS.VERIFIED]: { label: 'Verified', icon: ShieldCheck, className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  [CARD_STATUS.UNCONFIRMED]: { label: 'Unconfirmed', icon: ShieldQuestion, className: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+  [CARD_STATUS.DISPUTED]: { label: 'Disputed', icon: ShieldAlert, className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+};
 
 // ── Glove color map (static) ──
 const GLOVE_COLORS = {
@@ -44,9 +53,23 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
 
   // History toggle
   const [showHistory, setShowHistory] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   // Filter audit log for this surgeon
   const cardHistory = auditLog.filter(e => e.surgeonName === surgeon.name);
+  const status = surgeon.status || CARD_STATUS.UNCONFIRMED;
+  const statusMeta = STATUS_META[status];
+
+  // One-tap confirm — the "is this still true?" 5-second update.
+  const confirmCurrent = () => {
+    onUpdate({ ...surgeon, status: CARD_STATUS.VERIFIED, lastVerifiedBy: surgeon.addedBy || 'Kyle', lastVerifiedAt: new Date().toISOString() });
+    onAudit?.({ action: 'Confirmed Current', surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+  };
+
+  const flagDisputed = () => {
+    onUpdate({ ...surgeon, status: CARD_STATUS.DISPUTED });
+    onAudit?.({ action: 'Flagged as Disputed', surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+  };
 
   const saveTips = () => {
     const oldTips = surgeon.tips || '';
@@ -123,18 +146,61 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
               <Stethoscope size={14} />
               {surgeon.specialty}
             </p>
+            {surgeon.facility && (
+              <p className="text-medical-300 text-xs flex items-center gap-1.5 mt-1">
+                <MapPin size={12} />
+                {surgeon.facility}
+              </p>
+            )}
           </div>
-          <button
-            onClick={() => onDelete(surgeon.id)}
-            className="text-medical-300 hover:text-rose-400 transition-colors p-1 -mr-1 -mt-1 cursor-pointer"
-            aria-label="Delete surgeon"
-          >
-            <Trash2 size={16} />
-          </button>
+          <div className="flex items-center gap-2 -mr-1 -mt-1">
+            <button
+              onClick={() => setShowShare(true)}
+              className="text-medical-300 hover:text-white transition-colors p-1 cursor-pointer"
+              aria-label="Share surgeon card"
+              title="Share card (no network needed)"
+            >
+              <Share2 size={15} />
+            </button>
+            <button
+              onClick={() => onDelete(surgeon.id)}
+              className="text-medical-300 hover:text-rose-400 transition-colors p-1 cursor-pointer"
+              aria-label="Delete surgeon"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
-        <p className="text-medical-300 text-xs mt-2 italic">
-          Added by {surgeon.addedBy || 'Unknown'} on {formatDate(surgeon.createdAt)}
-        </p>
+        <div className="flex items-center justify-between mt-3">
+          <p className="text-medical-300 text-xs italic">
+            Added by {surgeon.addedBy || 'Unknown'} on {formatDate(surgeon.createdAt)}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Trust Bar: Verification Status ── */}
+      <div className="flex items-center justify-between gap-2 px-5 py-2.5 bg-slate-900 border-b border-slate-800">
+        <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusMeta.className}`}>
+          <statusMeta.icon size={12} />
+          {statusMeta.label}
+          {status === CARD_STATUS.VERIFIED && surgeon.lastVerifiedAt && (
+            <span className="opacity-70 font-medium">· {timeAgo(surgeon.lastVerifiedAt)}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {status !== CARD_STATUS.VERIFIED && (
+            <button onClick={confirmCurrent}
+              className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg px-2.5 py-1 transition-all cursor-pointer">
+              Confirm Current
+            </button>
+          )}
+          {status !== CARD_STATUS.DISPUTED && (
+            <button onClick={flagDisputed}
+              className="text-[11px] font-bold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg px-2.5 py-1 transition-all cursor-pointer">
+              Flag
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Vitals: Glove Badge ── */}
@@ -213,13 +279,19 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
             </div>
             {editingTips ? (
               <div className="space-y-2">
-                <textarea
-                  value={tipDraft}
-                  onChange={(e) => setTipDraft(e.target.value)}
-                  rows={3}
-                  placeholder={`e.g. "Likes the Bovie at 30/30. Calls the Debakey pickups."`}
-                  className="w-full rounded-lg bg-slate-800 border border-slate-700 text-white text-sm px-3 py-2 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/50 resize-none"
-                />
+                <div className="relative">
+                  <textarea
+                    value={tipDraft}
+                    onChange={(e) => setTipDraft(e.target.value)}
+                    rows={3}
+                    placeholder={`e.g. "Likes the Bovie at 30/30. Calls the Debakey pickups."`}
+                    className="w-full rounded-lg bg-slate-800 border border-slate-700 text-white text-sm px-3 py-2 pr-11 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/50 resize-none"
+                  />
+                  <MicButton
+                    className="absolute right-2 top-2"
+                    onTranscript={(text) => setTipDraft(d => (d ? d.trim() + ' ' : '') + text)}
+                  />
+                </div>
                 {/* ── Change Note (optional) ── */}
                 <input
                   value={tipNote}
@@ -393,6 +465,8 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
           )}
         </div>
       )}
+
+      {showShare && <ShareCardModal surgeon={surgeon} onClose={() => setShowShare(false)} />}
     </div>
   );
 }

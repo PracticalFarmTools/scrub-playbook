@@ -24,15 +24,21 @@ export function useLocalStorage(key, defaultValue) {
 /**
  * Custom hook for filtered search across surgeons and vendors.
  * Returns memoized filtered results to avoid unnecessary re-computation.
+ * `facility` narrows results to a single facility tag (traveler tech use case).
  */
-export function useSearch(surgeons, vendors, query) {
+export function useSearch(surgeons, vendors, query, facility = null) {
   const q = query.toLowerCase().trim();
 
+  const facilityScoped = facility
+    ? surgeons.filter(s => s.facility === facility)
+    : surgeons;
+
   const filteredSurgeons = (() => {
-    if (!q) return surgeons;
-    return surgeons.filter(s =>
+    if (!q) return facilityScoped;
+    return facilityScoped.filter(s =>
       s.name.toLowerCase().includes(q) ||
       s.specialty.toLowerCase().includes(q) ||
+      (s.facility || '').toLowerCase().includes(q) ||
       (s.nicknames || []).some(n =>
         n.nickname.toLowerCase().includes(q) || n.actual.toLowerCase().includes(q)
       ) ||
@@ -51,5 +57,7 @@ export function useSearch(surgeons, vendors, query) {
 
   const hasVendorResults = q && filteredVendors.length > 0 && filteredVendors.length < vendors.length;
 
-  return { q, filteredSurgeons, filteredVendors, hasVendorResults };
+  const facilities = [...new Set(surgeons.map(s => s.facility).filter(Boolean))].sort();
+
+  return { q, filteredSurgeons, filteredVendors, hasVendorResults, facilities };
 }

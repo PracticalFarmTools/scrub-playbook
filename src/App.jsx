@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff } from 'lucide-react';
+import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { DEMO_SURGEONS } from './data/defaults';
 import { STORAGE_KEY } from './data/constants';
@@ -13,6 +13,7 @@ import RecentActivity from './components/RecentActivity';
 import { VendorResults, VendorLibrary } from './components/VendorPanels';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
+const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
 
 function resolveVendorLinks(vendorNames) {
   return vendorNames
@@ -24,12 +25,14 @@ export default function App() {
   const [surgeons, setSurgeons] = useLocalStorage(STORAGE_KEY, DEMO_SURGEONS);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
+  const [activeFacility, setActiveFacility] = useState(null);
   const { isOnline } = useNetworkStatus();
   const { log: auditLog, addEntry: addAudit } = useAuditLog();
   const searchDebounce = useRef(null);
 
-  const { q, filteredSurgeons, filteredVendors, hasVendorResults } = useSearch(surgeons, SURGICAL_VENDORS, search);
+  const { q, filteredSurgeons, filteredVendors, hasVendorResults, facilities } = useSearch(surgeons, SURGICAL_VENDORS, search, activeFacility);
 
   // ── Haptic + Audit-enhanced callbacks ──
   const addSurgeon = useCallback((data) => {
@@ -51,6 +54,22 @@ export default function App() {
     setSurgeons(prev => prev.map(s => s.id === updated.id ? updated : s));
     hapticLight();
   }, [setSurgeons]);
+
+  const importSurgeon = useCallback((data) => {
+    const { kind: _kind, ...card } = data;
+    const surgeon = {
+      ...card,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      addedBy: card.addedBy || 'Imported',
+      status: 'unconfirmed', // re-verify locally before trusting an imported card
+      lastVerifiedBy: null,
+      lastVerifiedAt: null,
+    };
+    setSurgeons(prev => [surgeon, ...prev]);
+    addAudit({ action: 'Surgeon Imported', surgeonName: surgeon.name, user: 'Kyle' });
+    hapticSuccess();
+  }, [setSurgeons, addAudit]);
 
   const openModal = useCallback(() => setShowModal(true), []);
 
@@ -83,7 +102,7 @@ export default function App() {
                       {isOnline ? '' : 'Offline'}
                     </div>
                     <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-1 bg-slate-900 text-white text-[10px] rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      {isOnline ? 'Synced — data saved locally' : 'Offline — using cached data'}
+                      {isOnline ? 'Online — app shell cached for offline use' : 'Offline — running from cache, data saved locally'}
                     </div>
                   </div>
                 </div>
@@ -91,6 +110,10 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button onClick={() => setShowImport(true)}
+                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Import Card (no network needed)">
+                <Download size={20} />
+              </button>
               <button onClick={() => setShowVendors(v => !v)}
                 className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Vendor Library">
                 <Menu size={20} />
@@ -113,6 +136,30 @@ export default function App() {
               </button>
             )}
           </div>
+          {/* ═══ FACILITY FILTER CHIPS (traveler tech: same surgeon, different site) ═══ */}
+          {facilities.length > 1 && (
+            <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-0.5">
+              <button
+                onClick={() => setActiveFacility(null)}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
+                  !activeFacility ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                All Facilities
+              </button>
+              {facilities.map(f => (
+                <button
+                  key={f}
+                  onClick={() => setActiveFacility(cur => cur === f ? null : f)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    activeFacility === f ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
@@ -174,10 +221,15 @@ export default function App() {
         </div>
       </footer>
 
-      {/* ═══ MODAL ═══ */}
+      {/* ═══ MODALS ═══ */}
       {showModal && (
         <Suspense fallback={null}>
           <AddSurgeonModal onClose={() => setShowModal(false)} onSave={addSurgeon} />
+        </Suspense>
+      )}
+      {showImport && (
+        <Suspense fallback={null}>
+          <ImportCardModal onClose={() => setShowImport(false)} onImport={importSurgeon} />
         </Suspense>
       )}
     </div>

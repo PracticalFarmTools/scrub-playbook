@@ -4,6 +4,7 @@ import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
 import { SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
 import { SPECIALTIES, ASSIST_ROLES } from '../data/constants';
 import SearchableDropdown from './SearchableDropdown';
+import MicButton from './MicButton';
 
 // ── Build dropdown option lists once (static data) ──
 const GLOVE_OPTIONS = SURGICAL_GLOVES.map(g => ({
@@ -26,7 +27,7 @@ const SUTURE_OPTIONS = SUTURE_LIBRARY.map(s => ({
 
 export default function AddSurgeonModal({ onClose, onSave }) {
   const [form, setForm] = useState({
-    name: '', specialty: SPECIALTIES[0], addedBy: '',
+    name: '', specialty: SPECIALTIES[0], facility: '', addedBy: '',
     gloveId: SURGICAL_GLOVES[0].id, gloveSize: '7.0',
     sutures: [], nicknames: [], assists: [], tips: '',
   });
@@ -74,12 +75,16 @@ export default function AddSurgeonModal({ onClose, onSave }) {
     if (!form.name.trim()) return;
     onSave({
       ...form,
+      facility: form.facility.trim(),
       id: crypto.randomUUID(),
       gloveModel: selectedGlove?.model || '',
       gloveBrand: selectedGlove?.brand || '',
       gloveColor: selectedGlove?.color || '',
       createdAt: new Date().toISOString(),
       changeNote: changeNote.trim() || null,
+      status: 'unconfirmed',
+      lastVerifiedBy: null,
+      lastVerifiedAt: null,
     });
     onClose();
   };
@@ -135,15 +140,26 @@ export default function AddSurgeonModal({ onClose, onSave }) {
                 />
               </div>
             </div>
-            <div>
-              <label className={labelClass}>Specialty</label>
-              <select
-                value={form.specialty}
-                onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))}
-                className={inputClass}
-              >
-                {SPECIALTIES.map(s => <option key={s}>{s}</option>)}
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Specialty</label>
+                <select
+                  value={form.specialty}
+                  onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))}
+                  className={inputClass}
+                >
+                  {SPECIALTIES.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Facility</label>
+                <input
+                  value={form.facility}
+                  onChange={e => setForm(f => ({ ...f, facility: e.target.value }))}
+                  placeholder="e.g. Riverside Surgical"
+                  className={inputClass}
+                />
+              </div>
             </div>
           </div>
 
@@ -248,13 +264,20 @@ export default function AddSurgeonModal({ onClose, onSave }) {
             <p className="text-sm font-bold text-medical-700 flex items-center gap-2">💡 The Ground Truth</p>
             <div>
               <label className={labelClass}>Tech-to-Tech Notes</label>
-              <textarea
-                value={form.tips}
-                onChange={e => setForm(f => ({ ...f, tips: e.target.value }))}
-                rows={4}
-                placeholder={"Room lights OFF for start.\nLikes Bovie at 30/30.\nCalls the DeBakey 'pickups'.\nPrefers Army-Navy over Richardsons."}
-                className={inputClass + " resize-none leading-relaxed"}
-              />
+              <div className="relative">
+                <textarea
+                  value={form.tips}
+                  onChange={e => setForm(f => ({ ...f, tips: e.target.value }))}
+                  rows={4}
+                  placeholder={"Room lights OFF for start.\nLikes Bovie at 30/30.\nCalls the DeBakey 'pickups'.\nPrefers Army-Navy over Richardsons."}
+                  className={inputClass + " resize-none leading-relaxed pr-11"}
+                />
+                <MicButton
+                  variant="light"
+                  className="absolute right-2 top-2"
+                  onTranscript={(text) => setForm(f => ({ ...f, tips: (f.tips ? f.tips.trim() + ' ' : '') + text }))}
+                />
+              </div>
             </div>
           </div>
 
