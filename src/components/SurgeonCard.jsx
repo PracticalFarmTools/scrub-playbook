@@ -8,6 +8,7 @@ import ShareCardModal from './ShareCardModal';
 // ── Verification status: badge + next-action config ──
 const STATUS_META = {
   [CARD_STATUS.VERIFIED]: { label: 'Verified', icon: ShieldCheck, className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  [CARD_STATUS.PENDING_COSIGN]: { label: '1 of 2 Confirms', icon: Clock, className: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' },
   [CARD_STATUS.UNCONFIRMED]: { label: 'Unconfirmed', icon: ShieldQuestion, className: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
   [CARD_STATUS.DISPUTED]: { label: 'Disputed', icon: ShieldAlert, className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
 };
@@ -60,14 +61,64 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
   const status = surgeon.status || CARD_STATUS.UNCONFIRMED;
   const statusMeta = STATUS_META[status];
 
-  // One-tap confirm — the "is this still true?" 5-second update.
   const confirmCurrent = () => {
-    onUpdate({ ...surgeon, status: CARD_STATUS.VERIFIED, lastVerifiedBy: surgeon.addedBy || 'Kyle', lastVerifiedAt: new Date().toISOString() });
-    onAudit?.({ action: 'Confirmed Current', surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
+    const cachedName = localStorage.getItem('scrubplaybook_tech_name') || '';
+    const nameInput = prompt("Please enter your name to confirm this card:", cachedName);
+    if (nameInput === null) return; // User cancelled
+    const name = nameInput.trim();
+    if (!name) return; // Empty input
+
+    localStorage.setItem('scrubplaybook_tech_name', name);
+    const now = new Date().toISOString();
+
+    if (status === CARD_STATUS.PENDING_COSIGN) {
+      // Co-signing step
+      const firstConfirmer = surgeon.confirmedBy?.[0] || surgeon.lastVerifiedBy || '';
+      if (name.toLowerCase() === firstConfirmer.toLowerCase()) {
+        alert("Needs a second tech to confirm.");
+        return;
+      }
+
+      const newConfirmedBy = [firstConfirmer, name];
+      const firstConfirmedAt = surgeon.confirmedAt?.[0] || surgeon.lastVerifiedAt || now;
+      const newConfirmedAt = [firstConfirmedAt, now];
+
+      onUpdate({
+        ...surgeon,
+        status: CARD_STATUS.VERIFIED,
+        confirmedBy: newConfirmedBy,
+        confirmedAt: newConfirmedAt,
+        lastVerifiedBy: name,
+        lastVerifiedAt: now
+      });
+
+      onAudit?.({
+        action: 'Co-Signed',
+        surgeonName: surgeon.name,
+        user: name,
+        note: `Co-signed after ${firstConfirmer}`
+      });
+    } else {
+      // First confirm step (from unconfirmed, disputed, or otherwise)
+      onUpdate({
+        ...surgeon,
+        status: CARD_STATUS.PENDING_COSIGN,
+        confirmedBy: [name],
+        confirmedAt: [now],
+        lastVerifiedBy: name,
+        lastVerifiedAt: now
+      });
+
+      onAudit?.({
+        action: 'First Confirm',
+        surgeonName: surgeon.name,
+        user: name
+      });
+    }
   };
 
   const flagDisputed = () => {
-    onUpdate({ ...surgeon, status: CARD_STATUS.DISPUTED });
+    onUpdate({ ...surgeon, status: CARD_STATUS.DISPUTED, confirmedBy: null, confirmedAt: null });
     onAudit?.({ action: 'Flagged as Disputed', surgeonName: surgeon.name, user: surgeon.addedBy || 'Kyle' });
   };
 
@@ -183,8 +234,13 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
         <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusMeta.className}`}>
           <statusMeta.icon size={12} />
           {statusMeta.label}
-          {status === CARD_STATUS.VERIFIED && surgeon.lastVerifiedAt && (
-            <span className="opacity-70 font-medium">· {timeAgo(surgeon.lastVerifiedAt)}</span>
+          {surgeon.lastVerifiedAt && (status === CARD_STATUS.VERIFIED || status === CARD_STATUS.PENDING_COSIGN) && (
+            <span className="opacity-70 font-medium">
+              · {timeAgo(surgeon.lastVerifiedAt)}
+              {surgeon.confirmedBy && surgeon.confirmedBy.length > 0 && (
+                ` (${surgeon.confirmedBy.join(', ')})`
+              )}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1">

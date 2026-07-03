@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download } from 'lucide-react';
+import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download, Upload } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { DEMO_SURGEONS } from './data/defaults';
 import { STORAGE_KEY } from './data/constants';
@@ -28,6 +28,9 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
   const [activeFacility, setActiveFacility] = useState(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(() => {
+    return !localStorage.getItem('scrubplaybook_disclaimer_seen');
+  });
   const { isOnline } = useNetworkStatus();
   const { log: auditLog, addEntry: addAudit } = useAuditLog();
   const searchDebounce = useRef(null);
@@ -71,6 +74,63 @@ export default function App() {
     hapticSuccess();
   }, [setSurgeons, addAudit]);
 
+  const exportPlaybook = useCallback(() => {
+    const data = {
+      kind: 'scrubplaybook-backup',
+      v: 1,
+      exportedAt: new Date().toISOString(),
+      surgeons: surgeons,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `scrubplaybook-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    hapticLight();
+  }, [surgeons]);
+
+  const importBackup = useCallback((backupData) => {
+    if (!backupData || backupData.kind !== 'scrubplaybook-backup' || !Array.isArray(backupData.surgeons)) {
+      return { success: false, error: 'Invalid backup format' };
+    }
+
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    setSurgeons(prev => {
+      const existingIds = new Set(prev.map(s => s.id));
+      const newSurgeons = [];
+
+      backupData.surgeons.forEach(card => {
+        if (existingIds.has(card.id)) {
+          skippedCount++;
+        } else {
+          newSurgeons.push(card);
+          importedCount++;
+        }
+      });
+
+      if (newSurgeons.length > 0) {
+        return [...prev, ...newSurgeons];
+      }
+      return prev;
+    });
+
+    addAudit({
+      action: 'Backup Imported',
+      surgeonName: `${importedCount} card(s)`,
+      user: 'Kyle',
+      note: `${importedCount} imported, ${skippedCount} skipped as duplicates`
+    });
+    hapticSuccess();
+
+    return { success: true, imported: importedCount, skipped: skippedCount };
+  }, [setSurgeons, addAudit]);
+
   const openModal = useCallback(() => setShowModal(true), []);
 
   const handleSearch = (e) => {
@@ -110,8 +170,12 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button onClick={exportPlaybook}
+                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Export All Cards (Backup)">
+                <Upload size={20} />
+              </button>
               <button onClick={() => setShowImport(true)}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Import Card (no network needed)">
+                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Import Card / Backup">
                 <Download size={20} />
               </button>
               <button onClick={() => setShowVendors(v => !v)}
@@ -229,8 +293,48 @@ export default function App() {
       )}
       {showImport && (
         <Suspense fallback={null}>
-          <ImportCardModal onClose={() => setShowImport(false)} onImport={importSurgeon} />
+          <ImportCardModal onClose={() => setShowImport(false)} onImport={importSurgeon} onImportBackup={importBackup} />
         </Suspense>
+      )}
+      {showDisclaimer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white">
+              <h2 className="text-base font-extrabold tracking-tight flex items-center gap-2">
+                🩺 ScrubPlaybook Disclaimer
+              </h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm font-semibold text-slate-800">
+                Please read and accept the following guidelines before using ScrubPlaybook:
+              </p>
+              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-xs text-slate-600 leading-relaxed space-y-3 max-h-60 overflow-y-auto">
+                <p>
+                  This tool is a <strong>personal reference aid</strong> and is not a substitute for official manufacturer Instructions for Use (IFU), facility-specific policies, or surgeon-verified preference cards.
+                </p>
+                <p>
+                  Always confirm preferences directly with the surgical team before each procedure.
+                </p>
+                <p className="font-semibold text-rose-600">
+                  Strictly NO patient-identifiable information (PHI) should be entered into this application under any circumstances.
+                </p>
+                <p>
+                  This application is aligned with AST standards of practice.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.setItem('scrubplaybook_disclaimer_seen', 'true');
+                  setShowDisclaimer(false);
+                  hapticSuccess();
+                }}
+                className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold text-sm hover:bg-medical-700 active:scale-[0.98] transition-all shadow-lg shadow-medical-600/20 cursor-pointer"
+              >
+                I Understand & Accept
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
