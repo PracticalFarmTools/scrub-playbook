@@ -4,6 +4,7 @@ import { SURGICAL_GLOVES, GLOVE_SIZES } from '../data/gloves';
 import { ASSIST_ROLES, CARD_STATUS } from '../data/constants';
 import MicButton from './MicButton';
 import ShareCardModal from './ShareCardModal';
+import ConfirmNameModal from './ConfirmNameModal';
 
 // ── Verification status: badge + next-action config ──
 const STATUS_META = {
@@ -55,28 +56,21 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
   // History toggle
   const [showHistory, setShowHistory] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Filter audit log for this surgeon
   const cardHistory = auditLog.filter(e => e.surgeonName === surgeon.name);
   const status = surgeon.status || CARD_STATUS.UNCONFIRMED;
   const statusMeta = STATUS_META[status];
 
-  const confirmCurrent = () => {
-    const cachedName = localStorage.getItem('scrubplaybook_tech_name') || '';
-    const nameInput = prompt("Please enter your name to confirm this card:", cachedName);
-    if (nameInput === null) return; // User cancelled
-    const name = nameInput.trim();
-    if (!name) return; // Empty input
-
-    localStorage.setItem('scrubplaybook_tech_name', name);
+  const submitConfirmName = (name) => {
     const now = new Date().toISOString();
 
     if (status === CARD_STATUS.PENDING_COSIGN) {
       // Co-signing step
       const firstConfirmer = surgeon.confirmedBy?.[0] || surgeon.lastVerifiedBy || '';
       if (name.toLowerCase() === firstConfirmer.toLowerCase()) {
-        alert("Needs a second tech to confirm.");
-        return;
+        return { error: 'Needs a second tech to confirm — try a different name.' };
       }
 
       const newConfirmedBy = [firstConfirmer, name];
@@ -115,6 +109,7 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
         user: name
       });
     }
+    return {};
   };
 
   const flagDisputed = () => {
@@ -245,7 +240,7 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
         </div>
         <div className="flex items-center gap-1">
           {status !== CARD_STATUS.VERIFIED && (
-            <button onClick={confirmCurrent}
+            <button onClick={() => setShowConfirmModal(true)}
               className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg px-2.5 py-1 transition-all cursor-pointer">
               Confirm Current
             </button>
@@ -523,6 +518,16 @@ function SurgeonCard({ surgeon, onDelete, onUpdate, index, vendorLinks = [], onA
       )}
 
       {showShare && <ShareCardModal surgeon={surgeon} onClose={() => setShowShare(false)} />}
+      {showConfirmModal && (
+        <ConfirmNameModal
+          title={status === CARD_STATUS.PENDING_COSIGN ? 'Co-Sign Card' : 'Confirm Current'}
+          subtitle={status === CARD_STATUS.PENDING_COSIGN
+            ? 'A second tech needs to confirm this is still accurate.'
+            : 'Enter your name to confirm this card is up to date.'}
+          onClose={() => setShowConfirmModal(false)}
+          onSubmit={submitConfirmName}
+        />
+      )}
     </div>
   );
 }

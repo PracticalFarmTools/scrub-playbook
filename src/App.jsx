@@ -172,11 +172,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button onClick={exportPlaybook}
                 className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Export All Cards (Backup)">
-                <Upload size={20} />
+                <Download size={20} />
               </button>
               <button onClick={() => setShowImport(true)}
                 className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Import Card / Backup">
-                <Download size={20} />
+                <Upload size={20} />
               </button>
               <button onClick={() => setShowVendors(v => !v)}
                 className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Vendor Library">
