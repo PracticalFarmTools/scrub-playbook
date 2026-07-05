@@ -10,6 +10,13 @@ export const SURGICAL_VENDORS = [
   { name: "Arthrex", alias: "The Sports Med King / TightRope", url: "https://www.arthrex.com/resources" },
 
   // ═══════════════════════════════════════════════
+  // GENERAL SURGERY: SUTURES, MESH & RIGID INSTRUMENTS
+  // ═══════════════════════════════════════════════
+  { name: "B. Braun", alias: "Sutures / Mesh / Vascular Access", url: "https://eifu.bbraunusa.com/en-US" },
+  { name: "Aesculap (B. Braun)", alias: "Rigid Trays / Sterile Containers", url: "https://www.aesculapusaifus.com" },
+  { name: "Symmetry Surgical", alias: "Bookwalter / General Instruments", url: "https://www.symmetrysurgical.com" },
+
+  // ═══════════════════════════════════════════════
   // OPHTHALMOLOGY
   // ═══════════════════════════════════════════════
   { name: "Alcon", alias: "The Eye Guys / Phaco / Centurion", url: "https://ifu.alcon.com" },
@@ -51,6 +58,9 @@ export const SURGICAL_VENDORS = [
   { name: "Getinge / Maquet", alias: "Heart-Lung / Perfusion / Tables", url: "https://eifu.getinge.com" },
   { name: "LivaNova", alias: "Heart-Lung Machines / Stockert", url: "https://eifu.livanova.com/EIFU_Display/" },
   { name: "AtriCure", alias: "Ablation / Isolator / EPi-Sense", url: "https://www.atricure.com/ifu" },
+  { name: "Cook Medical", alias: "Zenith Grafts / Vascular / GI / Uro", url: "https://ifu.cookmedical.com" },
+  { name: "Terumo", alias: "Cardiovascular / Perfusion / Access", url: "https://www.terumois.com/customer-service/ifus.html" },
+  { name: "Merit Medical", alias: "Interventional / Radiology Access", url: "https://www.merit.com/products/documents/" },
 
   // ═══════════════════════════════════════════════
   // GENERAL SURGERY & WOUND
@@ -60,6 +70,9 @@ export const SURGICAL_VENDORS = [
   { name: "KCI (3M/Solventum)", alias: "Wound VAC / Prevena / V.A.C.", url: "https://www.solventum.com/en-us/home/medical/resources/" },
   { name: "Molnlycke", alias: "Hibi / Mepitel / Surgical Gloves", url: "https://www.molnlycke.com/knowledge/" },
   { name: "Cardinal Health", alias: "Trays / Gowns / Kendall", url: "https://www.cardinalhealth.com/en/product-solutions.html" },
+  { name: "Baxter", alias: "Floseal / Tisseel / Hemostats / IV", url: "https://www.baxter.com/healthcare-professionals" },
+  { name: "Avanos Medical", alias: "Halyard Drapes / Gowns / Masks", url: "https://www.avanos.com" },
+  { name: "DeRoyal", alias: "Custom Trays / Drapes / Wound Care", url: "https://www.deroyal.com" },
 
   // ═══════════════════════════════════════════════
   // ENT & PLASTICS

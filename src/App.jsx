@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download, Upload } from 'lucide-react';
+import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download, Upload, ShieldAlert } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { DEMO_SURGEONS } from './data/defaults';
 import { STORAGE_KEY } from './data/constants';
@@ -15,10 +15,19 @@ import { VendorResults, VendorLibrary } from './components/VendorPanels';
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
 const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
 
+const LAST_EXPORT_KEY = 'scrubplaybook_last_export';
+const BACKUP_SNOOZE_KEY = 'scrubplaybook_backup_snooze_until';
+const BACKUP_REMINDER_DAYS = 30;
+const BACKUP_SNOOZE_DAYS = 14;
+
 function resolveVendorLinks(vendorNames) {
   return vendorNames
     .map(name => SURGICAL_VENDORS.find(v => v.name.toLowerCase().includes(name.toLowerCase())))
     .filter(Boolean);
+}
+
+function daysSince(iso) {
+  return (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
 }
 
 export default function App() {
@@ -31,6 +40,8 @@ export default function App() {
   const [showDisclaimer, setShowDisclaimer] = useState(() => {
     return !localStorage.getItem('scrubplaybook_disclaimer_seen');
   });
+  const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
+  const [backupSnoozeUntil, setBackupSnoozeUntil] = useState(() => localStorage.getItem(BACKUP_SNOOZE_KEY));
   const { isOnline } = useNetworkStatus();
   const { log: auditLog, addEntry: addAudit } = useAuditLog();
   const searchDebounce = useRef(null);
@@ -90,8 +101,25 @@ export default function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    const now = new Date().toISOString();
+    localStorage.setItem(LAST_EXPORT_KEY, now);
+    setLastExportAt(now);
+    localStorage.removeItem(BACKUP_SNOOZE_KEY);
+    setBackupSnoozeUntil(null);
     hapticLight();
   }, [surgeons]);
+
+  const snoozeBackupReminder = useCallback(() => {
+    const until = new Date(Date.now() + BACKUP_SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    localStorage.setItem(BACKUP_SNOOZE_KEY, until);
+    setBackupSnoozeUntil(until);
+  }, []);
+
+  // Nudge, don't nag: only for real playbooks that have never been backed up
+  // or haven't been in 30+ days, and never more than once per snooze window.
+  const showBackupReminder = surgeons.length > 0
+    && (!lastExportAt || daysSince(lastExportAt) > BACKUP_REMINDER_DAYS)
+    && (!backupSnoozeUntil || Date.now() > new Date(backupSnoozeUntil).getTime());
 
   const importBackup = useCallback((backupData) => {
     if (!backupData || backupData.kind !== 'scrubplaybook-backup' || !Array.isArray(backupData.surgeons)) {
@@ -233,6 +261,30 @@ export default function App() {
 
       {/* ═══ BENTO GRID ═══ */}
       <main className="max-w-5xl mx-auto px-4 py-6">
+        {/* ═══ BACKUP REMINDER (data lives only on this device) ═══ */}
+        {showBackupReminder && (
+          <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
+            <div className="flex items-start gap-2.5">
+              <ShieldAlert size={16} className="text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-800 leading-relaxed">
+                {lastExportAt
+                  ? `It's been over ${BACKUP_REMINDER_DAYS} days since your last backup.`
+                  : "Your cards only live on this device — back them up in case you lose your phone."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <button onClick={snoozeBackupReminder}
+                className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 px-2 py-1 transition-colors cursor-pointer">
+                Remind me later
+              </button>
+              <button onClick={exportPlaybook}
+                className="text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg px-3 py-1.5 transition-all cursor-pointer">
+                Back Up Now
+              </button>
+            </div>
+          </div>
+        )}
+
         {filteredSurgeons.length === 0 ? (
           <EmptyState hasQuery={!!q} searchTerm={search} onAddSurgeon={openModal} />
         ) : (
