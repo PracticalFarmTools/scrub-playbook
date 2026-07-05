@@ -1,16 +1,28 @@
-# React + Vite
+# Scrub Playbook
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A living survival guide for surgical techs — surgeon preference cards, tech-to-tech notes, and a vendor IFU library, built for the OR: offline-first, sterile-hands friendly, and fast to onboard a traveler or new hire.
 
-Currently, two official plugins are available:
+## Running locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+Everything works fully offline with zero setup — data lives in your browser's local storage, and the app installs as a PWA (service worker + app-shell caching) so it keeps working in cellular dead zones.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Optional: Team Sync
 
-## Expanding the ESLint configuration
+By default this app is single-device, local-only. If you want a team of techs to see each other's cards live instead of exporting/importing one at a time, you can turn on **Team Sync**:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open the SQL Editor and run [`supabase/schema.sql`](./supabase/schema.sql).
+3. Copy your Project URL and anon/public key (Project Settings → API).
+4. Copy `.env.example` to `.env` and paste those two values in.
+5. Restart the dev server (or set the same env vars in your Vercel/host deploy).
+
+Once configured, a **Team Sync** button appears in the header. One person taps "Start a New Team Playbook" to get a 6-character facility code, and teammates enter that code to join. Note: a facility code is a shared secret (like a Google Doc link), not per-user login — appropriate for a small trusted team sharing their own reference notes, not for anything sensitive.
+
+## Tech stack
+
+React 19 + Vite + Tailwind 4, `vite-plugin-pwa` for offline support, Web Speech API for voice dictation, `qrcode.react` for peer-to-peer card sharing, and an optional Supabase backend for Team Sync.

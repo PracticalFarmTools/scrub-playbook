@@ -1,11 +1,13 @@
 import { useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download, Upload, ShieldAlert } from 'lucide-react';
+import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download, Upload, ShieldAlert, Users } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { DEMO_SURGEONS } from './data/defaults';
 import { STORAGE_KEY } from './data/constants';
 import { useLocalStorage, useSearch } from './hooks/usePlaybook';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuditLog } from './hooks/useAuditLog';
+import { useFacilitySync } from './hooks/useFacilitySync';
+import { isSyncAvailable } from './lib/supabaseClient';
 import { hapticLight, hapticSuccess } from './utils/haptics';
 import SurgeonCard from './components/SurgeonCard';
 import EmptyState from './components/EmptyState';
@@ -14,6 +16,7 @@ import { VendorResults, VendorLibrary } from './components/VendorPanels';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
 const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
+const TeamSyncModal = lazy(() => import('./components/TeamSyncModal'));
 
 const LAST_EXPORT_KEY = 'scrubplaybook_last_export';
 const BACKUP_SNOOZE_KEY = 'scrubplaybook_backup_snooze_until';
@@ -42,9 +45,25 @@ export default function App() {
   });
   const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
   const [backupSnoozeUntil, setBackupSnoozeUntil] = useState(() => localStorage.getItem(BACKUP_SNOOZE_KEY));
+  const [showTeamSync, setShowTeamSync] = useState(false);
   const { isOnline } = useNetworkStatus();
   const { log: auditLog, addEntry: addAudit } = useAuditLog();
   const searchDebounce = useRef(null);
+
+  // Team Sync: fully inert unless a Supabase project is configured (opt-in,
+  // local-first stays the default). Remote is authoritative once synced —
+  // small-team use case, low conflict risk, documented in supabase/schema.sql.
+  const facilitySync = useFacilitySync({
+    onRemoteCard: (cardData) => {
+      setSurgeons(prev => {
+        const exists = prev.some(s => s.id === cardData.id);
+        return exists ? prev.map(s => s.id === cardData.id ? cardData : s) : [cardData, ...prev];
+      });
+    },
+    onRemoteDelete: (id) => {
+      setSurgeons(prev => prev.filter(s => s.id !== id));
+    },
+  });
 
   const { q, filteredSurgeons, filteredVendors, hasVendorResults, facilities } = useSearch(surgeons, SURGICAL_VENDORS, search, activeFacility);
 
@@ -52,8 +71,9 @@ export default function App() {
   const addSurgeon = useCallback((data) => {
     setSurgeons(prev => [data, ...prev]);
     addAudit({ action: 'Surgeon Created', surgeonName: data.name, user: data.addedBy || 'Kyle', note: data.changeNote || null });
+    facilitySync.pushCard(data);
     hapticSuccess();
-  }, [setSurgeons, addAudit]);
+  }, [setSurgeons, addAudit, facilitySync]);
 
   const deleteSurgeon = useCallback((id) => {
     setSurgeons(prev => {
@@ -61,13 +81,15 @@ export default function App() {
       if (target) addAudit({ action: 'Surgeon Deleted', surgeonName: target.name, user: target.addedBy || 'Kyle' });
       return prev.filter(s => s.id !== id);
     });
+    facilitySync.pushDelete(id);
     hapticLight();
-  }, [setSurgeons, addAudit]);
+  }, [setSurgeons, addAudit, facilitySync]);
 
   const updateSurgeon = useCallback((updated) => {
     setSurgeons(prev => prev.map(s => s.id === updated.id ? updated : s));
+    facilitySync.pushCard(updated);
     hapticLight();
-  }, [setSurgeons]);
+  }, [setSurgeons, facilitySync]);
 
   const importSurgeon = useCallback((data) => {
     const { kind: _kind, ...card } = data;
@@ -82,8 +104,14 @@ export default function App() {
     };
     setSurgeons(prev => [surgeon, ...prev]);
     addAudit({ action: 'Surgeon Imported', surgeonName: surgeon.name, user: 'Kyle' });
+    facilitySync.pushCard(surgeon);
     hapticSuccess();
-  }, [setSurgeons, addAudit]);
+  }, [setSurgeons, addAudit, facilitySync]);
+
+  const handleEnableSync = useCallback((code) => {
+    facilitySync.enableSync(code);
+    facilitySync.pushBulk(surgeons);
+  }, [facilitySync, surgeons]);
 
   const exportPlaybook = useCallback(() => {
     const data = {
@@ -198,6 +226,18 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {isSyncAvailable && (
+                <button onClick={() => setShowTeamSync(true)}
+                  className={`relative p-2 rounded-xl transition-all cursor-pointer ${
+                    facilitySync.syncCode ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:text-medical-600 hover:bg-medical-50'
+                  }`}
+                  title={facilitySync.syncCode ? `Team Sync: ${facilitySync.syncCode}` : 'Team Sync'}>
+                  <Users size={20} />
+                  {facilitySync.syncCode && facilitySync.status === 'connected' && (
+                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  )}
+                </button>
+              )}
               <button onClick={exportPlaybook}
                 className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Export All Cards (Backup)">
                 <Download size={20} />
@@ -346,6 +386,17 @@ export default function App() {
       {showImport && (
         <Suspense fallback={null}>
           <ImportCardModal onClose={() => setShowImport(false)} onImport={importSurgeon} onImportBackup={importBackup} />
+        </Suspense>
+      )}
+      {showTeamSync && (
+        <Suspense fallback={null}>
+          <TeamSyncModal
+            syncCode={facilitySync.syncCode}
+            status={facilitySync.status}
+            onEnable={handleEnableSync}
+            onDisable={facilitySync.disableSync}
+            onClose={() => setShowTeamSync(false)}
+          />
         </Suspense>
       )}
       {showDisclaimer && (
