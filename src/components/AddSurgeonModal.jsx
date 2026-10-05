@@ -38,7 +38,7 @@ export default function AddSurgeonModal({ onClose, onSave }) {
             </select>
           </div>
           <div>
-            <label className={label}>Facility label</label>
+            <label className={label}>Place</label>
             <input value={facility} onChange={e => setFacility(e.target.value)} placeholder="A label on your private book" className={input} />
           </div>
           <div>

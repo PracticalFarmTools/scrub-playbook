@@ -13,13 +13,9 @@ Notes stay in this browser. Nothing is uploaded. Sample cards are opt-in and are
 
 A product name links to that product’s page on the company’s site when the address has been checked. Otherwise the app offers the company page, and it does not pretend the company page is the product. Manufacturer documents are not copied into the app.
 
-## Facility book
+## Sharing a case
 
-Facility mode is a separate tenant. It needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, the schema in `supabase/schema.sql`, and a business associate agreement on that project. See `docs/pilot.md`.
-
-Access is a signed-in membership. A one-time invite token is not a standing password. Row access is enforced in the database. The anon key alone cannot read cards. Travelers expire. An educator can export the book and can close the facility.
-
-Personal notes are never uploaded into the facility book.
+There is no account and no server. A card moves when you share it: a QR code when the text is short, or a copied file when it is not. The other person’s copy arrives unconfirmed. A JSON backup from the header is the way to keep the whole book. See `docs/pilot.md`.
 
 ## Scripts
 
