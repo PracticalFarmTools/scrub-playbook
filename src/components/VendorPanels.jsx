@@ -22,7 +22,7 @@ export function VendorResults({ vendors }) {
             >
               <div className="min-w-0">
                 <p className="text-sm font-bold text-slate-800 group-hover:text-medical-700">{v.name}</p>
-                <p className="text-xs text-slate-400 truncate">{v.alias}</p>
+                <p className="text-xs text-slate-400 truncate">{v.blurb}</p>
               </div>
               <ExternalLink size={14} className="text-slate-300 group-hover:text-medical-500 shrink-0 ml-2" />
             </a>
@@ -55,7 +55,7 @@ export function VendorLibrary({ onClose }) {
             >
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-700 group-hover:text-medical-700 truncate">{v.name}</p>
-                <p className="text-[11px] text-slate-400 truncate">{v.alias}</p>
+                <p className="text-[11px] text-slate-400 truncate">{v.blurb}</p>
               </div>
               <ExternalLink size={12} className="text-slate-300 group-hover:text-medical-500 shrink-0 ml-2" />
             </a>

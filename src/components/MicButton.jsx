@@ -22,8 +22,8 @@ export default function MicButton({ onTranscript, variant = 'dark', className = 
     <button
       type="button"
       onClick={() => { hapticLight(); listening ? stop() : start(); }}
-      title={listening ? 'Stop dictating' : 'Dictate (hands-free)'}
-      aria-label={listening ? 'Stop dictating' : 'Dictate hands-free'}
+      title={listening ? 'Stop dictating' : 'Dictate. Audio leaves this device. Do not say a patient name.'}
+      aria-label={listening ? 'Stop dictating' : 'Dictate. Audio leaves this device. Do not say a patient name.'}
       className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all cursor-pointer ${
         listening ? 'bg-rose-500 text-white animate-pulse' : idleClass
       } ${className}`}
