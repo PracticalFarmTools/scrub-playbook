@@ -5,6 +5,41 @@ export function daysSince(iso, now = Date.now()) {
   return (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
 }
 
+export function timeAgo(iso, now = Date.now()) {
+  if (!iso) return '';
+  const mins = Math.floor((now - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/**
+ * One signal for the surgeon row. A worse state wins, so a flagged
+ * procedure is never hidden behind a match.
+ */
+export function rowTrust(procedures, options = {}) {
+  const list = procedures || [];
+  if (!list.length) return null;
+  const states = list.map(procedure => trustState(procedure, options));
+  if (states.some(state => state.status === CARD_STATUS.DISPUTED)) {
+    return { status: CARD_STATUS.DISPUTED, label: 'Flagged' };
+  }
+  if (states.some(state => state.status === CARD_STATUS.UNCONFIRMED || state.status === CARD_STATUS.NOTED)) {
+    return { status: CARD_STATUS.UNCONFIRMED, label: 'Unconfirmed' };
+  }
+  if (states.some(state => state.status === CARD_STATUS.STALE)) {
+    return { status: CARD_STATUS.STALE, label: 'Stale' };
+  }
+  const confirmed = states.filter(state => state.status === CARD_STATUS.CONFIRMED && state.at);
+  if (confirmed.length) {
+    const at = confirmed.map(state => state.at).sort().at(-1);
+    return { status: CARD_STATUS.CONFIRMED, label: 'Matched a case', at };
+  }
+  return null;
+}
+
 /**
  * Personal mode: one named person plus a clock.
  * Facility mode: two different accounts before the card reads as confirmed.

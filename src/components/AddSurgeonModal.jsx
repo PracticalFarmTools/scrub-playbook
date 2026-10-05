@@ -3,8 +3,8 @@ import { ChevronLeft } from 'lucide-react';
 import { SPECIALTIES } from '../data/constants';
 import { readTechName } from '../hooks/useBook';
 
-export default function AddSurgeonModal({ onClose, onSave }) {
-  const [name, setName] = useState('');
+export default function AddSurgeonModal({ onClose, onSave, initialName = '' }) {
+  const [name, setName] = useState(initialName);
   const [specialty, setSpecialty] = useState(SPECIALTIES[0]);
   const [facility, setFacility] = useState('');
   const [addedBy, setAddedBy] = useState(readTechName);

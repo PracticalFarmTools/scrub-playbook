@@ -6,7 +6,7 @@ One service line. No account, no hosted database, and no upload.
 
 Each tech keeps a book on their own phone. A surgeon has procedures. A procedure has the setup, the trays, the sutures, and the nicknames. The hospital’s official preference card stays the card of record. The app can store a pointer to it.
 
-When a case is worth handing off, share that procedure. A short card becomes a QR code. A long one is copied as text. The next phone imports it unconfirmed, and someone who was in the room confirms it with their name and the time. That confirmation goes stale.
+When a case is worth handing off, share that procedure. The message reads like the card. The next phone shows that glance and saves it unconfirmed. Someone who was in the room confirms it with their name and the time. That confirmation goes stale. A short card can also travel as a code. The morning list — time, room, surgeon, procedure — stays on this phone and opens the matching card.
 
 Export a JSON backup before a phone is replaced. Sample cards stay on the device that previewed them.
 

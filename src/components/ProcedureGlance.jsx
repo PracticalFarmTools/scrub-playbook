@@ -1,27 +1,10 @@
 import { MapPin, Scissors } from 'lucide-react';
 import { GLOVE_COLOR_HEX } from '../data/gloves';
 import { CARD_STATUS } from '../data/schema';
-import { trustState } from '../data/trust';
+import { timeAgo, trustState } from '../data/trust';
 import ProductLink from './ProductLink';
 import { resolveProductLink } from '../data/productLink';
-
-const STATUS_CLASS = {
-  [CARD_STATUS.CONFIRMED]: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  [CARD_STATUS.NOTED]: 'bg-indigo-50 text-indigo-800 border-indigo-200',
-  [CARD_STATUS.UNCONFIRMED]: 'bg-amber-50 text-amber-900 border-amber-200',
-  [CARD_STATUS.STALE]: 'bg-amber-50 text-amber-900 border-amber-300',
-  [CARD_STATUS.DISPUTED]: 'bg-rose-50 text-rose-800 border-rose-200',
-};
-
-function timeAgo(iso) {
-  if (!iso) return '';
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import { STATUS_CLASS } from './statusStyle';
 
 function statusLabel(state) {
   if (state.status === CARD_STATUS.CONFIRMED) {

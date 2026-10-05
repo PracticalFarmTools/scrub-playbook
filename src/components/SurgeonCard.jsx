@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { Plus, Share2, Stethoscope, Trash2 } from 'lucide-react';
+import { rowTrust, timeAgo } from '../data/trust';
 import ProcedureGlance from './ProcedureGlance';
+import { STATUS_CLASS } from './statusStyle';
 
 export default function SurgeonCard({
   surgeon,
   procedures,
+  trustProcedures,
   staleDays,
+  highlightId,
   onDeleteSurgeon,
   onDeleteProcedure,
   onEdit,
@@ -20,6 +24,10 @@ export default function SurgeonCard({
   const [confirming, setConfirming] = useState(null);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(surgeon.name);
+  const row = surgeon.demo ? null : rowTrust(trustProcedures || procedures, { staleDays });
+  const rowLabel = row?.status === 'confirmed'
+    ? (row.at ? `Matched a case · ${timeAgo(row.at)}` : 'Matched a case')
+    : row?.label;
 
   return (
     <article className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -57,12 +65,24 @@ export default function SurgeonCard({
         </div>
       )}
 
+      {row && (
+        <div className="px-5 pt-3">
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${STATUS_CLASS[row.status]}`}>
+            {rowLabel}
+          </span>
+        </div>
+      )}
+
       {procedures.length === 0 && (
         <p className="px-5 py-6 text-sm text-slate-400">No procedure yet. Add the case the way the board writes it.</p>
       )}
 
       {procedures.map(procedure => (
-        <div key={procedure.id}>
+        <div
+          key={procedure.id}
+          id={`procedure-${procedure.id}`}
+          className={`scroll-mt-28 ${highlightId === procedure.id ? 'ring-2 ring-medical-500 ring-offset-2' : ''}`}
+        >
           <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} />
           <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
             {surgeon.demo ? (

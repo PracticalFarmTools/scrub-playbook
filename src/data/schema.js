@@ -4,6 +4,7 @@ export const BOOK_VERSION = 1;
 export const BOOK_KEY = 'scrubplaybook_book';
 export const LEGACY_STORAGE_KEY = 'scrubplaybook_surgeons';
 export const TECH_NAME_KEY = 'scrubplaybook_tech_name';
+export const TODAY_KEY = 'scrubplaybook_today';
 
 export const STALE_AFTER_DAYS = 90;
 export const LINK_FRESH_DAYS = 180;

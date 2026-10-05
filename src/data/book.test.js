@@ -4,9 +4,10 @@ import { migrateBook } from './migrate';
 import { findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
 import { filterBook } from './searchBook';
-import { mergeBackup, parseImport, qrFits, toBackup, toShareableCard } from './share';
+import { classifyIncomingCard, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, emptyBlocks, emptyProcedure, textBlock } from './schema';
-import { applySave, detectConflict, trustState, withConfirmation } from './trust';
+import { resolveTodayTap, visibleToday } from './today';
+import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
 import { validateProcedure } from './validate';
 
 describe('migrateBook', () => {
@@ -188,6 +189,164 @@ describe('share', () => {
     const again = mergeBackup(book, book);
     expect(again.imported).toBe(0);
     expect(again.book.surgeons).toHaveLength(1);
+  });
+
+  it('writes the glance a person can read and keeps the card behind the fence', () => {
+    const surgeon = { name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main OR', demo: false };
+    const procedure = emptyProcedure('surgeon-1', {
+      name: 'Right total knee',
+      confirmations: [{ name: 'Blair', userId: null, at: '2026-10-01T00:00:00.000Z' }],
+      lastConfirmedAt: '2026-10-01T00:00:00.000Z',
+      official: { label: 'Knee card', reviewedAt: null, note: '' },
+      blocks: {
+        ...emptyBlocks(),
+        gloves: { outer: { model: 'Biogel Eclipse', size: '7.5' }, inner: null },
+        sutures: [{ id: 'su1', layer: 'Fascia', name: 'Vicryl', size: '2-0', needle: 'CT-1', open: '2', hold: '1' }],
+        trays: [{ id: 't1', commonName: 'Knee tray', spdName: 'SPD-KNEE', openOrHold: 'open' }],
+        nicknames: [{ nickname: 'The Cobb', actual: 'Cobb Elevator' }],
+        note: textBlock('Damp lap on the field', 'Blair'),
+      },
+    });
+    const glance = toGlanceText(surgeon, procedure);
+    expect(glance.text).toContain('Dr. Chen · Orthopedics');
+    expect(glance.text).toContain('Procedure: Right total knee');
+    expect(glance.text).toContain('Outer: Biogel Eclipse 7.5');
+    expect(glance.text).toContain('Fascia · Vicryl 2-0 CT-1 · open 2 · hold 1');
+    expect(glance.text).toContain('Arrives unconfirmed. Confirm after you are in the room.');
+    expect(glance.text).not.toContain('Blair');
+    expect(glance.text).not.toContain('\nImplants\n');
+
+    const message = shareMessage(surgeon, procedure);
+    const parsed = parseImport(message.message);
+    expect(parsed.book.procedures[0].blocks.note.text).toBe('Damp lap on the field');
+    expect(parsed.book.procedures[0].blocks.trays[0].commonName).toBe('Knee tray');
+    expect(parsed.book.procedures[0].blocks.sutures[0].name).toBe('Vicryl');
+    expect(parsed.book.procedures[0].blocks.gloves.outer.model).toBe('Biogel Eclipse');
+    expect(parsed.book.procedures[0].confirmations).toEqual([]);
+    expect(() => parseImport('Dr. Chen\nProcedure: Right total knee')).toThrow(/no-card/);
+
+    const fenced = shareMessage(surgeon, emptyProcedure('surgeon-1', {
+      name: 'Right total knee',
+      blocks: { ...emptyBlocks(), note: textBlock('Note mentions --- scrubplaybook --- inside', 'Alex') },
+    }));
+    expect(parseImport(fenced.message).book.procedures[0].blocks.note.text).toContain('scrubplaybook');
+  });
+
+  it('keeps the code on the payload length when the glance makes the message longer', () => {
+    const surgeon = { name: 'Dr. Test', specialty: 'General Surgery', facility: '', demo: false };
+    let note = 'Damp lap. ';
+    let share = shareMessage(surgeon, emptyProcedure('s', { name: 'Knee', blocks: { ...emptyBlocks(), note: textBlock(note, 'Alex') } }));
+    while (share.message.length <= QR_MAX_CHARS && share.payloadText.length + 40 <= QR_MAX_CHARS) {
+      note += 'Keep the field dry. ';
+      share = shareMessage(surgeon, emptyProcedure('s', {
+        name: 'Knee',
+        blocks: { ...emptyBlocks(), note: textBlock(note, 'Alex') },
+      }));
+    }
+    expect(share.payloadText.length).toBeLessThanOrEqual(QR_MAX_CHARS);
+    expect(share.message.length).toBeGreaterThan(QR_MAX_CHARS);
+    expect(share.showQr).toBe(true);
+    expect(share.showQr).toBe(qrFits(share.payloadText));
+  });
+
+  it('refuses a glance of a sample', () => {
+    const book = migrateBook(DEMO_SURGEONS);
+    expect(toGlanceText(book.surgeons[0], book.procedures[0]).error).toMatch(/Sample/);
+  });
+
+  it('attaches a second share to the surgeon already in the book', () => {
+    const book = {
+      version: 1,
+      surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main OR', demo: false }],
+      procedures: [emptyProcedure('s1', { name: 'Left knee' })],
+    };
+    const incoming = parseImport(shareMessage(
+      { name: 'chen', specialty: 'Orthopedics', facility: '', demo: false },
+      emptyProcedure('x', { name: 'Right total knee', blocks: { ...emptyBlocks(), note: textBlock('Damp lap', 'Alex') } }),
+    ).message).book;
+    expect(classifyIncomingCard(book, incoming.surgeons[0], incoming.procedures[0]).kind).toBe('attach');
+    const placed = placeIncomingCard(book, incoming, { surgeonId: 's1' });
+    expect(placed.book.surgeons).toHaveLength(1);
+    expect(placed.book.procedures).toHaveLength(2);
+    expect(placed.book.procedures[1].confirmations).toEqual([]);
+
+    const otherSpecialty = parseImport(shareMessage(
+      { name: 'Dr. Chen', specialty: 'ENT', facility: '', demo: false },
+      emptyProcedure('x', { name: 'Tonsils' }),
+    ).message).book;
+    expect(classifyIncomingCard(book, otherSpecialty.surgeons[0], otherSpecialty.procedures[0]).kind).toBe('new');
+
+    const sameName = parseImport(shareMessage(
+      { name: 'Dr. Chen', specialty: 'Orthopedics', demo: false },
+      emptyProcedure('x', { name: 'Left knee' }),
+    ).message).book;
+    expect(classifyIncomingCard(book, sameName.surgeons[0], sameName.procedures[0]).kind).toBe('duplicate');
+  });
+
+  it('leaves the day list out of a book backup', () => {
+    const book = migrateBook([{ id: 'real-1', name: 'Dr. Real', specialty: 'ENT', sutures: [], status: 'unconfirmed' }]);
+    const backup = toBackup(book);
+    expect(backup.items).toBeUndefined();
+    expect(JSON.stringify(backup)).not.toContain('scrubplaybook_today');
+  });
+});
+
+describe('today', () => {
+  const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false };
+  const procedure = emptyProcedure('s1', { name: 'Right total knee' });
+  const book = { surgeons: [surgeon], procedures: [procedure] };
+
+  it('opens a matching line and starts a missing one', () => {
+    expect(resolveTodayTap(book, { surgeonName: 'chen', procedureName: 'Right total knee' }).action).toBe('open');
+    expect(resolveTodayTap(book, { surgeonName: 'Dr. Chen', procedureName: 'Left knee' }).action).toBe('start-procedure');
+    expect(resolveTodayTap(book, { surgeonName: 'Dr. Patel', procedureName: 'Lap chole' }).action).toBe('start-surgeon');
+    const anne = { surgeons: [{ id: 'a', name: 'Anne', specialty: 'ENT', demo: false }], procedures: [] };
+    expect(resolveTodayTap(anne, { surgeonName: 'Ann', procedureName: 'Case' }).action).toBe('start-surgeon');
+    const twins = {
+      surgeons: [surgeon, { ...surgeon, id: 's2', name: 'Chen' }],
+      procedures: [procedure],
+    };
+    expect(resolveTodayTap(twins, { surgeonName: 'Dr. Chen', procedureName: 'Right total knee' }).action).toBe('choose');
+  });
+
+  it('drops yesterday’s list', () => {
+    expect(visibleToday({ day: '2026-10-04', items: [{ id: 'a', startsAt: '07:30' }] }, '2026-10-05')).toEqual([]);
+    expect(visibleToday({
+      day: '2026-10-05',
+      items: [
+        { id: 'late', startsAt: '15:00' },
+        { id: 'early', startsAt: '07:30' },
+        { id: 'blank', startsAt: '' },
+      ],
+    }, '2026-10-05').map(item => item.id)).toEqual(['early', 'late', 'blank']);
+  });
+
+  it('pauses a today line that says patient', () => {
+    expect(findPhiSignals('3\nDr. Chen\npatient positioning').length).toBeGreaterThan(0);
+  });
+});
+
+describe('row trust', () => {
+  const now = Date.parse('2026-10-05T00:00:00.000Z');
+  const confirmed = (at) => withConfirmation({ disputed: false, confirmations: [], lastConfirmedAt: null }, { name: 'Alex', at });
+
+  it('shows the worst state and the latest match', () => {
+    expect(rowTrust([])).toBeNull();
+    expect(rowTrust([{ disputed: true }, confirmed('2026-10-01T00:00:00.000Z')], { now }).label).toBe('Flagged');
+    expect(rowTrust([
+      { disputed: false, confirmations: [], lastConfirmedAt: null },
+      withConfirmation({ disputed: false, confirmations: [], lastConfirmedAt: null }, { name: 'Alex', at: '2026-01-01T00:00:00.000Z' }),
+    ], { now }).label).toBe('Unconfirmed');
+    expect(rowTrust([
+      confirmed('2026-01-01T00:00:00.000Z'),
+      confirmed('2026-10-01T00:00:00.000Z'),
+    ], { now, staleDays: STALE_AFTER_DAYS }).label).toBe('Stale');
+    const matched = rowTrust([
+      confirmed('2026-09-01T00:00:00.000Z'),
+      confirmed('2026-10-01T00:00:00.000Z'),
+    ], { now, staleDays: STALE_AFTER_DAYS });
+    expect(matched.label).toBe('Matched a case');
+    expect(matched.at).toBe('2026-10-01T00:00:00.000Z');
   });
 });
 

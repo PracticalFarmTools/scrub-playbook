@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { BookOpen, Download, Menu, Plus, Search, Upload, Wifi, WifiOff, X } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
@@ -9,6 +9,7 @@ import { useBook } from './hooks/useBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import SurgeonCard from './components/SurgeonCard';
+import TodayList from './components/TodayList';
 import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
 import { VendorLibrary, VendorResults } from './components/VendorPanels';
@@ -33,7 +34,8 @@ export default function App() {
 
   const [search, setSearch] = useState('');
   const [activeFacility, setActiveFacility] = useState(null);
-  const [showAdd, setShowAdd] = useState(false);
+  const [addDraft, setAddDraft] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
   const [editor, setEditor] = useState(null);
@@ -75,10 +77,10 @@ export default function App() {
     setLastExportAt(now);
   };
 
-  const onImport = (raw) => {
+  const onImport = (incoming, options = {}) => {
     try {
-      const parsed = parseImport(raw);
-      const result = bookApi.importIncoming(parsed.book);
+      const parsed = incoming?.surgeons ? { book: incoming } : parseImport(incoming);
+      const result = bookApi.importIncoming(parsed.book, options);
       addAudit({ action: 'Backup imported', surgeonName: `${result.imported} added`, note: `${result.skipped} skipped` });
       setNotice(`${result.imported} added, ${result.skipped} skipped. Imported cards are unconfirmed.`);
       return { success: true, imported: result.imported, skipped: result.skipped };
@@ -87,15 +89,29 @@ export default function App() {
     }
   };
 
-  const saveSurgeon = (partial) => {
+  const saveSurgeon = (partial, procedureName = '') => {
     const surgeon = bookApi.addSurgeon(partial);
     if (!surgeon) return;
     addAudit({ action: 'Surgeon created', surgeonName: surgeon.name, user: partial.addedBy });
     setEditor({
       surgeon,
-      procedure: emptyProcedure(surgeon.id, { name: '' }),
+      procedure: emptyProcedure(surgeon.id, { name: procedureName || '' }),
     });
   };
+
+  const openProcedure = (procedure) => {
+    setSearch('');
+    setActiveFacility(null);
+    setHighlightId(procedure.id);
+  };
+
+  useEffect(() => {
+    if (!highlightId) return undefined;
+    const el = document.getElementById(`procedure-${highlightId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const timer = setTimeout(() => setHighlightId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
 
   const saveProcedure = (procedure) => {
     bookApi.saveProcedure(procedure);
@@ -133,7 +149,7 @@ export default function App() {
               <button onClick={() => setShowVendors(v => !v)} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Company pages">
                 <Menu size={20} />
               </button>
-              <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-medical-600 text-white font-semibold text-sm cursor-pointer">
+              <button onClick={() => setAddDraft({})} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-medical-600 text-white font-semibold text-sm cursor-pointer">
                 <Plus size={16} />
                 <span className="hidden sm:inline">Add surgeon</span>
               </button>
@@ -172,11 +188,21 @@ export default function App() {
           </div>
         )}
 
+        <TodayList
+          book={book}
+          onOpen={openProcedure}
+          onStartProcedure={(surgeon, procedureName) => setEditor({
+            surgeon,
+            procedure: emptyProcedure(surgeon.id, { name: procedureName }),
+          })}
+          onStartSurgeon={(surgeonName, procedureName) => setAddDraft({ name: surgeonName, procedureName })}
+        />
+
         {filtered.surgeons.length === 0 ? (
           <EmptyState
             hasQuery={!!q}
             searchTerm={search}
-            onAddSurgeon={() => setShowAdd(true)}
+            onAddSurgeon={() => setAddDraft({})}
             onPreview={!q ? () => bookApi.loadSamples(buildSampleBook()) : null}
           />
         ) : (
@@ -186,7 +212,9 @@ export default function App() {
                 key={surgeon.id}
                 surgeon={surgeon}
                 procedures={filtered.procedures.filter(p => p.surgeonId === surgeon.id)}
+                trustProcedures={book.procedures.filter(p => p.surgeonId === surgeon.id)}
                 staleDays={STALE_AFTER_DAYS}
+                highlightId={highlightId}
                 onDeleteSurgeon={(id) => {
                   bookApi.deleteSurgeon(id);
                   addAudit({ action: 'Surgeon deleted', surgeonName: surgeon.name });
@@ -225,9 +253,16 @@ export default function App() {
         </div>
       </footer>
 
-      {showAdd && (
+      {addDraft && (
         <Suspense fallback={null}>
-          <AddSurgeonModal onClose={() => setShowAdd(false)} onSave={saveSurgeon} />
+          <AddSurgeonModal
+            initialName={addDraft.name || ''}
+            onClose={() => setAddDraft(null)}
+            onSave={(partial) => {
+              saveSurgeon(partial, addDraft.procedureName || '');
+              setAddDraft(null);
+            }}
+          />
         </Suspense>
       )}
       {editor && (
@@ -249,7 +284,7 @@ export default function App() {
       )}
       {showImport && (
         <Suspense fallback={null}>
-          <ImportCardModal onClose={() => setShowImport(false)} onImport={onImport} />
+          <ImportCardModal book={book} onClose={() => setShowImport(false)} onImport={onImport} />
         </Suspense>
       )}
       {confirmTarget && (

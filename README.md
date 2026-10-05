@@ -15,7 +15,7 @@ A product name links to that product’s page on the company’s site when the a
 
 ## Sharing a case
 
-There is no account and no server. A card moves when you share it: a QR code when the text is short, or a copied file when it is not. The other person’s copy arrives unconfirmed. A JSON backup from the header is the way to keep the whole book. See `docs/pilot.md`.
+There is no account and no server. Share sends the procedure the way it reads on the card. The other phone shows that glance before saving it, and the copy arrives unconfirmed. A short card can also include a code. A JSON backup from the header is the way to keep the whole book. The day’s list stays on this phone. See `docs/pilot.md`.
 
 ## Scripts
 

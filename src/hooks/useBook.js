@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BOOK_KEY, LEGACY_STORAGE_KEY, TECH_NAME_KEY, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
-import { mergeBackup } from '../data/share';
+import { mergeBackup, placeIncomingCard } from '../data/share';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
 
 function loadBook() {
@@ -140,10 +140,12 @@ export function useBook() {
     });
   }, []);
 
-  const importIncoming = useCallback((incoming) => {
+  const importIncoming = useCallback((incoming, options = {}) => {
     let result = { imported: 0, skipped: 0 };
     setBook(prev => {
-      result = mergeBackup(prev, incoming);
+      result = options.surgeonId
+        ? placeIncomingCard(prev, incoming, { surgeonId: options.surgeonId })
+        : mergeBackup(prev, incoming);
       return result.book;
     });
     return result;
