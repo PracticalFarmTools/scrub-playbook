@@ -1,108 +1,72 @@
 export const SURGICAL_VENDORS = [
-  // ═══════════════════════════════════════════════
-  // THE POWERHOUSES (Ortho / Spine / General)
-  // ═══════════════════════════════════════════════
-  { name: "Stryker", alias: "The Big Drills / Mako / Power Tools", url: "https://ifu.stryker.com" },
-  { name: "DePuy Synthes (J&J)", alias: "The J&J Bone / Velys / Trauma", url: "https://www.e-ifu.com" },
-  { name: "Zimmer Biomet", alias: "The Rosa / Zimmer Hips / Knees", url: "https://ifu.zimmerbiomet.com" },
-  { name: "Medtronic", alias: "The Powered Stapler / Spine / Stealth", url: "https://manuals.medtronic.com" },
-  { name: "Smith & Nephew", alias: "Sports Med / Shaver / Coblation", url: "https://ifu.smith-nephew.com" },
-  { name: "Arthrex", alias: "The Sports Med King / TightRope", url: "https://www.arthrex.com/resources" },
+  { name: "Stryker", blurb: "Power tools, Mako, trauma", url: "https://ifu.stryker.com" },
+  { name: "DePuy Synthes (J&J)", blurb: "Joint reconstruction and trauma", url: "https://www.e-ifu.com" },
+  { name: "Zimmer Biomet", blurb: "Hips, knees, ROSA", url: "https://ifu.zimmerbiomet.com" },
+  { name: "Medtronic", blurb: "Staplers, spine, navigation", url: "https://manuals.medtronic.com" },
+  { name: "Smith & Nephew", blurb: "Sports medicine and shavers", url: "https://ifu.smith-nephew.com" },
+  { name: "Arthrex", blurb: "Sports medicine and suture", url: "https://www.arthrex.com/resources" },
 
-  // ═══════════════════════════════════════════════
-  // GENERAL SURGERY: SUTURES, MESH & RIGID INSTRUMENTS
-  // ═══════════════════════════════════════════════
-  { name: "B. Braun", alias: "Sutures / Mesh / Vascular Access", url: "https://eifu.bbraunusa.com/en-US" },
-  { name: "Aesculap (B. Braun)", alias: "Rigid Trays / Sterile Containers", url: "https://www.aesculapusaifus.com" },
-  { name: "Symmetry Surgical", alias: "Bookwalter / General Instruments", url: "https://www.symmetrysurgical.com" },
+  { name: "B. Braun", blurb: "Sutures, mesh, vascular access", url: "https://eifu.bbraunusa.com/en-US" },
+  { name: "Aesculap (B. Braun)", blurb: "Rigid trays and sterile containers", url: "https://www.aesculapusaifus.com" },
+  { name: "Symmetry Surgical", blurb: "Bookwalter and general instruments", url: "https://www.symmetrysurgical.com" },
 
-  // ═══════════════════════════════════════════════
-  // OPHTHALMOLOGY
-  // ═══════════════════════════════════════════════
-  { name: "Alcon", alias: "The Eye Guys / Phaco / Centurion", url: "https://ifu.alcon.com" },
-  { name: "BVI (Beaver-Visitec)", alias: "Ophthalmic Knives / Blades", url: "https://www.bvimedical.com/resources/" },
-  { name: "Carl Zeiss Meditec", alias: "The Microscope / Eye Lenses", url: "https://www.zeiss.com/meditec/en/products.html" },
+  { name: "Alcon", blurb: "Phaco and cataract", url: "https://ifu.alcon.com" },
+  { name: "BVI (Beaver-Visitec)", blurb: "Ophthalmic knives and blades", url: "https://www.bvimedical.com/resources/" },
+  { name: "Carl Zeiss Meditec", blurb: "Microscopes and lenses", url: "https://www.zeiss.com/meditec/en/products.html" },
 
-  // ═══════════════════════════════════════════════
-  // ROBOTICS & SPECIALTY
-  // ═══════════════════════════════════════════════
-  { name: "Intuitive Surgical", alias: "The da Vinci Robot / Xi / X", url: "https://www.intuitive.com/en-us/support" },
-  { name: "Karl Storz", alias: "The Scope Experts / Image1", url: "https://www.karlstorz.com/us/en/media-library.htm" },
-  { name: "Olympus", alias: "The Camera Masters / Thunderbeat", url: "https://medical.olympusamerica.com/customer-resources" },
+  { name: "Intuitive Surgical", blurb: "da Vinci robotic systems", url: "https://www.intuitive.com/en-us/support" },
+  { name: "Karl Storz", blurb: "Endoscopes and cameras", url: "https://www.karlstorz.com/us/en/media-library.htm" },
+  { name: "Olympus", blurb: "Cameras and energy devices", url: "https://medical.olympusamerica.com/customer-resources" },
 
-  // ═══════════════════════════════════════════════
-  // ENERGY & VESSEL SEALING
-  // ═══════════════════════════════════════════════
-  { name: "Ethicon (J&J)", alias: "Harmonic / Echelon / Sutures", url: "https://www.e-ifu.com" },
-  { name: "Teleflex", alias: "LMA / Arrow / Weck Clips", url: "https://www.teleflex.com/ifu" },
-  { name: "Applied Medical", alias: "GelPOINT / Energy / Staplers", url: "https://www.appliedmedical.com/ifu" },
-  { name: "ConMed", alias: "The Smoke Evacuator / Bipolar / AirSeal", url: "https://www.conmed.com/en/support" },
-  { name: "Integra LifeSciences", alias: "CUSA / DuraSeal / Codman", url: "https://labeling.integralife.com/eifu" },
+  { name: "Ethicon (J&J)", blurb: "Sutures, Harmonic, staplers", url: "https://www.e-ifu.com" },
+  { name: "Teleflex", blurb: "Airway, clips, vascular access", url: "https://www.teleflex.com/ifu" },
+  { name: "Applied Medical", blurb: "Trocars and energy", url: "https://www.appliedmedical.com/ifu" },
+  { name: "ConMed", blurb: "Smoke evacuation and energy", url: "https://www.conmed.com/en/support" },
+  { name: "Integra LifeSciences", blurb: "CUSA, dural sealants, Codman", url: "https://labeling.integralife.com/eifu" },
 
-  // ═══════════════════════════════════════════════
-  // SPINE & NEURO
-  // ═══════════════════════════════════════════════
-  { name: "NuVasive", alias: "Spine Lateral / XLIF / Reline", url: "https://www.nuvasive.com/surgical-solutions/" },
-  { name: "Globus Medical", alias: "Spine Robots / ExcelsiusGPS", url: "https://www.globusmedical.com/eifu/" },
-  { name: "Alphatec Spine", alias: "SafeOp / EOS / Lateral Spine", url: "https://www.atecspine.com/eifu" },
-  { name: "Brainlab", alias: "Neuro Nav / Cranial / Spinal Nav", url: "https://www.brainlab.com/manuals/" },
-  { name: "Penumbra", alias: "Neuro Thrombectomy / JET 7", url: "https://www.penumbrainc.com/ifu" },
+  { name: "NuVasive", blurb: "Lateral spine systems", url: "https://www.nuvasive.com/surgical-solutions/" },
+  { name: "Globus Medical", blurb: "Spine implants and robotics", url: "https://www.globusmedical.com/eifu/" },
+  { name: "Alphatec Spine", blurb: "Spine systems", url: "https://www.atecspine.com/eifu" },
+  { name: "Brainlab", blurb: "Cranial and spinal navigation", url: "https://www.brainlab.com/manuals/" },
+  { name: "Penumbra", blurb: "Neurovascular devices", url: "https://www.penumbrainc.com/ifu" },
 
-  // ═══════════════════════════════════════════════
-  // CARDIAC & VASCULAR
-  // ═══════════════════════════════════════════════
-  { name: "Edwards Lifesciences", alias: "Heart Valves / TAVR / Swan-Ganz", url: "https://www.edwards.com/ifu" },
-  { name: "Abbott", alias: "MitraClip / St. Jude / TriClip", url: "https://eifu.abbott" },
-  { name: "Boston Scientific", alias: "Watchman / EP / Stents", url: "https://www.ifu-bsci.com" },
-  { name: "Gore Medical", alias: "Gore-Tex / Excluder / TAG", url: "https://eifu.goremedical.com" },
-  { name: "Getinge / Maquet", alias: "Heart-Lung / Perfusion / Tables", url: "https://eifu.getinge.com" },
-  { name: "LivaNova", alias: "Heart-Lung Machines / Stockert", url: "https://eifu.livanova.com/EIFU_Display/" },
-  { name: "AtriCure", alias: "Ablation / Isolator / EPi-Sense", url: "https://www.atricure.com/ifu" },
-  { name: "Cook Medical", alias: "Zenith Grafts / Vascular / GI / Uro", url: "https://ifu.cookmedical.com" },
-  { name: "Terumo", alias: "Cardiovascular / Perfusion / Access", url: "https://www.terumois.com/customer-service/ifus.html" },
-  { name: "Merit Medical", alias: "Interventional / Radiology Access", url: "https://www.merit.com/products/documents/" },
+  { name: "Edwards Lifesciences", blurb: "Heart valves and monitoring", url: "https://www.edwards.com/ifu" },
+  { name: "Abbott", blurb: "Structural heart", url: "https://www.cardiovascular.abbott/us/en/hcp.html" },
+  { name: "Boston Scientific", blurb: "Electrophysiology and stents", url: "https://www.ifu-bsci.com" },
+  { name: "Gore Medical", blurb: "Grafts and patches", url: "https://eifu.goremedical.com" },
+  { name: "Getinge / Maquet", blurb: "Perfusion and surgical tables", url: "https://eifu.getinge.com" },
+  { name: "LivaNova", blurb: "Heart-lung machines", url: "https://eifu.livanova.com/EIFU_Display/" },
+  { name: "AtriCure", blurb: "Cardiac ablation", url: "https://www.atricure.com/ifu" },
+  { name: "Cook Medical", blurb: "Vascular and GI devices", url: "https://ifu.cookmedical.com" },
+  { name: "Terumo", blurb: "Cardiovascular and perfusion", url: "https://www.terumois.com/customer-service/ifus.html" },
+  { name: "Merit Medical", blurb: "Interventional access", url: "https://www.merit.com/products/documents/" },
 
-  // ═══════════════════════════════════════════════
-  // GENERAL SURGERY & WOUND
-  // ═══════════════════════════════════════════════
-  { name: "BD (Becton Dickinson)", alias: "Bard / V. Mueller / Sharps", url: "https://eifu.bd.com" },
-  { name: "Medline", alias: "The Everything House / Sterile Packs", url: "https://www.medline.com/product/instructions-for-use/" },
-  { name: "KCI (3M/Solventum)", alias: "Wound VAC / Prevena / V.A.C.", url: "https://www.solventum.com/en-us/home/medical/resources/" },
-  { name: "Molnlycke", alias: "Hibi / Mepitel / Surgical Gloves", url: "https://www.molnlycke.com/knowledge/" },
-  { name: "Cardinal Health", alias: "Trays / Gowns / Kendall", url: "https://www.cardinalhealth.com/en/product-solutions.html" },
-  { name: "Baxter", alias: "Floseal / Tisseel / Hemostats / IV", url: "https://www.baxter.com/healthcare-professionals" },
-  { name: "Avanos Medical", alias: "Halyard Drapes / Gowns / Masks", url: "https://www.avanos.com" },
-  { name: "DeRoyal", alias: "Custom Trays / Drapes / Wound Care", url: "https://www.deroyal.com" },
+  { name: "BD (Becton Dickinson)", blurb: "Bard, V. Mueller, sharps", url: "https://eifu.bd.com" },
+  { name: "Medline", blurb: "Gloves and sterile packs", url: "https://www.medline.com/product/instructions-for-use/" },
+  { name: "KCI (3M/Solventum)", blurb: "Negative pressure wound therapy", url: "https://www.solventum.com/en-us/home/medical/resources/" },
+  { name: "Molnlycke", blurb: "Surgical gloves and dressings", url: "https://www.molnlycke.com/knowledge/" },
+  { name: "Cardinal Health", blurb: "Gloves, gowns, custom trays", url: "https://www.cardinalhealth.com/en/product-solutions.html" },
+  { name: "Baxter", blurb: "Hemostats and irrigation", url: "https://www.baxter.com/healthcare-professionals" },
+  { name: "Avanos Medical", blurb: "Drapes, gowns, masks", url: "https://www.avanos.com" },
+  { name: "DeRoyal", blurb: "Custom trays and drapes", url: "https://www.deroyal.com" },
 
-  // ═══════════════════════════════════════════════
-  // ENT & PLASTICS
-  // ═══════════════════════════════════════════════
-  { name: "Bien-Air", alias: "High-Speed Drills / ENT Saws", url: "https://www.bienair.com/support/download-center" },
-  { name: "Medartis", alias: "CMF Plates / Facial Fixation", url: "https://medartis.com/en/resources/eifu" },
-  { name: "Stryker CMF", alias: "Cranial Plates / MatrixMIDFACE", url: "https://ifu.stryker.com" },
-  { name: "Acclarent (J&J)", alias: "Balloon Sinuplasty / ENT Nav", url: "https://www.e-ifu.com" },
-  { name: "Mentor (J&J)", alias: "Breast Implants / Tissue Expanders", url: "https://www.e-ifu.com" },
+  { name: "Bien-Air", blurb: "High-speed drills", url: "https://www.bienair.com/support/download-center" },
+  { name: "Medartis", blurb: "Facial fixation plates", url: "https://medartis.com/en/resources/eifu" },
+  { name: "Stryker CMF", blurb: "Cranial and facial plates", url: "https://ifu.stryker.com" },
+  { name: "Acclarent (J&J)", blurb: "ENT balloon dilation", url: "https://www.e-ifu.com" },
+  { name: "Mentor (J&J)", blurb: "Breast implants and expanders", url: "https://www.e-ifu.com" },
 
-  // ═══════════════════════════════════════════════
-  // STERILIZATION & INFECTION PREVENTION
-  // ═══════════════════════════════════════════════
-  { name: "Steris", alias: "V-PRO / Autoclaves / Scope Reprocessing", url: "https://www.steris.com/ifu" },
-  { name: "Getinge (Sterilization)", alias: "Autoclaves / Washer-Disinfectors", url: "https://eifu.getinge.com" },
-  { name: "Advanced Sterilization (ASP)", alias: "Sterrad / CIDEX / OPA", url: "https://eifu.asp.com" },
-  { name: "Healthmark Industries", alias: "Cleaning Verification / CIP", url: "https://www.hmark.com/support-module/" },
+  { name: "Steris", blurb: "Sterilizers and reprocessing", url: "https://www.steris.com/ifu" },
+  { name: "Getinge (Sterilization)", blurb: "Washers and sterilizers", url: "https://eifu.getinge.com" },
+  { name: "Advanced Sterilization (ASP)", blurb: "Low-temperature sterilization", url: "https://eifu.asp.com" },
+  { name: "Healthmark Industries", blurb: "Cleaning verification", url: "https://www.hmark.com/support-module/" },
 
-  // ═══════════════════════════════════════════════
-  // UROLOGY & GYN
-  // ═══════════════════════════════════════════════
-  { name: "Coloplast", alias: "Slings / Continence / InterStim", url: "https://docshub.coloplast.com/ifus/" },
-  { name: "Hologic", alias: "MyoSure / NovaSure / GYN", url: "https://www.hologic.com/support" },
-  { name: "CooperSurgical", alias: "RUMI / Uterine Manipulators", url: "https://www.coopersurgical.com/ifu/" },
-  { name: "Richard Wolf", alias: "Endo Scopes / Litho / Resectoscope", url: "https://www.richard-wolf.com/en-us/download-center" },
+  { name: "Coloplast", blurb: "Continence and slings", url: "https://docshub.coloplast.com/ifus/" },
+  { name: "Hologic", blurb: "GYN tissue removal", url: "https://www.hologic.com/support" },
+  { name: "CooperSurgical", blurb: "Uterine manipulators", url: "https://www.coopersurgical.com/ifu/" },
+  { name: "Richard Wolf", blurb: "Endoscopes and resectoscopes", url: "https://www.richard-wolf.com/en-us/download-center" },
 
-  // ═══════════════════════════════════════════════
-  // POWER, TOURNIQUETS & POSITIONING
-  // ═══════════════════════════════════════════════
-  { name: "Zimmer (Tourniquets)", alias: "ATS Tourniquet / A.T.S.", url: "https://ifu.zimmerbiomet.com" },
-  { name: "Allen Medical (Hill-Rom)", alias: "Table Arms / Stirrups / Beach Chair", url: "https://www.hillrom.com/en/solutions/" },
-  { name: "Skytron", alias: "Surgical Lights / Booms / Tables", url: "https://www.skytron.com/services/" },
+  { name: "Zimmer (Tourniquets)", blurb: "Tourniquet systems", url: "https://ifu.zimmerbiomet.com" },
+  { name: "Allen Medical (Hill-Rom)", blurb: "Positioning and stirrups", url: "https://www.hillrom.com/en/solutions/" },
+  { name: "Skytron", blurb: "Lights, booms, tables", url: "https://www.skytron.com/services/" },
 ];

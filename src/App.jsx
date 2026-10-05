@@ -1,439 +1,317 @@
-import { useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download, Upload, ShieldAlert, Users } from 'lucide-react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { BookOpen, Download, Menu, Plus, Search, Upload, Wifi, WifiOff, X } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
-import { DEMO_SURGEONS } from './data/defaults';
-import { STORAGE_KEY } from './data/constants';
-import { useLocalStorage, useSearch } from './hooks/usePlaybook';
-import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { buildSampleBook } from './data/defaults';
+import { STALE_AFTER_DAYS, emptyProcedure } from './data/schema';
+import { facilityLabels, filterBook } from './data/searchBook';
+import { parseImport, toBackup } from './data/share';
+import { useBook } from './hooks/useBook';
 import { useAuditLog } from './hooks/useAuditLog';
-import { useFacilitySync } from './hooks/useFacilitySync';
-import { isSyncAvailable } from './lib/supabaseClient';
-import { hapticLight, hapticSuccess } from './utils/haptics';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 import SurgeonCard from './components/SurgeonCard';
+import TodayList from './components/TodayList';
 import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
-import { VendorResults, VendorLibrary } from './components/VendorPanels';
+import { VendorLibrary, VendorResults } from './components/VendorPanels';
+import ConfirmNameModal from './components/ConfirmNameModal';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
 const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
-const TeamSyncModal = lazy(() => import('./components/TeamSyncModal'));
+const ProcedureEditor = lazy(() => import('./components/ProcedureEditor'));
+const ShareCardModal = lazy(() => import('./components/ShareCardModal'));
 
 const LAST_EXPORT_KEY = 'scrubplaybook_last_export';
-const BACKUP_SNOOZE_KEY = 'scrubplaybook_backup_snooze_until';
-const BACKUP_REMINDER_DAYS = 30;
-const BACKUP_SNOOZE_DAYS = 14;
-
-function resolveVendorLinks(vendorNames) {
-  return vendorNames
-    .map(name => SURGICAL_VENDORS.find(v => v.name.toLowerCase().includes(name.toLowerCase())))
-    .filter(Boolean);
-}
 
 function daysSince(iso) {
-  return (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
+  return (Date.now() - new Date(iso).getTime()) / 86400000;
 }
 
 export default function App() {
-  const [surgeons, setSurgeons] = useLocalStorage(STORAGE_KEY, DEMO_SURGEONS);
+  const bookApi = useBook();
+  const { book } = bookApi;
+  const { log: auditLog, addEntry: addAudit } = useAuditLog();
+  const { isOnline } = useNetworkStatus();
+
   const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [activeFacility, setActiveFacility] = useState(null);
+  const [addDraft, setAddDraft] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
-  const [activeFacility, setActiveFacility] = useState(null);
-  const [showDisclaimer, setShowDisclaimer] = useState(() => {
-    return !localStorage.getItem('scrubplaybook_disclaimer_seen');
-  });
+  const [editor, setEditor] = useState(null);
+  const [share, setShare] = useState(null);
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('scrubplaybook_disclaimer_seen'));
+  const [notice, setNotice] = useState('');
   const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
-  const [backupSnoozeUntil, setBackupSnoozeUntil] = useState(() => localStorage.getItem(BACKUP_SNOOZE_KEY));
-  const [showTeamSync, setShowTeamSync] = useState(false);
-  const { isOnline } = useNetworkStatus();
-  const { log: auditLog, addEntry: addAudit } = useAuditLog();
-  const searchDebounce = useRef(null);
 
-  // Team Sync: fully inert unless a Supabase project is configured (opt-in,
-  // local-first stays the default). Remote is authoritative once synced —
-  // small-team use case, low conflict risk, documented in supabase/schema.sql.
-  const facilitySync = useFacilitySync({
-    onRemoteCard: (cardData) => {
-      setSurgeons(prev => {
-        const exists = prev.some(s => s.id === cardData.id);
-        return exists ? prev.map(s => s.id === cardData.id ? cardData : s) : [cardData, ...prev];
-      });
-    },
-    onRemoteDelete: (id) => {
-      setSurgeons(prev => prev.filter(s => s.id !== id));
-    },
-  });
+  const filtered = useMemo(
+    () => filterBook(book, search, activeFacility),
+    [book, search, activeFacility],
+  );
+  const labels = facilityLabels(book);
+  const q = search.trim().toLowerCase();
+  const vendorHits = q
+    ? SURGICAL_VENDORS.filter(v => v.name.toLowerCase().includes(q) || v.blurb.toLowerCase().includes(q))
+    : [];
+  const showVendorHits = q && vendorHits.length > 0 && vendorHits.length < SURGICAL_VENDORS.length;
 
-  const { q, filteredSurgeons, filteredVendors, hasVendorResults, facilities } = useSearch(surgeons, SURGICAL_VENDORS, search, activeFacility);
+  const showBackupReminder = book.surgeons.some(s => !s.demo)
+    && (!lastExportAt || daysSince(lastExportAt) > 30);
 
-  // ── Haptic + Audit-enhanced callbacks ──
-  const addSurgeon = useCallback((data) => {
-    setSurgeons(prev => [data, ...prev]);
-    addAudit({ action: 'Surgeon Created', surgeonName: data.name, user: data.addedBy || 'Kyle', note: data.changeNote || null });
-    facilitySync.pushCard(data);
-    hapticSuccess();
-  }, [setSurgeons, addAudit, facilitySync]);
-
-  const deleteSurgeon = useCallback((id) => {
-    setSurgeons(prev => {
-      const target = prev.find(s => s.id === id);
-      if (target) addAudit({ action: 'Surgeon Deleted', surgeonName: target.name, user: target.addedBy || 'Kyle' });
-      return prev.filter(s => s.id !== id);
-    });
-    facilitySync.pushDelete(id);
-    hapticLight();
-  }, [setSurgeons, addAudit, facilitySync]);
-
-  const updateSurgeon = useCallback((updated) => {
-    setSurgeons(prev => prev.map(s => s.id === updated.id ? updated : s));
-    facilitySync.pushCard(updated);
-    hapticLight();
-  }, [setSurgeons, facilitySync]);
-
-  const importSurgeon = useCallback((data) => {
-    const { kind: _kind, ...card } = data;
-    const surgeon = {
-      ...card,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      addedBy: card.addedBy || 'Imported',
-      status: 'unconfirmed', // re-verify locally before trusting an imported card
-      lastVerifiedBy: null,
-      lastVerifiedAt: null,
-    };
-    setSurgeons(prev => [surgeon, ...prev]);
-    addAudit({ action: 'Surgeon Imported', surgeonName: surgeon.name, user: 'Kyle' });
-    facilitySync.pushCard(surgeon);
-    hapticSuccess();
-  }, [setSurgeons, addAudit, facilitySync]);
-
-  const handleEnableSync = useCallback((code) => {
-    facilitySync.enableSync(code);
-    facilitySync.pushBulk(surgeons);
-  }, [facilitySync, surgeons]);
-
-  const exportPlaybook = useCallback(() => {
-    const data = {
-      kind: 'scrubplaybook-backup',
-      v: 1,
-      exportedAt: new Date().toISOString(),
-      surgeons: surgeons,
-    };
+  const exportPlaybook = () => {
+    const data = toBackup(book);
+    if (!data.book.surgeons.length) {
+      setNotice('Samples stay on this device. Add your own surgeon before you export a backup.');
+      return;
+    }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `scrubplaybook-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
+    a.download = `scrubplaybook-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     const now = new Date().toISOString();
     localStorage.setItem(LAST_EXPORT_KEY, now);
     setLastExportAt(now);
-    localStorage.removeItem(BACKUP_SNOOZE_KEY);
-    setBackupSnoozeUntil(null);
-    hapticLight();
-  }, [surgeons]);
+  };
 
-  const snoozeBackupReminder = useCallback(() => {
-    const until = new Date(Date.now() + BACKUP_SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    localStorage.setItem(BACKUP_SNOOZE_KEY, until);
-    setBackupSnoozeUntil(until);
-  }, []);
-
-  // Nudge, don't nag: only for real playbooks that have never been backed up
-  // or haven't been in 30+ days, and never more than once per snooze window.
-  const showBackupReminder = surgeons.length > 0
-    && (!lastExportAt || daysSince(lastExportAt) > BACKUP_REMINDER_DAYS)
-    && (!backupSnoozeUntil || Date.now() > new Date(backupSnoozeUntil).getTime());
-
-  const importBackup = useCallback((backupData) => {
-    if (!backupData || backupData.kind !== 'scrubplaybook-backup' || !Array.isArray(backupData.surgeons)) {
-      return { success: false, error: 'Invalid backup format' };
+  const onImport = (incoming, options = {}) => {
+    try {
+      const parsed = incoming?.surgeons ? { book: incoming } : parseImport(incoming);
+      const result = bookApi.importIncoming(parsed.book, options);
+      addAudit({ action: 'Backup imported', surgeonName: `${result.imported} added`, note: `${result.skipped} skipped` });
+      setNotice(`${result.imported} added, ${result.skipped} skipped. Imported cards are unconfirmed.`);
+      return { success: true, imported: result.imported, skipped: result.skipped };
+    } catch {
+      return { success: false, error: 'That is not a Scrub Playbook card or backup.' };
     }
+  };
 
-    let importedCount = 0;
-    let skippedCount = 0;
-
-    setSurgeons(prev => {
-      const existingIds = new Set(prev.map(s => s.id));
-      const newSurgeons = [];
-
-      backupData.surgeons.forEach(card => {
-        if (existingIds.has(card.id)) {
-          skippedCount++;
-        } else {
-          newSurgeons.push(card);
-          importedCount++;
-        }
-      });
-
-      if (newSurgeons.length > 0) {
-        return [...prev, ...newSurgeons];
-      }
-      return prev;
+  const saveSurgeon = (partial, procedureName = '') => {
+    const surgeon = bookApi.addSurgeon(partial);
+    if (!surgeon) return;
+    addAudit({ action: 'Surgeon created', surgeonName: surgeon.name, user: partial.addedBy });
+    setEditor({
+      surgeon,
+      procedure: emptyProcedure(surgeon.id, { name: procedureName || '' }),
     });
+  };
 
-    addAudit({
-      action: 'Backup Imported',
-      surgeonName: `${importedCount} card(s)`,
-      user: 'Kyle',
-      note: `${importedCount} imported, ${skippedCount} skipped as duplicates`
-    });
-    hapticSuccess();
+  const openProcedure = (procedure) => {
+    setSearch('');
+    setActiveFacility(null);
+    setHighlightId(procedure.id);
+  };
 
-    return { success: true, imported: importedCount, skipped: skippedCount };
-  }, [setSurgeons, addAudit]);
+  useEffect(() => {
+    if (!highlightId) return undefined;
+    const el = document.getElementById(`procedure-${highlightId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const timer = setTimeout(() => setHighlightId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
 
-  const openModal = useCallback(() => setShowModal(true), []);
-
-  const handleSearch = (e) => {
-    setSearch(e.target.value);
-    clearTimeout(searchDebounce.current);
-    searchDebounce.current = setTimeout(() => {
-      if (e.target.value.trim()) hapticLight();
-    }, 300);
+  const saveProcedure = (procedure) => {
+    bookApi.saveProcedure(procedure);
+    const surgeon = book.surgeons.find(s => s.id === procedure.surgeonId);
+    addAudit({ action: 'Procedure saved', surgeonName: surgeon?.name || '', note: procedure.name });
   };
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-slate-100">
-      {/* ═══ HEADER ═══ */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
         <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between mb-3 gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-medical-600 to-medical-800 flex items-center justify-center shadow-lg shadow-medical-600/20">
                 <BookOpen size={18} className="text-white" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h1 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">ScrubPlaybook</h1>
-                  <div className="relative group">
-                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
-                      isOnline ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'
-                    }`}>
-                      {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
-                      {isOnline ? '' : 'Offline'}
-                    </div>
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-1 bg-slate-900 text-white text-[10px] rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      {isOnline ? 'Online — app shell cached for offline use' : 'Offline — running from cache, data saved locally'}
-                    </div>
-                  </div>
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>
+                    {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
+                    {isOnline ? '' : 'Offline'}
+                  </span>
                 </div>
-                <p className="text-[11px] text-slate-400 tracking-wide">YOUR SURGEONS. YOUR RULES.</p>
+                <p className="text-[11px] text-slate-400 tracking-wide truncate">Your notes. The official card still wins.</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {isSyncAvailable && (
-                <button onClick={() => setShowTeamSync(true)}
-                  className={`relative p-2 rounded-xl transition-all cursor-pointer ${
-                    facilitySync.syncCode ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:text-medical-600 hover:bg-medical-50'
-                  }`}
-                  title={facilitySync.syncCode ? `Team Sync: ${facilitySync.syncCode}` : 'Team Sync'}>
-                  <Users size={20} />
-                  {facilitySync.syncCode && facilitySync.status === 'connected' && (
-                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  )}
-                </button>
-              )}
-              <button onClick={exportPlaybook}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Export All Cards (Backup)">
+            <div className="flex items-center gap-1">
+              <button onClick={exportPlaybook} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Export backup">
                 <Download size={20} />
               </button>
-              <button onClick={() => setShowImport(true)}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Import Card / Backup">
+              <button onClick={() => setShowImport(true)} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Import">
                 <Upload size={20} />
               </button>
-              <button onClick={() => setShowVendors(v => !v)}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Vendor Library">
+              <button onClick={() => setShowVendors(v => !v)} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Company pages">
                 <Menu size={20} />
               </button>
-              <button onClick={openModal}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-medical-600 to-medical-700 text-white font-semibold text-sm shadow-lg shadow-medical-600/25 hover:from-medical-700 hover:to-medical-800 active:scale-[0.97] transition-all cursor-pointer">
+              <button onClick={() => setAddDraft({})} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-medical-600 text-white font-semibold text-sm cursor-pointer">
                 <Plus size={16} />
-                <span className="hidden sm:inline">Add Surgeon</span>
+                <span className="hidden sm:inline">Add surgeon</span>
               </button>
             </div>
           </div>
           <div className="relative">
             <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={search} onChange={handleSearch}
-              placeholder="Search surgeons, instruments, vendors…"
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-medical-400/40 focus:bg-white transition-all" />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={16} />
-              </button>
-            )}
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search surgeons, sutures, trays, nicknames…" className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-medical-400/40 focus:bg-white" />
+            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"><X size={16} /></button>}
           </div>
-          {/* ═══ FACILITY FILTER CHIPS (traveler tech: same surgeon, different site) ═══ */}
-          {facilities.length > 1 && (
-            <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-0.5">
-              <button
-                onClick={() => setActiveFacility(null)}
-                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                  !activeFacility ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                All Facilities
-              </button>
-              {facilities.map(f => (
-                <button
-                  key={f}
-                  onClick={() => setActiveFacility(cur => cur === f ? null : f)}
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    activeFacility === f ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  {f}
-                </button>
+          {labels.length > 1 && (
+            <div className="flex gap-1.5 mt-2.5 overflow-x-auto">
+              <button onClick={() => setActiveFacility(null)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${!activeFacility ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>All places</button>
+              {labels.map(label => (
+                <button key={label} onClick={() => setActiveFacility(cur => cur === label ? null : label)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeFacility === label ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{label}</button>
               ))}
             </div>
           )}
         </div>
       </header>
 
-      {/* ═══ VENDOR PANELS ═══ */}
-      {hasVendorResults && <VendorResults vendors={filteredVendors} />}
+      {showVendorHits && <VendorResults vendors={vendorHits} />}
       {showVendors && !q && <VendorLibrary onClose={() => setShowVendors(false)} />}
 
-      {/* ═══ BENTO GRID ═══ */}
       <main className="max-w-5xl mx-auto px-4 py-6">
-        {/* ═══ BACKUP REMINDER (data lives only on this device) ═══ */}
+        {notice && (
+          <div className="bg-medical-50 border border-medical-200 rounded-2xl px-4 py-3 mb-4 flex items-start justify-between gap-3">
+            <p className="text-xs text-medical-900">{notice}</p>
+            <button onClick={() => setNotice('')} className="text-[11px] font-bold text-medical-700 cursor-pointer">Dismiss</button>
+          </div>
+        )}
         {showBackupReminder && (
-          <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
-            <div className="flex items-start gap-2.5">
-              <ShieldAlert size={16} className="text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-800 leading-relaxed">
-                {lastExportAt
-                  ? `It's been over ${BACKUP_REMINDER_DAYS} days since your last backup.`
-                  : "Your cards only live on this device — back them up in case you lose your phone."}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-              <button onClick={snoozeBackupReminder}
-                className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 px-2 py-1 transition-colors cursor-pointer">
-                Remind me later
-              </button>
-              <button onClick={exportPlaybook}
-                className="text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg px-3 py-1.5 transition-all cursor-pointer">
-                Back Up Now
-              </button>
-            </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4 flex items-center justify-between gap-3">
+            <p className="text-xs text-amber-800">Your book lives on this device. Export a backup before you lose the phone.</p>
+            <button onClick={exportPlaybook} className="text-[11px] font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 cursor-pointer">Back up</button>
           </div>
         )}
 
-        {filteredSurgeons.length === 0 ? (
-          <EmptyState hasQuery={!!q} searchTerm={search} onAddSurgeon={openModal} />
+        <TodayList
+          book={book}
+          onOpen={openProcedure}
+          onStartProcedure={(surgeon, procedureName) => setEditor({
+            surgeon,
+            procedure: emptyProcedure(surgeon.id, { name: procedureName }),
+          })}
+          onStartSurgeon={(surgeonName, procedureName) => setAddDraft({ name: surgeonName, procedureName })}
+        />
+
+        {filtered.surgeons.length === 0 ? (
+          <EmptyState
+            hasQuery={!!q}
+            searchTerm={search}
+            onAddSurgeon={() => setAddDraft({})}
+            onPreview={!q ? () => bookApi.loadSamples(buildSampleBook()) : null}
+          />
         ) : (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                {filteredSurgeons.length} Surgeon{filteredSurgeons.length !== 1 ? 's' : ''}
-                {q && ` matching "${search}"`}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredSurgeons.map((s, i) => (
-                <SurgeonCard
-                  key={s.id}
-                  surgeon={s}
-                  vendorLinks={resolveVendorLinks(s.vendorLinks || [])}
-                  index={i}
-                  onDelete={deleteSurgeon}
-                  onUpdate={updateSurgeon}
-                  onAudit={addAudit}
-                  auditLog={auditLog}
-                />
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filtered.surgeons.map(surgeon => (
+              <SurgeonCard
+                key={surgeon.id}
+                surgeon={surgeon}
+                procedures={filtered.procedures.filter(p => p.surgeonId === surgeon.id)}
+                trustProcedures={book.procedures.filter(p => p.surgeonId === surgeon.id)}
+                staleDays={STALE_AFTER_DAYS}
+                highlightId={highlightId}
+                onDeleteSurgeon={(id) => {
+                  bookApi.deleteSurgeon(id);
+                  addAudit({ action: 'Surgeon deleted', surgeonName: surgeon.name });
+                }}
+                onDeleteProcedure={(id) => bookApi.deleteProcedure(id)}
+                onEdit={(procedure) => setEditor({ surgeon, procedure })}
+                onAddProcedure={() => setEditor({ surgeon, procedure: emptyProcedure(surgeon.id, { name: '' }) })}
+                onConfirm={(procedure) => setConfirmTarget(procedure)}
+                onDispute={(procedure) => bookApi.disputeProcedure(procedure.id)}
+                onClearDispute={(id) => bookApi.clearDispute(id)}
+                onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
+                onRename={(id, name) => bookApi.renameSurgeon(id, name)}
+                onCopySample={(id) => {
+                  bookApi.copySample(id);
+                  setNotice('Copied into your book. It is unconfirmed until you were in that case.');
+                }}
+              />
+            ))}
+          </div>
         )}
 
-        {/* ═══ RECENT ACTIVITY FEED ═══ */}
         {auditLog.length > 0 && (
-          <div className="mt-8">
-            <RecentActivity log={auditLog} maxItems={10} />
-          </div>
+          <div className="mt-8"><RecentActivity log={auditLog} /></div>
         )}
       </main>
 
-      {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-slate-200/60 mt-4">
-        <div className="max-w-5xl mx-auto px-4 py-6 text-center space-y-2">
-          <p className="text-xs text-slate-400">ScrubPlaybook — Built by Scrub Techs, for Scrub Techs 🩺</p>
-          <p className="text-[10px] text-slate-300 leading-relaxed max-w-lg mx-auto">
-            This tool is a <strong>personal reference aid</strong> and is not a substitute for official manufacturer Instructions for Use (IFU), facility-specific policies, or surgeon-verified preference cards.
-            Always confirm preferences directly with the surgical team before each procedure.
-            No patient-identifiable information (PHI) should be entered.
-            Aligned with{' '}
-            <a href="https://www.ast.org" target="_blank" rel="noopener noreferrer" className="text-medical-500 hover:text-medical-600 underline">
-              AST
-            </a>{' '}
-            standards of practice.
+        <div className="max-w-5xl mx-auto px-4 py-6 text-center">
+          <p className="text-[10px] text-slate-400 leading-relaxed max-w-xl mx-auto">
+            Scrub Playbook is staff memory, not the medical record, not an order, and not an Instructions for Use.
+            The surgeon and the hospital’s official preference card win when they disagree.
+            Product names such as DePuy, Cardinal Health, Stryker, Ethicon, and Mölnlycke belong to their owners.
+            This app is not those companies. Links open their pages. Their documents stay on their sites.
+            Nothing in this book is uploaded.
           </p>
         </div>
       </footer>
 
-      {/* ═══ MODALS ═══ */}
-      {showModal && (
+      {addDraft && (
         <Suspense fallback={null}>
-          <AddSurgeonModal onClose={() => setShowModal(false)} onSave={addSurgeon} />
+          <AddSurgeonModal
+            initialName={addDraft.name || ''}
+            onClose={() => setAddDraft(null)}
+            onSave={(partial) => {
+              saveSurgeon(partial, addDraft.procedureName || '');
+              setAddDraft(null);
+            }}
+          />
+        </Suspense>
+      )}
+      {editor && (
+        <Suspense fallback={null}>
+          <ProcedureEditor
+            surgeon={editor.surgeon}
+            procedure={editor.procedure}
+            allowSpeech
+            allowOfficial
+            onClose={() => setEditor(null)}
+            onSave={saveProcedure}
+          />
+        </Suspense>
+      )}
+      {share && (
+        <Suspense fallback={null}>
+          <ShareCardModal surgeon={share.surgeon} procedure={share.procedure} onClose={() => setShare(null)} />
         </Suspense>
       )}
       {showImport && (
         <Suspense fallback={null}>
-          <ImportCardModal onClose={() => setShowImport(false)} onImport={importSurgeon} onImportBackup={importBackup} />
+          <ImportCardModal book={book} onClose={() => setShowImport(false)} onImport={onImport} />
         </Suspense>
       )}
-      {showTeamSync && (
-        <Suspense fallback={null}>
-          <TeamSyncModal
-            syncCode={facilitySync.syncCode}
-            status={facilitySync.status}
-            onEnable={handleEnableSync}
-            onDisable={facilitySync.disableSync}
-            onClose={() => setShowTeamSync(false)}
-          />
-        </Suspense>
+      {confirmTarget && (
+        <ConfirmNameModal
+          title="I was in this case"
+          subtitle="Your name and the time are the confirmation. It goes stale. It is not an order."
+          onClose={() => setConfirmTarget(null)}
+          onSubmit={(name) => {
+            bookApi.confirmProcedure(confirmTarget.id, name);
+            addAudit({ action: 'Case confirmed', surgeonName: book.surgeons.find(s => s.id === confirmTarget.surgeonId)?.name || '', user: name });
+            return {};
+          }}
+        />
       )}
       {showDisclaimer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white">
-              <h2 className="text-base font-extrabold tracking-tight flex items-center gap-2">
-                🩺 ScrubPlaybook Disclaimer
-              </h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm font-semibold text-slate-800">
-                Please read and accept the following guidelines before using ScrubPlaybook:
-              </p>
-              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-xs text-slate-600 leading-relaxed space-y-3 max-h-60 overflow-y-auto">
-                <p>
-                  This tool is a <strong>personal reference aid</strong> and is not a substitute for official manufacturer Instructions for Use (IFU), facility-specific policies, or surgeon-verified preference cards.
-                </p>
-                <p>
-                  Always confirm preferences directly with the surgical team before each procedure.
-                </p>
-                <p className="font-semibold text-rose-600">
-                  Strictly NO patient-identifiable information (PHI) should be entered into this application under any circumstances.
-                </p>
-                <p>
-                  This application is aligned with AST standards of practice.
-                </p>
-              </div>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white font-extrabold">Before you write anything down</div>
+            <div className="p-6 space-y-3 text-sm text-slate-600">
+              <p>These are staff notes about how a room runs. They are not the chart, not a medication order, and not the manufacturer’s instructions.</p>
+              <p>Do not enter a patient name, medical record number, date of birth, implant lot, or serial number.</p>
+              <p>When a note and the official preference card disagree, the official card and the surgeon win. These notes stay on this device unless you export or share them yourself.</p>
               <button
-                onClick={() => {
-                  localStorage.setItem('scrubplaybook_disclaimer_seen', 'true');
-                  setShowDisclaimer(false);
-                  hapticSuccess();
-                }}
-                className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold text-sm hover:bg-medical-700 active:scale-[0.98] transition-all shadow-lg shadow-medical-600/20 cursor-pointer"
+                onClick={() => { localStorage.setItem('scrubplaybook_disclaimer_seen', 'true'); setShowDisclaimer(false); }}
+                className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold cursor-pointer"
               >
-                I Understand & Accept
+                I understand
               </button>
             </div>
           </div>

@@ -1,28 +1,28 @@
 # Scrub Playbook
 
-A living survival guide for surgical techs — surgeon preference cards, tech-to-tech notes, and a vendor IFU library, built for the OR: offline-first, sterile-hands friendly, and fast to onboard a traveler or new hire.
+Staff notes for how a case actually runs. A surgeon has procedures. A procedure has the setup, the trays, the sutures, and the nicknames. The hospital’s official preference card still wins.
 
-## Running locally
+## Personal book
 
 ```bash
 npm install
 npm run dev
 ```
 
-Everything works fully offline with zero setup — data lives in your browser's local storage, and the app installs as a PWA (service worker + app-shell caching) so it keeps working in cellular dead zones.
+Notes stay in this browser. Nothing is uploaded. Sample cards are opt-in and are left out of backups and sharing. Export a JSON backup from the header; an imported card arrives unconfirmed.
 
-## Optional: Team Sync
+A product name links to that product’s page on the company’s site when the address has been checked. Otherwise the app offers the company page, and it does not pretend the company page is the product. Manufacturer documents are not copied into the app.
 
-By default this app is single-device, local-only. If you want a team of techs to see each other's cards live instead of exporting/importing one at a time, you can turn on **Team Sync**:
+## Sharing a case
 
-1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run [`supabase/schema.sql`](./supabase/schema.sql).
-3. Copy your Project URL and anon/public key (Project Settings → API).
-4. Copy `.env.example` to `.env` and paste those two values in.
-5. Restart the dev server (or set the same env vars in your Vercel/host deploy).
+There is no account and no server. Share sends the procedure the way it reads on the card. The other phone shows that glance before saving it, and the copy arrives unconfirmed. A short card can also include a code. A JSON backup from the header is the way to keep the whole book. The day’s list stays on this phone. See `docs/pilot.md`.
 
-Once configured, a **Team Sync** button appears in the header. One person taps "Start a New Team Playbook" to get a 6-character facility code, and teammates enter that code to join. Note: a facility code is a shared secret (like a Google Doc link), not per-user login — appropriate for a small trusted team sharing their own reference notes, not for anything sensitive.
+## Scripts
 
-## Tech stack
+```bash
+npm test
+npm run check:links
+npm run lint
+```
 
-React 19 + Vite + Tailwind 4, `vite-plugin-pwa` for offline support, Web Speech API for voice dictation, `qrcode.react` for peer-to-peer card sharing, and an optional Supabase backend for Team Sync.
+`check:links` requests each stored product page and fails on a 404.

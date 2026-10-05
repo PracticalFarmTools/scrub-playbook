@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, ShieldCheck, AlertCircle } from 'lucide-react';
 
-const NAME_KEY = 'scrubplaybook_tech_name';
+import { TECH_NAME_KEY as NAME_KEY } from '../data/schema';
 
 /**
  * Replaces the native prompt() for capturing the confirming tech's name —

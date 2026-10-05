@@ -1,6 +1,8 @@
+import { migrateBook } from './migrate';
+
 /**
- * Default surgeon cards so the app isn't empty on first launch.
- * These are loaded when localStorage has no saved data.
+ * Legacy sample cards. The app does not load these until someone asks
+ * for a preview. migrateBook() turns them into the versioned book.
  */
 export const DEMO_SURGEONS = [
   // ─── DR. MILLER — Tomorrow's Shift ───
@@ -11,7 +13,7 @@ export const DEMO_SURGEONS = [
     facility: 'Riverside Surgical Center',
     status: 'verified',
     lastVerifiedBy: 'Kyle',
-    lastVerifiedAt: '2026-06-20T07:00:00.000Z',
+    lastVerifiedAt: '2026-09-20T07:00:00.000Z',
     addedBy: 'Kyle',
     gloveModel: 'Biogel Micro',
     gloveBrand: 'Mölnlycke',
@@ -69,7 +71,7 @@ export const DEMO_SURGEONS = [
     facility: 'Riverside Surgical Center',
     status: 'verified',
     lastVerifiedBy: 'Kyle',
-    lastVerifiedAt: '2026-06-28T14:30:00.000Z',
+    lastVerifiedAt: '2026-09-28T14:30:00.000Z',
     addedBy: 'Kyle',
     gloveModel: 'Biogel Micro',
     gloveBrand: 'Mölnlycke',
@@ -88,3 +90,11 @@ export const DEMO_SURGEONS = [
     createdAt: '2026-03-16T14:30:00.000Z',
   },
 ];
+
+export function buildSampleBook() {
+  const book = migrateBook(DEMO_SURGEONS);
+  return {
+    ...book,
+    procedures: book.procedures.map(procedure => ({ ...procedure, name: 'Sample setup' })),
+  };
+}

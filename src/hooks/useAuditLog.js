@@ -1,4 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { TECH_NAME_KEY } from '../data/schema';
+
+function currentUser() {
+  try { return localStorage.getItem(TECH_NAME_KEY) || 'Unknown'; }
+  catch { return 'Unknown'; }
+}
 
 const AUDIT_KEY = 'scrubplaybook_audit';
 const MAX_ENTRIES = 100;
@@ -25,7 +31,7 @@ export function useAuditLog() {
       id: crypto.randomUUID(),
       action,
       surgeonName: surgeonName || '',
-      user: user || 'Kyle',
+      user: user || currentUser(),
       note: note?.trim() || null,
       timestamp: new Date().toISOString(),
     };
