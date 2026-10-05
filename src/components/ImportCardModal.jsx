@@ -135,11 +135,11 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 max-h-[90dvh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
+        <div className="shrink-0 flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
           <p className="text-white font-bold text-sm flex items-center gap-2"><Download size={16} /> Import</p>
           <button type="button" onClick={() => { stopScan(); onClose(); }} className="text-medical-200 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
-        <div className="p-5 space-y-4 overflow-y-auto">
+        <div className="p-5 space-y-4 overflow-y-auto min-h-0">
           {!preview && (
             <>
               <p className="text-xs text-slate-500">Paste a procedure or a backup. You will see the card before it is saved. Everything imported is unconfirmed.</p>
@@ -174,7 +174,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                   ))}
                 </div>
               )}
-              <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <div className="rounded-xl border border-slate-200 max-h-72 overflow-y-auto">
                 <ProcedureGlance procedure={incomingProcedure} surgeon={incomingSurgeon} />
               </div>
               {preview.phi.length === 0 && preview.classification?.kind === 'duplicate' && (

@@ -40,15 +40,15 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden max-h-[90dvh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
+        <div className="shrink-0 flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
           <p className="text-white font-bold text-sm flex items-center gap-2"><Share2 size={16} /> Share procedure</p>
           <button type="button" onClick={onClose} className="text-medical-200 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
-        <div className="p-5 flex flex-col gap-4 overflow-y-auto">
+        <div className="p-5 flex flex-col gap-4 overflow-y-auto min-h-0">
           {share.error && <p className="text-sm text-slate-600 text-center">{share.error}</p>}
           {!share.error && (
             <>
-              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{share.glance}</div>
+              <div className="max-h-64 overflow-y-auto rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{share.glance}</div>
               <p className="text-xs text-slate-500 text-center">
                 {share.showQr
                   ? 'The code is the same card, for a phone that can scan.'
