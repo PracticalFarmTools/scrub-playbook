@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BOOK_KEY, LEGACY_STORAGE_KEY, TECH_NAME_KEY, emptyProcedure, emptySurgeon } from '../data/schema';
+import { BOOK_KEY, LEGACY_STORAGE_KEY, TECH_NAME_KEY, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { mergeBackup } from '../data/share';
-import { clearConfirmation, withConfirmation } from '../data/trust';
+import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
 
 function loadBook() {
   try {
@@ -54,17 +54,16 @@ export function useBook() {
   }, []);
 
   const saveProcedure = useCallback((procedure) => {
-    const next = { ...procedure, updatedAt: new Date().toISOString() };
     setBook(prev => {
-      const exists = prev.procedures.some(p => p.id === next.id);
+      const previous = prev.procedures.find(p => p.id === procedure.id);
+      const next = applySave(previous, procedure);
       return {
         ...prev,
-        procedures: exists
+        procedures: previous
           ? prev.procedures.map(p => p.id === next.id ? next : p)
           : [next, ...prev.procedures],
       };
     });
-    return next;
   }, []);
 
   const deleteProcedure = useCallback((id) => {
@@ -94,6 +93,39 @@ export function useBook() {
       ...prev,
       procedures: prev.procedures.map(p => p.id === id ? clearConfirmation({ ...p, disputed: false }) : p),
     }));
+  }, []);
+
+  const renameSurgeon = useCallback((id, name) => {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    setBook(prev => ({
+      ...prev,
+      surgeons: prev.surgeons.map(s => s.id === id ? { ...s, name: trimmed } : s),
+    }));
+  }, []);
+
+  const copySample = useCallback((surgeonId) => {
+    setBook(prev => {
+      const surgeon = prev.surgeons.find(s => s.id === surgeonId && s.demo);
+      if (!surgeon) return prev;
+      const id = uid();
+      const now = new Date().toISOString();
+      const copy = { ...surgeon, id, demo: false, createdAt: now, addedBy: readTechName() };
+      const procedures = prev.procedures.filter(p => p.surgeonId === surgeonId).map(p => stripConfirmation({
+        ...p,
+        id: uid(),
+        surgeonId: id,
+        demo: false,
+        name: 'Copied setup',
+        updatedAt: now,
+        baseUpdatedAt: now,
+      }));
+      return {
+        ...prev,
+        surgeons: [copy, ...prev.surgeons],
+        procedures: [...procedures, ...prev.procedures],
+      };
+    });
   }, []);
 
   const loadSamples = useCallback((sample) => {
@@ -133,6 +165,8 @@ export function useBook() {
     confirmProcedure,
     disputeProcedure,
     clearDispute,
+    renameSurgeon,
+    copySample,
     loadSamples,
     importIncoming,
     replaceProcedure,

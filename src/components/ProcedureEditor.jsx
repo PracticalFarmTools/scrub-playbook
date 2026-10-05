@@ -58,14 +58,19 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
     <div className="fixed inset-0 z-50" style={{ background: 'rgba(15,23,42,0.5)' }}>
       <div className="absolute inset-y-0 right-0 w-full sm:max-w-lg bg-white shadow-2xl flex flex-col">
         <div className="shrink-0 bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 flex items-center justify-between">
-          <button onClick={onClose} className="flex items-center gap-1 text-medical-200 hover:text-white text-sm font-medium cursor-pointer">
+          <button type="button" onClick={onClose} className="flex items-center gap-1 text-medical-200 hover:text-white text-sm font-medium cursor-pointer">
             <ChevronLeft size={18} /> Cancel
           </button>
           <h2 className="text-white font-bold text-sm truncate px-2">{surgeon.name}</h2>
-          <button onClick={save} className="px-4 py-1.5 bg-white/15 hover:bg-white/25 text-white text-sm font-bold rounded-lg cursor-pointer">Save</button>
+          <button type="button" onClick={save} className="px-4 py-1.5 bg-white/15 hover:bg-white/25 text-white text-sm font-bold rounded-lg cursor-pointer">Save</button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+          {(procedure.confirmations?.length > 0 || procedure.lastConfirmedAt) && !procedure.disputed && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              A change clears “Matched a case.” Confirm it again after the next case that matches.
+            </p>
+          )}
           <div>
             <label className={label}>Procedure, as the board writes it</label>
             <input value={draft.name === 'All cases (imported)' ? '' : draft.name} placeholder="Right primary total knee" onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} className={input} />
@@ -129,8 +134,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
                 <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: opt.color }} />{opt.label}</span>
               )} />
               <select value={sutureSize} onChange={e => setSutureSize(e.target.value)} className={input}>{SUTURE_SIZES.map(s => <option key={s}>{s}</option>)}</select>
-              <select value={needle} onChange={e => setNeedle(e.target.value)} className={input}>{NEEDLE_TYPES.map(n => <option key={n.code} value={n.code}>{n.code} — {n.description}</option>)}</select>
-              <select value={layer} onChange={e => setLayer(e.target.value)} className={input}>{LAYERS.map(item => <option key={item}>{item}</option>)}</select>
+              <select value={needle} onChange={e => setNeedle(e.target.value)} className={input + ' col-span-2'}>{NEEDLE_TYPES.map(n => <option key={n.code} value={n.code}>{n.code} — {n.description}</option>)}</select>
+              <select value={layer} onChange={e => setLayer(e.target.value)} className={input + ' col-span-2'}>{LAYERS.map(item => <option key={item}>{item}</option>)}</select>
             </div>
             <button type="button" onClick={() => {
               const found = SUTURE_LIBRARY.find(s => s.name === sutureName);
@@ -143,7 +148,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <div className="flex flex-wrap gap-2">
               {blocks.sutures.map(suture => (
                 <button key={suture.id} type="button" onClick={() => setBlocks({ sutures: blocks.sutures.filter(s => s.id !== suture.id) })} className="rounded-full px-3 py-1 text-xs font-bold cursor-pointer" style={{ background: suture.color, color: suture.textColor }}>
-                  {suture.layer} {suture.name} {suture.size} {suture.needle} ×
+                  {suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? `${suture.layer} ` : ''}{suture.name} {suture.size} {suture.needle} ×
                 </button>
               ))}
             </div>
@@ -166,7 +171,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
                     options={[{ value: '', label: 'None', sublabel: '' }, ...GLOVE_OPTIONS]}
                     value={blocks.gloves?.[which]?.productId || ''}
                     onChange={(id) => setBlocks({ gloves: { ...blocks.gloves, [which]: id ? gloveFromId(id, blocks.gloves?.[which]?.size || '7.0') : null } })}
-                    placeholder={`${which} glove`}
+                    placeholder="Search gloves"
                     renderSelected={opt => <span>{opt?.label || 'None'}</span>}
                   />
                 </div>
@@ -221,7 +226,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
         </div>
 
         <div className="shrink-0 border-t border-slate-100 px-5 py-4">
-          <button onClick={save} className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Save procedure</button>
+          <button type="button" onClick={save} className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Save procedure</button>
         </div>
       </div>
       {phi.length > 0 && <PhiPause signals={phi} onEdit={() => setPhi([])} />}

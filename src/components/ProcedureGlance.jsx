@@ -6,11 +6,11 @@ import ProductLink from './ProductLink';
 import { resolveProductLink } from '../data/productLink';
 
 const STATUS_CLASS = {
-  [CARD_STATUS.CONFIRMED]: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  [CARD_STATUS.NOTED]: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
-  [CARD_STATUS.UNCONFIRMED]: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  [CARD_STATUS.STALE]: 'bg-amber-500/15 text-amber-200 border-amber-500/40',
-  [CARD_STATUS.DISPUTED]: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  [CARD_STATUS.CONFIRMED]: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  [CARD_STATUS.NOTED]: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  [CARD_STATUS.UNCONFIRMED]: 'bg-amber-50 text-amber-900 border-amber-200',
+  [CARD_STATUS.STALE]: 'bg-amber-50 text-amber-900 border-amber-300',
+  [CARD_STATUS.DISPUTED]: 'bg-rose-50 text-rose-800 border-rose-200',
 };
 
 function timeAgo(iso) {
@@ -29,7 +29,7 @@ function statusLabel(state) {
   }
   if (state.status === CARD_STATUS.NOTED) return `One staff member · ${timeAgo(state.at)}`;
   if (state.status === CARD_STATUS.STALE) return `Stale · last matched ${timeAgo(state.at)}`;
-  if (state.status === CARD_STATUS.DISPUTED) return 'Disputed';
+  if (state.status === CARD_STATUS.DISPUTED) return 'Flagged · do not treat this as a match';
   return 'Unconfirmed';
 }
 
@@ -81,6 +81,11 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
       <p className="px-5 pb-3 text-[11px] text-slate-400 leading-relaxed">
         Staff notes from recent cases. The surgeon and the official card win.
       </p>
+      {(procedure.demo || surgeon?.demo) && (
+        <p className="mx-5 mb-3 rounded-lg bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-600">
+          Sample. Not from your hospital. Copy it into your book before you change it. Samples are not shared or backed up.
+        </p>
+      )}
 
       <TextBlock label="Room start" text={blocks.room?.text} />
       <TextBlock label="Equipment" text={blocks.equipment?.text} />
@@ -94,33 +99,34 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <div className="px-5 pb-4">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Sutures</p>
           <div className="flex flex-wrap gap-2">
-            {sutures.map(suture => {
+            {sutures.map(suture => (
+              <span
+                key={suture.id}
+                className="suture-pill inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold shadow-sm"
+                style={{ backgroundColor: suture.color, color: suture.textColor }}
+              >
+                {suture.layer && suture.layer.toLowerCase() !== 'unspecified' && (
+                  <span className="opacity-80">{suture.layer}</span>
+                )}
+                <ProductLink productId={suture.productId} catalogNumber={suture.catalogNumber} overrideUrl={suture.overrideUrl} showCompany={false}>
+                  {suture.name}
+                </ProductLink>
+                {suture.size && <span className="opacity-80">{suture.size}</span>}
+                {suture.needle && <span className="opacity-80">{suture.needle}</span>}
+                {suture.open && <span className="opacity-80">open {suture.open}</span>}
+                {suture.hold && <span className="opacity-80">hold {suture.hold}</span>}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+            {[...new Map(sutures.map(suture => {
               const link = resolveProductLink({ productId: suture.productId, catalogNumber: suture.catalogNumber, overrideUrl: suture.overrideUrl });
-              return (
-                <span key={suture.id} className="inline-flex items-center gap-1.5">
-                  <span
-                    className="suture-pill inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold shadow-sm"
-                    style={{ backgroundColor: suture.color, color: suture.textColor }}
-                  >
-                    {suture.layer && suture.layer.toLowerCase() !== 'unspecified' && (
-                      <span className="opacity-80">{suture.layer}</span>
-                    )}
-                    <ProductLink productId={suture.productId} catalogNumber={suture.catalogNumber} overrideUrl={suture.overrideUrl} showCompany={false}>
-                      {suture.name}
-                    </ProductLink>
-                    {suture.size && <span className="opacity-80">{suture.size}</span>}
-                    {suture.needle && <span className="opacity-80">{suture.needle}</span>}
-                    {suture.open && <span className="opacity-80">open {suture.open}</span>}
-                    {suture.hold && <span className="opacity-80">hold {suture.hold}</span>}
-                  </span>
-                  {link?.kind === 'company' && (
-                    <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-[10px] font-semibold text-medical-600 hover:text-medical-800">
-                      {link.label}
-                    </a>
-                  )}
-                </span>
-              );
-            })}
+              return link?.kind === 'company' ? [link.href, link] : null;
+            }).filter(Boolean)).values()].map(link => (
+              <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className="text-[10px] font-semibold text-medical-600 hover:text-medical-800">
+                {link.label}
+              </a>
+            ))}
           </div>
         </div>
       )}

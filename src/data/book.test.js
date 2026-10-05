@@ -6,7 +6,7 @@ import { resolveProductLink } from './productLink';
 import { filterBook } from './searchBook';
 import { mergeBackup, parseImport, qrFits, toBackup, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, emptyBlocks, emptyProcedure, textBlock } from './schema';
-import { detectConflict, trustState, withConfirmation } from './trust';
+import { applySave, detectConflict, trustState, withConfirmation } from './trust';
 import { validateProcedure } from './validate';
 
 describe('migrateBook', () => {
@@ -59,6 +59,30 @@ describe('trust', () => {
     expect(trustState(twice, { mode: 'facility', now: Date.parse('2026-10-05T00:00:00.000Z') }).status).toBe('noted');
     const both = withConfirmation(twice, { name: 'Blair', userId: 'b', at: '2026-10-03T00:00:00.000Z', mode: 'facility' });
     expect(trustState(both, { mode: 'facility', now: Date.parse('2026-10-05T00:00:00.000Z') }).status).toBe('confirmed');
+  });
+
+  it('keeps one name on a personal confirmation', () => {
+    const once = withConfirmation(base, { name: 'Alex', at: '2026-10-01T00:00:00.000Z' });
+    const twice = withConfirmation(once, { name: 'Blair', at: '2026-10-02T00:00:00.000Z' });
+    expect(twice.confirmations).toEqual([{ name: 'Blair', userId: null, at: '2026-10-02T00:00:00.000Z' }]);
+    expect(trustState(twice, { now: Date.parse('2026-10-05T00:00:00.000Z') }).names).toEqual(['Blair']);
+  });
+
+  it('clears a match when the note changes and keeps it when the save is identical', () => {
+    const confirmed = withConfirmation({
+      ...base,
+      name: 'Right total knee',
+      blocks: { note: { text: 'Damp lap' } },
+      official: { label: '', note: '' },
+    }, { name: 'Alex', at: '2026-10-01T00:00:00.000Z' });
+    const same = applySave(confirmed, confirmed, '2026-10-05T00:00:00.000Z');
+    expect(same.confirmations).toHaveLength(1);
+    const edited = applySave(confirmed, {
+      ...confirmed,
+      blocks: { note: { text: 'Dry lap' } },
+    }, '2026-10-05T00:00:00.000Z');
+    expect(edited.confirmations).toEqual([]);
+    expect(edited.lastConfirmedAt).toBeNull();
   });
 
   it('goes stale from the clock', () => {

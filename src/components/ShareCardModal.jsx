@@ -5,6 +5,7 @@ import { toShareableCard } from '../data/share';
 
 export default function ShareCardModal({ surgeon, procedure, onClose }) {
   const [copied, setCopied] = useState(false);
+  const [showText, setShowText] = useState(false);
   const share = toShareableCard(surgeon, procedure);
 
   const copyText = async () => {
@@ -13,7 +14,8 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
       await navigator.clipboard.writeText(share.text);
       setCopied(true);
     } catch {
-      /* QR or the file path remains */
+      setShowText(true);
+      setCopied(false);
     }
   };
 
@@ -30,8 +32,8 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
             <>
               <p className="text-sm text-slate-500 text-center">
                 {share.showQr
-                  ? 'The other tech opens Import and scans this. The card arrives unconfirmed.'
-                  : 'This procedure is too long for a reliable QR code. Copy the text instead. It arrives unconfirmed.'}
+                  ? 'On the other phone, open Import and paste this. The code is there if that phone can scan from Import. The card arrives unconfirmed.'
+                  : 'This procedure is too long for a reliable code. Copy the text into Import on the other phone. It arrives unconfirmed.'}
               </p>
               {share.showQr && (
                 <div className="p-3 bg-white border border-slate-200 rounded-xl">
@@ -43,6 +45,11 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
                 {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
                 {copied ? 'Copied' : 'Copy as text'}
               </button>
+              {showText && <p className="text-[11px] text-slate-500 text-center">Select the text below and copy it.</p>}
+              <button type="button" onClick={() => setShowText(v => !v)} className="text-[11px] font-bold text-medical-700 cursor-pointer">{showText ? 'Hide text' : 'Show text'}</button>
+              {showText && (
+                <textarea readOnly value={share.text} rows={5} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono px-2 py-2" />
+              )}
             </>
           )}
         </div>

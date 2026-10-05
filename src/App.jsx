@@ -40,6 +40,7 @@ export default function App() {
   const [share, setShare] = useState(null);
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('scrubplaybook_disclaimer_seen'));
+  const [notice, setNotice] = useState('');
   const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
 
   const filtered = useMemo(
@@ -58,6 +59,10 @@ export default function App() {
 
   const exportPlaybook = () => {
     const data = toBackup(book);
+    if (!data.book.surgeons.length) {
+      setNotice('Samples stay on this device. Add your own surgeon before you export a backup.');
+      return;
+    }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -75,6 +80,7 @@ export default function App() {
       const parsed = parseImport(raw);
       const result = bookApi.importIncoming(parsed.book);
       addAudit({ action: 'Backup imported', surgeonName: `${result.imported} added`, note: `${result.skipped} skipped` });
+      setNotice(`${result.imported} added, ${result.skipped} skipped. Imported cards are unconfirmed.`);
       return { success: true, imported: result.imported, skipped: result.skipped };
     } catch {
       return { success: false, error: 'That is not a Scrub Playbook card or backup.' };
@@ -153,6 +159,12 @@ export default function App() {
       {showVendors && !q && <VendorLibrary onClose={() => setShowVendors(false)} />}
 
       <main className="max-w-5xl mx-auto px-4 py-6">
+        {notice && (
+          <div className="bg-medical-50 border border-medical-200 rounded-2xl px-4 py-3 mb-4 flex items-start justify-between gap-3">
+            <p className="text-xs text-medical-900">{notice}</p>
+            <button onClick={() => setNotice('')} className="text-[11px] font-bold text-medical-700 cursor-pointer">Dismiss</button>
+          </div>
+        )}
         {showBackupReminder && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4 flex items-center justify-between gap-3">
             <p className="text-xs text-amber-800">Your book lives on this device. Export a backup before you lose the phone.</p>
@@ -184,7 +196,13 @@ export default function App() {
                 onAddProcedure={() => setEditor({ surgeon, procedure: emptyProcedure(surgeon.id, { name: '' }) })}
                 onConfirm={(procedure) => setConfirmTarget(procedure)}
                 onDispute={(procedure) => bookApi.disputeProcedure(procedure.id)}
+                onClearDispute={(id) => bookApi.clearDispute(id)}
                 onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
+                onRename={(id, name) => bookApi.renameSurgeon(id, name)}
+                onCopySample={(id) => {
+                  bookApi.copySample(id);
+                  setNotice('Copied into your book. It is unconfirmed until you were in that case.');
+                }}
               />
             ))}
           </div>

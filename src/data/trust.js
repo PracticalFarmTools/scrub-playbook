@@ -33,21 +33,17 @@ export function trustState(procedure, { mode = 'personal', staleDays = STALE_AFT
 }
 
 export function withConfirmation(procedure, { name, userId = null, at = new Date().toISOString(), mode = 'personal' } = {}) {
-  const confs = [...(procedure.confirmations || [])];
   if (mode === 'facility' && userId) {
+    const confs = [...(procedure.confirmations || [])];
     const existing = confs.findIndex(c => c.userId === userId);
-    if (existing >= 0) {
-      confs[existing] = { ...confs[existing], name, at };
-    } else {
-      confs.push({ name, userId, at });
-    }
-  } else {
-    confs.push({ name, userId: userId || null, at });
+    if (existing >= 0) confs[existing] = { ...confs[existing], name, at };
+    else confs.push({ name, userId, at });
+    return { ...procedure, disputed: false, confirmations: confs, lastConfirmedAt: at, updatedAt: at };
   }
   return {
     ...procedure,
     disputed: false,
-    confirmations: confs,
+    confirmations: [{ name, userId: null, at }],
     lastConfirmedAt: at,
     updatedAt: at,
   };
@@ -61,6 +57,28 @@ export function clearConfirmation(procedure, at = new Date().toISOString()) {
     disputed: false,
     updatedAt: at,
   };
+}
+
+function contentKey(procedure) {
+  return JSON.stringify({
+    name: procedure?.name || '',
+    blocks: procedure?.blocks || {},
+    official: procedure?.official || {},
+  });
+}
+
+/** A real edit no longer matches the case that was confirmed. */
+export function applySave(previous, next, at = new Date().toISOString()) {
+  const saved = { ...next, updatedAt: at };
+  if (previous && contentKey(previous) === contentKey(next)) {
+    return {
+      ...saved,
+      confirmations: previous.confirmations || [],
+      lastConfirmedAt: previous.lastConfirmedAt || null,
+      disputed: Boolean(previous.disputed),
+    };
+  }
+  return stripConfirmation(saved);
 }
 
 export function stripConfirmation(procedure) {

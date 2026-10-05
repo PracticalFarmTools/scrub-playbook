@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, ChevronDown, X } from 'lucide-react';
 
 /**
@@ -14,8 +15,22 @@ export default function SearchableDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [menuBox, setMenuBox] = useState(null);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
+
+  const placeMenu = () => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < 220 && rect.top > spaceBelow;
+    setMenuBox({
+      left: rect.left,
+      width: rect.width,
+      top: openUp ? undefined : rect.bottom + 4,
+      bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
+    });
+  };
 
   const selectedOption = options.find(o => o.value === value);
 
@@ -28,15 +43,25 @@ export default function SearchableDropdown({
 
   // Close on outside click
   useEffect(() => {
-    const handler = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setOpen(false);
-        setQuery('');
-      }
+    if (!open) return undefined;
+    const frame = requestAnimationFrame(() => placeMenu());
+    const close = (e) => {
+      if (containerRef.current?.contains(e.target)) return;
+      if (e.target instanceof Node && document.getElementById('scrub-dropdown-menu')?.contains(e.target)) return;
+      setOpen(false);
+      setQuery('');
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    const move = () => placeMenu();
+    document.addEventListener('mousedown', close);
+    window.addEventListener('resize', move);
+    window.addEventListener('scroll', move, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('resize', move);
+      window.removeEventListener('scroll', move, true);
+    };
+  }, [open]);
 
   const handleSelect = (opt) => {
     onChange(opt.value);
@@ -77,7 +102,7 @@ export default function SearchableDropdown({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
-            className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white border-2 border-medical-400 text-sm text-slate-800 placeholder-slate-400 focus:outline-none transition-all"
+            className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-white border-2 border-medical-400 text-sm text-slate-800 placeholder-slate-400 focus:outline-none transition-all"
           />
           <button type="button" onClick={() => { setOpen(false); setQuery(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
             <X size={14} />
@@ -86,8 +111,12 @@ export default function SearchableDropdown({
       )}
 
       {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+      {open && menuBox && createPortal(
+        <div
+          id="scrub-dropdown-menu"
+          className="bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto"
+          style={{ position: 'fixed', zIndex: 70, left: menuBox.left, width: menuBox.width, top: menuBox.top, bottom: menuBox.bottom }}
+        >
           {filtered.length === 0 ? (
             <div className="px-4 py-3 text-sm text-slate-400 text-center">No matches</div>
           ) : (
@@ -113,7 +142,8 @@ export default function SearchableDropdown({
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

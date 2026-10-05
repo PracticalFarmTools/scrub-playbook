@@ -92,5 +92,9 @@ export const DEMO_SURGEONS = [
 ];
 
 export function buildSampleBook() {
-  return migrateBook(DEMO_SURGEONS);
+  const book = migrateBook(DEMO_SURGEONS);
+  return {
+    ...book,
+    procedures: book.procedures.map(procedure => ({ ...procedure, name: 'Sample setup' })),
+  };
 }
