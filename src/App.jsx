@@ -8,6 +8,7 @@ import { parseImport, toBackup } from './data/share';
 import { useBook } from './hooks/useBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import CaseView from './components/CaseView';
 import SurgeonCard from './components/SurgeonCard';
 import TodayList from './components/TodayList';
 import EmptyState from './components/EmptyState';
@@ -42,6 +43,7 @@ export default function App() {
   const [share, setShare] = useState(null);
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('scrubplaybook_disclaimer_seen'));
+  const [caseView, setCaseView] = useState(null);
   const [notice, setNotice] = useState('');
   const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
 
@@ -103,6 +105,15 @@ export default function App() {
     setSearch('');
     setActiveFacility(null);
     setHighlightId(procedure.id);
+  };
+
+  const openCase = (surgeon, procedure) => {
+    setCaseView({ surgeonId: surgeon.id, procedureId: procedure.id });
+  };
+
+  const openTodayCase = (procedure) => {
+    openProcedure(procedure);
+    setCaseView({ surgeonId: procedure.surgeonId, procedureId: procedure.id });
   };
 
   useEffect(() => {
@@ -190,7 +201,7 @@ export default function App() {
 
         <TodayList
           book={book}
-          onOpen={openProcedure}
+          onOpen={openTodayCase}
           onStartProcedure={(surgeon, procedureName) => setEditor({
             surgeon,
             procedure: emptyProcedure(surgeon.id, { name: procedureName }),
@@ -228,6 +239,7 @@ export default function App() {
                 onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
                 onRename={(id, name) => bookApi.renameSurgeon(id, name)}
                 onSaveFirstCase={(id, lines) => bookApi.saveFirstCase(id, lines)}
+                onCaseView={openCase}
                 onCopySample={(id) => {
                   bookApi.copySample(id);
                   setNotice('Copied into your book. It is unconfirmed until you were in that case.');
@@ -298,6 +310,14 @@ export default function App() {
             addAudit({ action: 'Case confirmed', surgeonName: book.surgeons.find(s => s.id === confirmTarget.surgeonId)?.name || '', user: name });
             return {};
           }}
+        />
+      )}
+      {caseView && (
+        <CaseView
+          surgeon={book.surgeons.find(item => item.id === caseView.surgeonId)}
+          procedure={book.procedures.find(item => item.id === caseView.procedureId)}
+          staleDays={STALE_AFTER_DAYS}
+          onClose={() => setCaseView(null)}
         />
       )}
       {showDisclaimer && (

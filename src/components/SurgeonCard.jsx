@@ -156,6 +156,7 @@ export default function SurgeonCard({
         >
           <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
           <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
+            <button type="button" onClick={() => onCaseView?.(surgeon, procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Case view</button>
             {surgeon.demo ? (
               <button type="button" onClick={() => onCopySample(surgeon.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy into my book</button>
             ) : (
