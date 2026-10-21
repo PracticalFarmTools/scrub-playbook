@@ -321,7 +321,13 @@ export default function App() {
         </Suspense>
       )}
       {showPlaces && (
-        <PlacesSheet book={book} onClose={() => setShowPlaces(false)} onHandOff={handOffPlace} />
+        <PlacesSheet
+          book={book}
+          onClose={() => setShowPlaces(false)}
+          onHandOff={handOffPlace}
+          onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
+          onDelete={(place) => bookApi.removePlace(place)}
+        />
       )}
       {showImport && (
         <Suspense fallback={null}>

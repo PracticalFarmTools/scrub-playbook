@@ -85,7 +85,7 @@ export function todayItem({ day = localDay(), startsAt = '', room = '', surgeonN
 export function resolveTodayTap(book, item) {
   const surgeonName = (item?.surgeonName || '').trim();
   const procedureName = (item?.procedureName || '').trim();
-  const surgeons = (book?.surgeons || []).filter(surgeon => !surgeon.demo && samePersonName(surgeon.name, surgeonName));
+  const surgeons = (book?.surgeons || []).filter(surgeon => !surgeon.demo && !surgeon.archived && samePersonName(surgeon.name, surgeonName));
   if (surgeons.length === 0) {
     return { action: 'start-surgeon', surgeonName, procedureName };
   }

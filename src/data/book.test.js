@@ -3,7 +3,8 @@ import { DEMO_SURGEONS, buildSampleBook } from './defaults';
 import { migrateBook } from './migrate';
 import { findPhiInSurgeon, findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
-import { filterBook } from './searchBook';
+import { archivePlace, deletePlace } from './places';
+import { facilityLabels, filterBook } from './searchBook';
 import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toPlacePack, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
@@ -503,6 +504,30 @@ describe('today', () => {
     expect(loadToday(mixed, '2026-10-05').items.map(item => item.id)).toEqual(['today', 'tomorrow']);
     expect(visibleDay(mixed, '2026-10-05').map(item => item.id)).toEqual(['today']);
     expect(visibleDay(mixed, '2026-10-06').map(item => item.id)).toEqual(['tomorrow']);
+  });
+
+  it('hides an archived place, restores it, and deletes only that place', () => {
+    const book = {
+      surgeons: [
+        { id: 's1', name: 'Dr. Chen', facility: 'Main', demo: false, archived: false },
+        { id: 's2', name: 'Dr. Patel', facility: 'Other', demo: false },
+      ],
+      procedures: [
+        emptyProcedure('s1', { name: 'Knee' }),
+        emptyProcedure('s2', { name: 'Lap' }),
+      ],
+    };
+    const archived = archivePlace(book, 'Main', true);
+    expect(filterBook(archived, '').surgeons.map(item => item.id)).toEqual(['s2']);
+    expect(facilityLabels(archived)).toEqual(['Other']);
+    expect(resolveTodayTap(archived, { surgeonName: 'Dr. Chen', procedureName: 'Knee' }).action).toBe('start-surgeon');
+    expect(classifyIncomingCard(archived, { name: 'Dr. Chen', facility: 'Main' }, { name: 'Knee', approach: '' }).kind).toBe('new');
+    const restored = archivePlace(archived, 'Main', false);
+    expect(filterBook(restored, 'chen').surgeons).toHaveLength(1);
+    const removed = deletePlace(restored, 'Main');
+    expect(removed.surgeons.map(item => item.id)).toEqual(['s2']);
+    expect(removed.procedures.map(item => item.surgeonId)).toEqual(['s2']);
+    expect(toBackup(archived).book.surgeons.map(item => item.id).sort()).toEqual(['s1', 's2']);
   });
 
   it('asks which approach when two procedures share a name', () => {

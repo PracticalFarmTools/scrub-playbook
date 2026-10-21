@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { mergeBackup, placeIncomingCard } from '../data/share';
+import { archivePlace, deletePlace } from '../data/places';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
 
 function loadBook() {
@@ -108,6 +109,14 @@ export function useBook() {
     }));
   }, []);
 
+  const setPlaceArchived = useCallback((place, archived) => {
+    setBook(prev => archivePlace(prev, place, archived));
+  }, []);
+
+  const removePlace = useCallback((place) => {
+    setBook(prev => deletePlace(prev, place));
+  }, []);
+
   const updateSurgeon = useCallback((id, { name, facility } = {}) => {
     const trimmed = (name || '').trim();
     if (!trimmed) return;
@@ -181,6 +190,8 @@ export function useBook() {
     disputeProcedure,
     clearDispute,
     saveFirstCase,
+    setPlaceArchived,
+    removePlace,
     updateSurgeon,
     copySample,
     loadSamples,

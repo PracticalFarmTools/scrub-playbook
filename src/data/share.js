@@ -342,6 +342,7 @@ function blankOrEqual(a, b) {
 export function classifyIncomingCard(book, surgeon, procedure) {
   const matches = (book?.surgeons || []).filter(existing => (
     !existing.demo
+    && !existing.archived
     && samePersonName(existing.name, surgeon?.name)
     && blankOrEqual(existing.specialty, surgeon?.specialty)
     && blankOrEqual(existing.facility, surgeon?.facility)

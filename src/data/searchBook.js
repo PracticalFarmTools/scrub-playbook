@@ -23,7 +23,7 @@ function blobProcedure(procedure) {
 }
 
 export function filterBook(book, query, facility = null) {
-  const surgeons = (book?.surgeons || []).filter(s => !facility || s.facility === facility);
+  const surgeons = (book?.surgeons || []).filter(s => !s.archived && (!facility || s.facility === facility));
   const allowed = new Set(surgeons.map(s => s.id));
   const procedures = (book?.procedures || []).filter(p => allowed.has(p.surgeonId));
   const q = (query || '').trim().toLowerCase();
@@ -45,5 +45,5 @@ export function filterBook(book, query, facility = null) {
 }
 
 export function facilityLabels(book) {
-  return [...new Set((book?.surgeons || []).map(s => s.facility).filter(Boolean))].sort();
+  return [...new Set((book?.surgeons || []).filter(s => !s.archived).map(s => s.facility).filter(Boolean))].sort();
 }
