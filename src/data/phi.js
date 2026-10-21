@@ -1,14 +1,15 @@
 /**
  * Pause, not a silent filter and not a promise of completeness.
- * Strong patterns must be removed. The word "patient" also pauses
- * so a case story is not saved as a setup note.
+ * Setup language such as "patient positioning" is allowed.
+ * A patient name or number is not.
  */
 const RULES = [
   { id: 'ssn', label: 'a Social Security number', test: (t) => /\b\d{3}-\d{2}-\d{4}\b/.test(t) },
   { id: 'mrn', label: 'a medical record number', test: (t) => /\bmrn\b[:\s#-]*\d+/i.test(t) },
   { id: 'dob', label: 'a date of birth', test: (t) => /\b(dob|date of birth)\b/i.test(t) },
   { id: 'long-id', label: 'a long identifying number', test: (t) => /\b\d{7,}\b/.test(t) },
-  { id: 'patient', label: 'the word “patient”', test: (t) => /\bpatients?\b/i.test(t) },
+  { id: 'patient-name', label: 'a patient name', test: (t) => /\b(patient|pt)(['’]s)?\s+name\b/i.test(t) },
+  { id: 'patient-number', label: 'a patient number', test: (t) => /\b(patient|pt)\s*(#|no\.?|number)\s*\d+/i.test(t) },
   { id: 'mrn-word', label: 'the word “MRN”', test: (t) => /\bmrn\b/i.test(t) },
 ];
 
@@ -27,17 +28,32 @@ export function findPhiInProcedure(procedure) {
   const blocks = procedure?.blocks || {};
   const chunks = [
     procedure?.name,
+    procedure?.approach,
     procedure?.reportNote,
     procedure?.official?.note,
     procedure?.official?.label,
+    blocks.position?.text,
+    blocks.prep?.text,
+    blocks.drapes?.text,
     blocks.room?.text,
     blocks.equipment?.text,
     blocks.endOfCase?.text,
     blocks.note?.text,
+    ...(blocks.steps || []).map(step => `${step.title || ''} ${step.ready || ''} ${step.habit || ''}`),
+    ...(blocks.instruments || []).map(item => `${item.name || ''} ${item.from || ''}`),
     ...(blocks.trays || []).map(t => `${t.commonName || ''} ${t.spdName || ''} ${t.vendorName || ''}`),
     ...(blocks.implants || []).map(t => t.systemName || ''),
     ...(blocks.people || []).map(p => p.name || ''),
     ...(blocks.nicknames || []).map(n => `${n.nickname || ''} ${n.actual || ''}`),
+  ];
+  return findPhiSignals(chunks.filter(Boolean).join('\n'));
+}
+
+export function findPhiInSurgeon(surgeon) {
+  const chunks = [
+    surgeon?.name,
+    surgeon?.facility,
+    ...(surgeon?.firstCase || []),
   ];
   return findPhiSignals(chunks.filter(Boolean).join('\n'));
 }

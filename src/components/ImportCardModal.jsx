@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Download, X } from 'lucide-react';
-import { findPhiInProcedure, findPhiSignals } from '../data/phi';
+import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
 import { classifyIncomingCard, parseImport } from '../data/share';
 import PhiPause from './PhiPause';
 import ProcedureGlance from './ProcedureGlance';
@@ -54,7 +54,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
       if (parsed.type === 'card') {
         const procedure = parsed.book.procedures[0];
         const surgeon = parsed.book.surgeons[0];
-        signals.push(...findPhiInProcedure(procedure), ...findPhiSignals(`${surgeon?.name || ''}\n${surgeon?.facility || ''}`));
+        signals.push(...findPhiInProcedure(procedure), ...findPhiInSurgeon(surgeon));
         classification = classifyIncomingCard(book, surgeon, procedure);
       } else {
         for (const procedure of parsed.book.procedures || []) signals.push(...findPhiInProcedure(procedure));

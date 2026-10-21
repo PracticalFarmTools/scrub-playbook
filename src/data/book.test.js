@@ -139,6 +139,13 @@ describe('phi', () => {
   it('pauses an MRN and ignores a glove note', () => {
     expect(findPhiSignals('MRN 1234567').length).toBeGreaterThan(0);
     expect(findPhiSignals('Biogel Eclipse 7.5, Vicryl 2-0')).toEqual([]);
+    expect(findPhiSignals('patient positioning')).toEqual([]);
+    expect(findPhiSignals('Patient supine, arms tucked')).toEqual([]);
+    expect(findPhiSignals('Pt in beach chair')).toEqual([]);
+    expect(findPhiSignals('Patient name: Smith').some(hit => hit.id === 'patient-name')).toBe(true);
+    expect(findPhiSignals('pt’s name is Ann').some(hit => hit.id === 'patient-name')).toBe(true);
+    expect(findPhiSignals('Patient #4471').some(hit => hit.id === 'patient-number')).toBe(true);
+    expect(findPhiSignals('patient number 12').some(hit => hit.id === 'patient-number')).toBe(true);
   });
 });
 
@@ -359,7 +366,8 @@ describe('today', () => {
   });
 
   it('pauses a today line that says patient', () => {
-    expect(findPhiSignals('3\nDr. Chen\npatient positioning').length).toBeGreaterThan(0);
+    expect(findPhiSignals('3\nDr. Chen\npatient positioning')).toEqual([]);
+    expect(findPhiSignals('3\nDr. Chen\npatient name Smith').length).toBeGreaterThan(0);
   });
 });
 

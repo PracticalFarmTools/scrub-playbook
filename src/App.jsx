@@ -306,6 +306,7 @@ export default function App() {
             <div className="p-6 space-y-3 text-sm text-slate-600">
               <p>These are staff notes about how a room runs. They are not the chart, not a medication order, and not the manufacturer’s instructions.</p>
               <p>Do not enter a patient name, medical record number, date of birth, implant lot, or serial number.</p>
+              <p>Write what you observed. Do not copy or photograph the facility’s official card.</p>
               <p>When a note and the official preference card disagree, the official card and the surgeon win. These notes stay on this device unless you export or share them yourself.</p>
               <button
                 onClick={() => { localStorage.setItem('scrubplaybook_disclaimer_seen', 'true'); setShowDisclaimer(false); }}
