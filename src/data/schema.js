@@ -133,6 +133,18 @@ export function cleanSteps(steps = []) {
     }));
 }
 
+export function cleanInstruments(items = []) {
+  return items
+    .filter(item => item?.name?.trim())
+    .slice(0, 60)
+    .map(item => ({
+      id: item.id,
+      name: item.name.trim().slice(0, 80),
+      from: (item.from || '').trim().slice(0, 80),
+      mayo: Boolean(item.mayo),
+    }));
+}
+
 export function gloveChoice({ productId = null, model = '', brand = '', color = '', size = '7.0' } = {}) {
   if (!model && !productId) return null;
   return { productId, model, brand, color, size };

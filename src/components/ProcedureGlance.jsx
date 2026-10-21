@@ -4,6 +4,7 @@ import { CARD_STATUS } from '../data/schema';
 import { timeAgo, trustState } from '../data/trust';
 import ProductLink from './ProductLink';
 import { resolveProductLink } from '../data/productLink';
+import { instrumentLines } from '../data/share';
 import { STATUS_CLASS } from './statusStyle';
 
 function statusLabel(state) {
@@ -85,6 +86,19 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <div className="px-5 pb-4 flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-slate-700">Case flow · {blocks.steps.length} {blocks.steps.length === 1 ? 'step' : 'steps'}</p>
           {onCaseView && <button type="button" onClick={onCaseView} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Case view</button>}
+        </div>
+      )}
+
+      {instrumentLines(blocks).mayo.length > 0 && (
+        <div className="px-5 pb-3">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Mayo</p>
+          <p className="text-sm text-slate-700">{instrumentLines(blocks).mayo.join(', ')}</p>
+        </div>
+      )}
+      {instrumentLines(blocks).rest.length > 0 && (
+        <div className="px-5 pb-3">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Also ready</p>
+          {instrumentLines(blocks).rest.map(line => <p key={line} className="text-sm text-slate-700">{line}</p>)}
         </div>
       )}
 

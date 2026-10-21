@@ -4,8 +4,8 @@ import { migrateBook } from './migrate';
 import { findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
 import { filterBook } from './searchBook';
-import { classifyIncomingCard, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toShareableCard } from './share';
-import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
+import { classifyIncomingCard, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toShareableCard } from './share';
+import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { resolveTodayTap, visibleToday } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
 import { validateProcedure } from './validate';
@@ -366,6 +366,27 @@ describe('share', () => {
     expect(parsed.book.procedures[0].blocks.steps.map(step => step.title)).toEqual(['Exposure', '  ', 'Closing']);
     const book = { surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false }], procedures: [procedure] };
     expect(filterBook(book, 'cobb').procedures).toHaveLength(1);
+  });
+
+  it('splits Mayo instruments from the rest and keeps a nickname', () => {
+    const blocks = {
+      ...emptyBlocks(),
+      instruments: [
+        { id: 'i1', name: 'Cobb elevator', from: 'Major', mayo: true },
+        { id: 'i2', name: '', from: 'x', mayo: false },
+        { id: 'i3', name: 'Army-Navy', from: 'Major', mayo: false },
+      ],
+      nicknames: [{ nickname: 'The Cobb', actual: 'Cobb elevator' }],
+    };
+    expect(cleanInstruments(blocks.instruments).map(item => item.name)).toEqual(['Cobb elevator', 'Army-Navy']);
+    const lines = instrumentLines(blocks);
+    expect(lines.mayo).toEqual(['Cobb elevator “The Cobb”']);
+    expect(lines.rest).toEqual(['Army-Navy (from Major)']);
+    const surgeon = { name: 'Dr. Chen', specialty: 'Orthopedics', demo: false };
+    const procedure = emptyProcedure('s1', { name: 'Knee', blocks });
+    const parsed = parseImport(shareMessage(surgeon, procedure).message);
+    expect(parsed.book.procedures[0].blocks.instruments[0].mayo).toBe(true);
+    expect(filterBook({ surgeons: [{ id: 's1', name: 'Dr. Chen', demo: false }], procedures: [procedure] }, 'army-navy').procedures).toHaveLength(1);
   });
 
   it('leaves the day list out of a book backup', () => {

@@ -47,6 +47,21 @@ function sampleError(surgeon, procedure) {
   return null;
 }
 
+export function instrumentLines(blocks) {
+  const items = (blocks?.instruments || []).filter(item => item?.name?.trim());
+  const nickOf = (name) => (blocks.nicknames || []).find(nick => (nick.actual || '').trim().toLowerCase() === name.trim().toLowerCase());
+  const withNick = (item) => {
+    const nick = nickOf(item.name);
+    return nick ? `${item.name.trim()} “${nick.nickname}”` : item.name.trim();
+  };
+  return {
+    mayo: items.filter(item => item.mayo).map(withNick),
+    rest: items.filter(item => !item.mayo).map(item => (
+      item.from?.trim() ? `${withNick(item)} (from ${item.from.trim()})` : withNick(item)
+    )),
+  };
+}
+
 function pushSection(lines, title, bodyLines) {
   const kept = (bodyLines || []).map(line => (line || '').trim()).filter(Boolean);
   if (!kept.length) return;
@@ -87,6 +102,10 @@ export function toGlanceText(surgeon, procedure) {
     if (step.habit?.trim()) parts.push(step.habit.trim());
     return parts.join(' · ');
   }));
+
+  const gear = instrumentLines(blocks);
+  if (gear.mayo.length) lines.push('', `Mayo: ${gear.mayo.join(', ')}`);
+  if (gear.rest.length) lines.push('', 'Also ready:', ...gear.rest);
 
   pushSection(lines, 'Trays', (blocks.trays || []).map(tray => {
     const parts = [tray.commonName];
