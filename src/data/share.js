@@ -214,6 +214,20 @@ export function extractPayload(raw) {
   throw fail('no-card');
 }
 
+export function suggestionText({ surgeon, procedure, cardSays = '', seen = '', change = '', from = '', date = '' }) {
+  const title = [surgeon?.name, procedure?.name, procedure?.approach].filter(part => part && String(part).trim()).join(' · ');
+  return [
+    'Preference card suggestion',
+    title,
+    `Official card: ${(procedure?.official?.label || '').trim()}`,
+    `The card says: ${cardSays}`,
+    `Seen in the room: ${seen}`,
+    `Suggested change: ${change}`,
+    `From: ${from} · ${date}`,
+    'Staff note. The surgeon and the card owner decide.',
+  ].join('\n');
+}
+
 export function toPlacePack(book, place, fromName, exportedAt = new Date().toISOString()) {
   const surgeons = (book?.surgeons || [])
     .filter(surgeon => !surgeon.demo && (surgeon.facility || '') === place)

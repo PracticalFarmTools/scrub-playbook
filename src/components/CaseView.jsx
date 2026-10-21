@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { findPhiSignals } from '../data/phi';
 import { CARD_STATUS, normalizeBlocks } from '../data/schema';
+import { suggestionText } from '../data/share';
 import { timeAgo, trustState } from '../data/trust';
+import { readTechName } from '../hooks/useBook';
+import PhiPause from './PhiPause';
 
 const DARK_KEY = 'scrubplaybook_case_dark';
 
@@ -66,12 +70,18 @@ function Section({ title, children, muted }) {
   );
 }
 
-export default function CaseView({ surgeon, procedure, staleDays, onClose }) {
+export default function CaseView({ surgeon, procedure, staleDays, onClose, onSuggested }) {
   const blocks = useMemo(() => normalizeBlocks(procedure?.blocks), [procedure]);
   const targets = useMemo(() => pullTargets(blocks), [blocks]);
   const [checks, setChecks] = useState({});
   const [dark, setDark] = useState(storedDark);
   const [awake, setAwake] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [cardSays, setCardSays] = useState(procedure?.official?.note || '');
+  const [seen, setSeen] = useState('');
+  const [change, setChange] = useState('');
+  const [phi, setPhi] = useState([]);
+  const [copied, setCopied] = useState(false);
   const pulled = targets.filter(item => checks[item.id]).length;
 
   useEffect(() => {
@@ -120,6 +130,51 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose }) {
   const steps = blocks.steps || [];
 
   const toggle = (id) => setChecks(prev => ({ ...prev, [id]: !prev[id] }));
+  const draftSuggestion = () => suggestionText({
+    surgeon,
+    procedure,
+    cardSays,
+    seen,
+    change,
+    from: readTechName(),
+    date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+  });
+  const pauseOrText = () => {
+    const hits = findPhiSignals([cardSays, seen, change].join('\n'));
+    if (hits.length) {
+      setPhi(hits);
+      return null;
+    }
+    if (!seen.trim() || !change.trim()) return null;
+    return draftSuggestion();
+  };
+  const copySuggestion = async () => {
+    const text = pauseOrText();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      onSuggested?.();
+    } catch {
+      setCopied(false);
+    }
+  };
+  const sendSuggestion = async () => {
+    const text = pauseOrText();
+    if (!text) return;
+    if (typeof navigator.share !== 'function') {
+      await copySuggestion();
+      return;
+    }
+    try {
+      await navigator.share({ title: 'Preference card suggestion', text });
+      onSuggested?.();
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      await navigator.clipboard.writeText(text);
+      onSuggested?.();
+    }
+  };
   const setDarkMode = (next) => {
     setDark(next);
     try { localStorage.setItem(DARK_KEY, next ? '1' : '0'); } catch { /* keep the choice for this view */ }
@@ -288,7 +343,38 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose }) {
             <p className="whitespace-pre-wrap">{blocks.note.text}</p>
           </Section>
         )}
+
+        {!procedure.demo && !surgeon.demo && (
+          <div className="case-noprint py-6">
+            {!suggesting && (
+              <button type="button" onClick={() => { setCardSays(procedure.official?.note || ''); setSuggesting(true); }} className={button}>Suggest a card change</button>
+            )}
+            {suggesting && (
+              <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); sendSuggestion(); }}>
+                <p className="text-xl font-bold">Suggest a card change</p>
+                <label className="block text-lg">
+                  The official card says
+                  <textarea value={cardSays} onChange={e => setCardSays(e.target.value)} rows={3} className={`mt-1 w-full rounded-xl border px-3 py-2 text-lg ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} />
+                </label>
+                <label className="block text-lg">
+                  In the room I saw
+                  <textarea required value={seen} onChange={e => setSeen(e.target.value)} rows={3} className={`mt-1 w-full rounded-xl border px-3 py-2 text-lg ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} />
+                </label>
+                <label className="block text-lg">
+                  Suggested change
+                  <textarea required value={change} onChange={e => setChange(e.target.value)} rows={3} className={`mt-1 w-full rounded-xl border px-3 py-2 text-lg ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button type="submit" className={button}>Send</button>
+                  <button type="button" onClick={copySuggestion} className={button}>{copied ? 'Copied' : 'Copy'}</button>
+                  <button type="button" onClick={() => setSuggesting(false)} className={button}>Cancel</button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </div>
+      {phi.length > 0 && <PhiPause signals={phi} onEdit={() => setPhi([])} />}
     </div>,
     document.body,
   );

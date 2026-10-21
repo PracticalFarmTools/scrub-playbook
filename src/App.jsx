@@ -352,6 +352,11 @@ export default function App() {
           procedure={book.procedures.find(item => item.id === caseView.procedureId)}
           staleDays={STALE_AFTER_DAYS}
           onClose={() => setCaseView(null)}
+          onSuggested={() => {
+            const surgeon = book.surgeons.find(item => item.id === caseView.surgeonId);
+            const procedure = book.procedures.find(item => item.id === caseView.procedureId);
+            addAudit({ action: 'Card change suggested.', surgeonName: surgeon?.name || '', note: procedure?.name || '' });
+          }}
         />
       )}
       {showDisclaimer && (

@@ -5,7 +5,7 @@ import { findPhiInSurgeon, findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
 import { archivePlace, deletePlace } from './places';
 import { facilityLabels, filterBook } from './searchBook';
-import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toPlacePack, toShareableCard } from './share';
+import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, suggestionText, toBackup, toGlanceText, toPlacePack, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
@@ -427,6 +427,29 @@ describe('share', () => {
     const parsed = parseImport(shareMessage(surgeon, procedure).message);
     expect(parsed.book.procedures[0].blocks.instruments[0].mayo).toBe(true);
     expect(filterBook({ surgeons: [{ id: 's1', name: 'Dr. Chen', demo: false }], procedures: [procedure] }, 'army-navy').procedures).toHaveLength(1);
+  });
+
+  it('writes a card suggestion the owner can read', () => {
+    const text = suggestionText({
+      surgeon: { name: 'Dr. Chen' },
+      procedure: { name: 'Right THA', approach: 'Anterior', official: { label: 'Ortho card 4' } },
+      cardSays: 'Bovie 30',
+      seen: 'Bovie at 35/35',
+      change: 'Change the card to 35/35',
+      from: 'Alex',
+      date: 'Oct 21, 2026',
+    });
+    expect(text).toBe([
+      'Preference card suggestion',
+      'Dr. Chen · Right THA · Anterior',
+      'Official card: Ortho card 4',
+      'The card says: Bovie 30',
+      'Seen in the room: Bovie at 35/35',
+      'Suggested change: Change the card to 35/35',
+      'From: Alex · Oct 21, 2026',
+      'Staff note. The surgeon and the card owner decide.',
+    ].join('\n'));
+    expect(findPhiSignals('Patient #4471').map(hit => hit.id)).toContain('patient-number');
   });
 
   it('packs one place and previews the hand-off', () => {

@@ -128,7 +128,8 @@
     box-shadow: none !important;
   }
 
-  #case-view-root .case-topbar {
+  #case-view-root .case-topbar,
+  #case-view-root .case-noprint {
     display: none !important;
   }
 
