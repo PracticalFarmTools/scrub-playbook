@@ -227,6 +227,7 @@ export default function App() {
                 onClearDispute={(id) => bookApi.clearDispute(id)}
                 onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
                 onRename={(id, name) => bookApi.renameSurgeon(id, name)}
+                onSaveFirstCase={(id, lines) => bookApi.saveFirstCase(id, lines)}
                 onCopySample={(id) => {
                   bookApi.copySample(id);
                   setNotice('Copied into your book. It is unconfirmed until you were in that case.');

@@ -133,6 +133,13 @@ export function cleanSteps(steps = []) {
     }));
 }
 
+export function cleanFirstCase(lines = []) {
+  return (lines || [])
+    .map(line => String(line || '').trim().slice(0, 140))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 export function cleanInstruments(items = []) {
   return items
     .filter(item => item?.name?.trim())

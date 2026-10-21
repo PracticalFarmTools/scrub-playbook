@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, emptyProcedure, emptySurgeon, uid } from '../data/schema';
+import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { mergeBackup, placeIncomingCard } from '../data/share';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
@@ -95,6 +95,19 @@ export function useBook() {
     }));
   }, []);
 
+  const saveFirstCase = useCallback((id, lines) => {
+    const firstCase = cleanFirstCase(lines);
+    setBook(prev => ({
+      ...prev,
+      surgeons: prev.surgeons.map(s => s.id === id ? {
+        ...s,
+        firstCase,
+        firstCaseAt: new Date().toISOString(),
+        firstCaseBy: readTechName(),
+      } : s),
+    }));
+  }, []);
+
   const renameSurgeon = useCallback((id, name) => {
     const trimmed = (name || '').trim();
     if (!trimmed) return;
@@ -167,6 +180,7 @@ export function useBook() {
     confirmProcedure,
     disputeProcedure,
     clearDispute,
+    saveFirstCase,
     renameSurgeon,
     copySample,
     loadSamples,

@@ -32,7 +32,8 @@ export function filterBook(book, query, facility = null) {
   const surgeonHits = new Set(surgeons.filter(s =>
     s.name.toLowerCase().includes(q) ||
     (s.specialty || '').toLowerCase().includes(q) ||
-    (s.facility || '').toLowerCase().includes(q)
+    (s.facility || '').toLowerCase().includes(q) ||
+    (s.firstCase || []).join(' ').toLowerCase().includes(q)
   ).map(s => s.id));
 
   const procedureHits = procedures.filter(p => surgeonHits.has(p.surgeonId) || blobProcedure(p).includes(q));

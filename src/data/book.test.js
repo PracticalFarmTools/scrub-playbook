@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_SURGEONS } from './defaults';
+import { DEMO_SURGEONS, buildSampleBook } from './defaults';
 import { migrateBook } from './migrate';
-import { findPhiSignals } from './phi';
+import { findPhiInSurgeon, findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
 import { filterBook } from './searchBook';
 import { classifyIncomingCard, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toShareableCard } from './share';
@@ -366,6 +366,44 @@ describe('share', () => {
     expect(parsed.book.procedures[0].blocks.steps.map(step => step.title)).toEqual(['Exposure', '  ', 'Closing']);
     const book = { surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false }], procedures: [procedure] };
     expect(filterBook(book, 'cobb').procedures).toHaveLength(1);
+  });
+
+  it('carries first-case lines to a new surgeon and leaves an existing surgeon alone', () => {
+    const surgeon = {
+      name: 'Dr. Chen',
+      specialty: 'Orthopedics',
+      facility: 'Main Hospital OR',
+      demo: false,
+      firstCase: ['Bovie at 35/35.', 'Jake Rivera usually assists.'],
+    };
+    const procedure = emptyProcedure('s1', { name: 'Right total knee' });
+    const message = shareMessage(surgeon, procedure);
+    expect(message.glance.indexOf('Arrives unconfirmed')).toBeLessThan(message.glance.indexOf('New to Dr. Chen'));
+    expect(message.glance).toContain('Bovie at 35/35.');
+    const parsed = parseImport(message.message);
+    expect(parsed.book.surgeons[0].firstCase).toEqual(['Bovie at 35/35.', 'Jake Rivera usually assists.']);
+    expect(parsed.book.surgeons[0].firstCaseBy).toBe('Imported');
+
+    const book = {
+      surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main Hospital OR', demo: false, firstCase: ['Keep mine'] }],
+      procedures: [],
+    };
+    expect(classifyIncomingCard(book, parsed.book.surgeons[0], parsed.book.procedures[0]).kind).toBe('attach');
+    const placed = placeIncomingCard(book, parsed.book, { surgeonId: 's1' });
+    expect(placed.book.surgeons[0].firstCase).toEqual(['Keep mine']);
+    expect(filterBook({
+      surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: ['Bovie at 35/35.'] }],
+      procedures: [procedure],
+    }, 'bovie').surgeons).toHaveLength(1);
+    expect(findPhiInSurgeon({ name: 'Dr. Chen', firstCase: ['patient number 12'] }).map(hit => hit.id)).toContain('patient-number');
+
+    const samples = buildSampleBook();
+    expect(samples.surgeons.find(item => item.id === 'demo-1').firstCase).toEqual([
+      'Calls the Cobb elevator “The Cobb.”',
+      'Bovie at 35/35.',
+      'Jake Rivera usually assists.',
+    ]);
+    expect(samples.surgeons.find(item => item.id === 'demo-miller').firstCase[0]).toBe('Room lights off for the start.');
   });
 
   it('splits Mayo instruments from the rest and keeps a nickname', () => {

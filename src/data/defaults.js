@@ -91,10 +91,28 @@ export const DEMO_SURGEONS = [
   },
 ];
 
+const SAMPLE_FIRST_CASE = {
+  'demo-1': [
+    'Calls the Cobb elevator “The Cobb.”',
+    'Bovie at 35/35.',
+    'Jake Rivera usually assists.',
+  ],
+  'demo-miller': [
+    'Room lights off for the start.',
+    'Calls the phaco tip “The Needle.”',
+    'Alcon Centurion on his right side.',
+  ],
+};
+
 export function buildSampleBook() {
   const book = migrateBook(DEMO_SURGEONS);
   return {
     ...book,
+    surgeons: book.surgeons.map(surgeon => (
+      SAMPLE_FIRST_CASE[surgeon.id]
+        ? { ...surgeon, firstCase: SAMPLE_FIRST_CASE[surgeon.id], firstCaseAt: surgeon.createdAt, firstCaseBy: surgeon.addedBy || '' }
+        : surgeon
+    )),
     procedures: book.procedures.map(procedure => ({ ...procedure, name: 'Sample setup' })),
   };
 }

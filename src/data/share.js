@@ -1,4 +1,4 @@
-import { BOOK_VERSION, QR_MAX_CHARS, normalizeBlocks, uid } from './schema';
+import { BOOK_VERSION, QR_MAX_CHARS, cleanFirstCase, normalizeBlocks, uid } from './schema';
 
 export { normalizeBlocks };
 import { migrateBook, withoutConfirmation } from './migrate';
@@ -68,6 +68,12 @@ function pushSection(lines, title, bodyLines) {
   lines.push('', title, ...kept);
 }
 
+function surgeonTitle(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return 'this surgeon';
+  return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
+}
+
 export function toGlanceText(surgeon, procedure) {
   const blocked = sampleError(surgeon, procedure);
   if (blocked) return blocked;
@@ -80,6 +86,9 @@ export function toGlanceText(surgeon, procedure) {
   lines.push(`Procedure: ${procedureTitle}`);
   if (procedure?.official?.label?.trim()) lines.push(`Official card: ${procedure.official.label.trim()}`);
   lines.push('', UNCONFIRMED_LINE);
+
+  const firstCase = (surgeon?.firstCase || []).map(line => String(line || '').trim()).filter(Boolean).slice(0, 3);
+  if (firstCase.length) pushSection(lines, `New to ${surgeonTitle(surgeon?.name)}`, firstCase);
 
   if (blocks.position.text?.trim()) pushSection(lines, 'Position', [blocks.position.text]);
   if (blocks.prep.text?.trim()) pushSection(lines, 'Prep', [blocks.prep.text]);
@@ -149,6 +158,9 @@ export function toShareableCard(surgeon, procedure) {
       name: surgeon.name,
       specialty: surgeon.specialty,
       facility: surgeon.facility || '',
+      ...((surgeon.firstCase || []).some(line => String(line || '').trim())
+        ? { firstCase: (surgeon.firstCase || []).map(line => String(line).trim()).filter(Boolean).slice(0, 3) }
+        : {}),
     },
     procedure: slimProcedure(procedure),
   };
@@ -247,6 +259,10 @@ function cardToBook(data) {
         demo: false,
         createdAt: new Date().toISOString(),
         addedBy: 'Imported',
+        firstCase: cleanFirstCase(data.surgeon.firstCase),
+        firstCaseAt: null,
+        firstCaseBy: cleanFirstCase(data.surgeon.firstCase).length ? 'Imported' : '',
+        archived: false,
       }],
       procedures: [procedure],
     };
