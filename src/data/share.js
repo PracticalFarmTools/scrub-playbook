@@ -214,6 +214,37 @@ export function extractPayload(raw) {
   throw fail('no-card');
 }
 
+export function toPlacePack(book, place, fromName, exportedAt = new Date().toISOString()) {
+  const surgeons = (book?.surgeons || [])
+    .filter(surgeon => !surgeon.demo && (surgeon.facility || '') === place)
+    .map(surgeon => ({ ...surgeon, archived: false }));
+  const ids = new Set(surgeons.map(surgeon => surgeon.id));
+  const procedures = (book?.procedures || [])
+    .filter(procedure => !procedure.demo && ids.has(procedure.surgeonId))
+    .map(procedure => stripConfirmation(procedure));
+  return {
+    kind: 'scrubplaybook-backup',
+    v: 2,
+    exportedAt,
+    scope: { place },
+    from: fromName || '',
+    book: { version: BOOK_VERSION, surgeons, procedures },
+  };
+}
+
+export function importPreviewText(parsed) {
+  const surgeons = (parsed?.book?.surgeons || []).filter(surgeon => !surgeon.demo);
+  const ids = new Set(surgeons.map(surgeon => surgeon.id));
+  const procedures = (parsed?.book?.procedures || []).filter(procedure => !procedure.demo && ids.has(procedure.surgeonId));
+  const surgeonWord = surgeons.length === 1 ? 'surgeon' : 'surgeons';
+  const procedureWord = procedures.length === 1 ? 'procedure' : 'procedures';
+  if (parsed?.scope?.place) {
+    return `Hand-off for ${parsed.scope.place} from ${parsed.from}: ${surgeons.length} surgeons, ${procedures.length} procedures. They arrive unconfirmed.`;
+  }
+  const samples = (parsed?.book?.surgeons || []).some(surgeon => surgeon.demo) || (parsed?.book?.procedures || []).some(procedure => procedure.demo);
+  return `Backup: ${surgeons.length} ${surgeonWord}, ${procedures.length} ${procedureWord}. They arrive unconfirmed.${samples ? ' Samples are skipped.' : ''}`;
+}
+
 export function toBackup(book) {
   const surgeons = book.surgeons.filter(s => !s.demo);
   const ids = new Set(surgeons.map(s => s.id));
@@ -284,7 +315,14 @@ export function parseImport(raw) {
   const data = typeof raw === 'string' ? extractPayload(raw) : raw;
   if (!data || typeof data !== 'object') throw new Error('empty');
   if (data.kind === 'scrubplaybook-backup') {
-    if (data.v === 2 && data.book) return { type: 'backup', book: withoutConfirmation(migrateBook(data.book)) };
+    if (data.v === 2 && data.book) {
+      return {
+        type: 'backup',
+        book: withoutConfirmation(migrateBook(data.book)),
+        scope: data.scope || null,
+        from: data.from || '',
+      };
+    }
     if (Array.isArray(data.surgeons)) return { type: 'backup', book: withoutConfirmation(migrateBook(data.surgeons)) };
     throw new Error('backup');
   }

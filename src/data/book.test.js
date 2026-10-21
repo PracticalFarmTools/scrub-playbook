@@ -4,7 +4,7 @@ import { migrateBook } from './migrate';
 import { findPhiInSurgeon, findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
 import { filterBook } from './searchBook';
-import { classifyIncomingCard, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toShareableCard } from './share';
+import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toPlacePack, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
@@ -426,6 +426,31 @@ describe('share', () => {
     const parsed = parseImport(shareMessage(surgeon, procedure).message);
     expect(parsed.book.procedures[0].blocks.instruments[0].mayo).toBe(true);
     expect(filterBook({ surgeons: [{ id: 's1', name: 'Dr. Chen', demo: false }], procedures: [procedure] }, 'army-navy').procedures).toHaveLength(1);
+  });
+
+  it('packs one place and previews the hand-off', () => {
+    const kept = withConfirmation(emptyProcedure('s1', { name: 'Knee' }), { name: 'Alex' });
+    const book = {
+      surgeons: [
+        { id: 's1', name: 'Dr. Chen', facility: 'Main Hospital OR', demo: false, archived: true },
+        { id: 's2', name: 'Dr. Patel', facility: 'Other', demo: false },
+        { id: 'demo-1', name: 'Sample', facility: 'Main Hospital OR', demo: true },
+      ],
+      procedures: [
+        kept,
+        emptyProcedure('s2', { name: 'Other case' }),
+        emptyProcedure('demo-1', { name: 'Sample setup', demo: true }),
+      ],
+    };
+    const pack = toPlacePack(book, 'Main Hospital OR', 'Alex', '2026-10-21T00:00:00.000Z');
+    expect(pack.book.surgeons.map(item => item.name)).toEqual(['Dr. Chen']);
+    expect(pack.book.surgeons[0].archived).toBe(false);
+    expect(pack.book.procedures.map(item => item.name)).toEqual(['Knee']);
+    expect(pack.book.procedures[0].confirmations).toEqual([]);
+    expect(JSON.stringify(pack)).not.toContain('Sample setup');
+    const parsed = parseImport(JSON.stringify(pack));
+    expect(parsed.book.surgeons[0].archived).toBe(false);
+    expect(importPreviewText(parsed)).toBe('Hand-off for Main Hospital OR from Alex: 1 surgeons, 1 procedures. They arrive unconfirmed.');
   });
 
   it('leaves the day list out of a book backup', () => {

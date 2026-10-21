@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Download, X } from 'lucide-react';
 import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
-import { classifyIncomingCard, parseImport } from '../data/share';
+import { classifyIncomingCard, importPreviewText, parseImport } from '../data/share';
 import PhiPause from './PhiPause';
 import ProcedureGlance from './ProcedureGlance';
 
@@ -12,16 +12,6 @@ function uniqueSignals(list) {
     seen.add(signal.id);
     return true;
   });
-}
-
-function backupSummary(book) {
-  const surgeons = (book.surgeons || []).filter(surgeon => !surgeon.demo);
-  const ids = new Set(surgeons.map(surgeon => surgeon.id));
-  const procedures = (book.procedures || []).filter(procedure => !procedure.demo && ids.has(procedure.surgeonId));
-  const samples = (book.surgeons || []).some(surgeon => surgeon.demo) || (book.procedures || []).some(procedure => procedure.demo);
-  const surgeonWord = surgeons.length === 1 ? 'surgeon' : 'surgeons';
-  const procedureWord = procedures.length === 1 ? 'procedure' : 'procedures';
-  return `Backup: ${surgeons.length} ${surgeonWord}, ${procedures.length} ${procedureWord}. They arrive unconfirmed.${samples ? ' Samples are skipped.' : ''}`;
 }
 
 export default function ImportCardModal({ book, onClose, onImport }) {
@@ -191,7 +181,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
           )}
           {preview && !card && (
             <>
-              <p className="text-sm text-slate-700">{backupSummary(preview.parsed.book)}</p>
+              <p className="text-sm text-slate-700">{importPreviewText(preview.parsed)}</p>
               {preview.phi.length === 0 && (
                 <button type="button" onClick={() => commit()} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unconfirmed</button>
               )}

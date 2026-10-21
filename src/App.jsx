@@ -4,12 +4,13 @@ import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
 import { STALE_AFTER_DAYS, emptyProcedure } from './data/schema';
 import { facilityLabels, filterBook } from './data/searchBook';
-import { parseImport, toBackup } from './data/share';
-import { useBook } from './hooks/useBook';
+import { parseImport, toBackup, toPlacePack } from './data/share';
+import { readTechName, useBook } from './hooks/useBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import CaseView from './components/CaseView';
 import SurgeonCard from './components/SurgeonCard';
+import PlacesSheet from './components/PlacesSheet';
 import TodayList from './components/TodayList';
 import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
@@ -44,6 +45,7 @@ export default function App() {
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('scrubplaybook_disclaimer_seen'));
   const [caseView, setCaseView] = useState(null);
+  const [showPlaces, setShowPlaces] = useState(false);
   const [notice, setNotice] = useState('');
   const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
 
@@ -60,6 +62,28 @@ export default function App() {
 
   const showBackupReminder = book.surgeons.some(s => !s.demo)
     && (!lastExportAt || daysSince(lastExportAt) > 30);
+
+  const handOffPlace = async (place) => {
+    const pack = toPlacePack(book, place, readTechName() || 'A tech');
+    const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
+    const filename = `scrubplaybook-${slug}-${new Date().toISOString().slice(0, 10)}.json`;
+    const body = JSON.stringify(pack, null, 2);
+    const file = new File([body], filename, { type: 'application/json' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const exportPlaybook = () => {
     const data = toBackup(book);
@@ -154,6 +178,7 @@ export default function App() {
               <button onClick={exportPlaybook} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Export backup">
                 <Download size={20} />
               </button>
+              <button onClick={() => setShowPlaces(true)} className="px-2.5 py-2 rounded-xl text-slate-500 hover:text-medical-600 hover:bg-medical-50 cursor-pointer text-xs font-bold" title="Places">Places</button>
               <button onClick={() => setShowImport(true)} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Import">
                 <Upload size={20} />
               </button>
@@ -294,6 +319,9 @@ export default function App() {
         <Suspense fallback={null}>
           <ShareCardModal surgeon={share.surgeon} procedure={share.procedure} onClose={() => setShare(null)} />
         </Suspense>
+      )}
+      {showPlaces && (
+        <PlacesSheet book={book} onClose={() => setShowPlaces(false)} onHandOff={handOffPlace} />
       )}
       {showImport && (
         <Suspense fallback={null}>
