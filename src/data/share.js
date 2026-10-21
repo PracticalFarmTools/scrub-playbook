@@ -1,4 +1,6 @@
-import { QR_MAX_CHARS, emptyBlocks, uid } from './schema';
+import { BOOK_VERSION, QR_MAX_CHARS, normalizeBlocks, uid } from './schema';
+
+export { normalizeBlocks };
 import { migrateBook, withoutConfirmation } from './migrate';
 import { stripConfirmation } from './trust';
 import { samePersonName, sameProcedureName } from './today';
@@ -26,24 +28,6 @@ function prune(value) {
     return Object.keys(out).length ? out : undefined;
   }
   return value;
-}
-
-export function normalizeBlocks(blocks = {}) {
-  const base = emptyBlocks();
-  return {
-    ...base,
-    ...blocks,
-    room: { ...base.room, ...(blocks.room || {}) },
-    equipment: { ...base.equipment, ...(blocks.equipment || {}) },
-    endOfCase: { ...base.endOfCase, ...(blocks.endOfCase || {}) },
-    note: { ...base.note, ...(blocks.note || {}) },
-    gloves: { outer: null, inner: null, ...(blocks.gloves || {}) },
-    trays: blocks.trays || [],
-    implants: blocks.implants || [],
-    sutures: blocks.sutures || [],
-    nicknames: blocks.nicknames || [],
-    people: blocks.people || [],
-  };
 }
 
 function slimProcedure(procedure) {
@@ -195,7 +179,7 @@ export function toBackup(book) {
     v: 2,
     exportedAt: new Date().toISOString(),
     book: {
-      version: 1,
+      version: BOOK_VERSION,
       surgeons,
       procedures: book.procedures.filter(p => ids.has(p.surgeonId) && !p.demo),
     },
@@ -222,7 +206,7 @@ function cardToBook(data) {
       blocks: normalizeBlocks(data.procedure.blocks),
     });
     return {
-      version: 1,
+      version: BOOK_VERSION,
       surgeons: [{
         id: surgeonId,
         name: data.surgeon.name,
@@ -306,7 +290,7 @@ export function placeIncomingCard(book, incomingBook, { surgeonId } = {}) {
   });
   return {
     kind: 'attach',
-    book: { version: 1, surgeons: book.surgeons, procedures: [...book.procedures, placed] },
+    book: { version: BOOK_VERSION, surgeons: book.surgeons, procedures: [...book.procedures, placed] },
     imported: 1,
     skipped: 0,
   };
@@ -332,5 +316,5 @@ export function mergeBackup(current, incoming) {
     procedures.push(stripConfirmation(procedure));
     procedureIds.add(procedure.id);
   }
-  return { book: { version: 1, surgeons, procedures }, imported, skipped };
+  return { book: { version: BOOK_VERSION, surgeons, procedures }, imported, skipped };
 }

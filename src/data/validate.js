@@ -1,5 +1,5 @@
 const PROCEDURE_KEYS = new Set([
-  'id', 'surgeonId', 'name', 'demo', 'disputed', 'reported', 'reportNote',
+  'id', 'surgeonId', 'name', 'approach', 'demo', 'disputed', 'reported', 'reportNote',
   'lastConfirmedAt', 'confirmations', 'official', 'updatedAt', 'baseUpdatedAt',
   'dirty', 'blocks',
 ]);

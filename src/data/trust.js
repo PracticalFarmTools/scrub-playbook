@@ -97,6 +97,7 @@ export function clearConfirmation(procedure, at = new Date().toISOString()) {
 function contentKey(procedure) {
   return JSON.stringify({
     name: procedure?.name || '',
+    approach: procedure?.approach || '',
     blocks: procedure?.blocks || {},
     official: procedure?.official || {},
   });

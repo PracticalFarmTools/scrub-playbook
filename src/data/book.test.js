@@ -45,6 +45,41 @@ describe('migrateBook', () => {
     expect(migrateBook(book)).toBe(book);
   });
 
+  it('upgrades a version 1 book and keeps the confirmation', () => {
+    const v1 = {
+      version: 1,
+      surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false }],
+      procedures: [{
+        id: 'p1',
+        surgeonId: 's1',
+        name: 'Right total knee',
+        confirmations: [{ name: 'Blair', userId: null, at: '2026-10-01T00:00:00.000Z' }],
+        lastConfirmedAt: '2026-10-01T00:00:00.000Z',
+        blocks: {
+          note: { text: 'Damp lap' },
+          gloves: { outer: { model: 'Biogel Eclipse', size: '7.5' } },
+          sutures: [{ name: 'Vicryl' }],
+        },
+      }],
+    };
+    const next = migrateBook(v1);
+    expect(next.version).toBe(2);
+    expect(next.procedures[0].confirmations).toHaveLength(1);
+    expect(next.procedures[0].lastConfirmedAt).toBe('2026-10-01T00:00:00.000Z');
+    expect(next.procedures[0].blocks.note.text).toBe('Damp lap');
+    expect(next.procedures[0].blocks.gloves.outer.model).toBe('Biogel Eclipse');
+    expect(next.procedures[0].blocks.sutures[0].name).toBe('Vicryl');
+    expect(next.procedures[0].blocks.position.text).toBe('');
+    expect(next.procedures[0].blocks.steps).toEqual([]);
+    expect(next.procedures[0].approach).toBe('');
+    expect(next.surgeons[0].firstCase).toEqual([]);
+    expect(next.surgeons[0].archived).toBe(false);
+    expect(migrateBook(next)).toBe(next);
+    const imported = parseImport(JSON.stringify({ kind: 'scrubplaybook-backup', v: 2, book: v1 }));
+    expect(imported.book.version).toBe(2);
+    expect(imported.book.procedures[0].blocks.prep.text).toBe('');
+  });
+
   it('marks demo ids', () => {
     expect(book.surgeons.every(s => s.demo)).toBe(true);
     expect(book.procedures.every(p => p.demo)).toBe(true);
@@ -84,6 +119,8 @@ describe('trust', () => {
     }, '2026-10-05T00:00:00.000Z');
     expect(edited.confirmations).toEqual([]);
     expect(edited.lastConfirmedAt).toBeNull();
+    const approachOnly = applySave(confirmed, { ...confirmed, approach: 'Anterior' }, '2026-10-05T00:00:00.000Z');
+    expect(approachOnly.confirmations).toEqual([]);
   });
 
   it('goes stale from the clock', () => {

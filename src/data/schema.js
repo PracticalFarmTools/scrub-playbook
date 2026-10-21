@@ -1,6 +1,6 @@
 /** Versioned personal book. Procedures live under surgeons. */
 
-export const BOOK_VERSION = 1;
+export const BOOK_VERSION = 2;
 export const BOOK_KEY = 'scrubplaybook_book';
 export const LEGACY_STORAGE_KEY = 'scrubplaybook_surgeons';
 export const TECH_NAME_KEY = 'scrubplaybook_tech_name';
@@ -38,8 +38,13 @@ export function textBlock(text, user) {
 
 export function emptyBlocks() {
   return {
+    position: emptyText(),
+    prep: emptyText(),
+    drapes: emptyText(),
     room: emptyText(),
     equipment: emptyText(),
+    steps: [],
+    instruments: [],
     trays: [],
     implants: [],
     sutures: [],
@@ -48,6 +53,29 @@ export function emptyBlocks() {
     endOfCase: emptyText(),
     people: [],
     note: emptyText(),
+  };
+}
+
+export function normalizeBlocks(blocks = {}) {
+  const base = emptyBlocks();
+  return {
+    ...base,
+    ...blocks,
+    position: { ...base.position, ...(blocks.position || {}) },
+    prep: { ...base.prep, ...(blocks.prep || {}) },
+    drapes: { ...base.drapes, ...(blocks.drapes || {}) },
+    room: { ...base.room, ...(blocks.room || {}) },
+    equipment: { ...base.equipment, ...(blocks.equipment || {}) },
+    endOfCase: { ...base.endOfCase, ...(blocks.endOfCase || {}) },
+    note: { ...base.note, ...(blocks.note || {}) },
+    gloves: { outer: null, inner: null, ...(blocks.gloves || {}) },
+    steps: blocks.steps || [],
+    instruments: blocks.instruments || [],
+    trays: blocks.trays || [],
+    implants: blocks.implants || [],
+    sutures: blocks.sutures || [],
+    nicknames: blocks.nicknames || [],
+    people: blocks.people || [],
   };
 }
 
@@ -64,6 +92,10 @@ export function emptySurgeon(partial = {}) {
     demo: false,
     createdAt: new Date().toISOString(),
     addedBy: '',
+    firstCase: [],
+    firstCaseAt: null,
+    firstCaseBy: '',
+    archived: false,
     ...partial,
   };
 }
@@ -74,6 +106,7 @@ export function emptyProcedure(surgeonId, partial = {}) {
     id: uid(),
     surgeonId,
     name: 'All cases (imported)',
+    approach: '',
     demo: false,
     disputed: false,
     reported: false,

@@ -1,4 +1,4 @@
-import { BOOK_VERSION, emptyBook, emptyBlocks, gloveChoice, textBlock, uid } from './schema';
+import { BOOK_VERSION, emptyBook, emptyBlocks, normalizeBlocks, gloveChoice, textBlock, uid } from './schema';
 import { PRODUCTS, productIdForSuture } from './products';
 
 function productIdForGlove(model) {
@@ -58,6 +58,7 @@ function procedureFromV0(surgeon) {
     id: uid(),
     surgeonId: surgeon.id,
     name: 'All cases (imported)',
+    approach: '',
     demo: Boolean(surgeon.demo) || String(surgeon.id || '').startsWith('demo-'),
     disputed: surgeon.status === 'disputed',
     reported: false,
@@ -89,6 +90,10 @@ export function surgeonFromV0(surgeon) {
     specialty: surgeon.specialty || 'Other',
     facility: surgeon.facility || '',
     demo: Boolean(surgeon.demo) || String(surgeon.id || '').startsWith('demo-'),
+    firstCase: Array.isArray(surgeon.firstCase) ? surgeon.firstCase : [],
+    firstCaseAt: surgeon.firstCaseAt || null,
+    firstCaseBy: surgeon.firstCaseBy || '',
+    archived: Boolean(surgeon.archived),
     createdAt: surgeon.createdAt || new Date().toISOString(),
     addedBy: surgeon.addedBy || '',
   };
@@ -104,12 +109,33 @@ export function bookFromSurgeons(list) {
   return book;
 }
 
+export function upgradeV1(book) {
+  return {
+    version: BOOK_VERSION,
+    surgeons: (book.surgeons || []).map(surgeon => ({
+      ...surgeon,
+      firstCase: Array.isArray(surgeon.firstCase) ? surgeon.firstCase : [],
+      firstCaseAt: surgeon.firstCaseAt || null,
+      firstCaseBy: surgeon.firstCaseBy || '',
+      archived: Boolean(surgeon.archived),
+    })),
+    procedures: (book.procedures || []).map(procedure => ({
+      ...procedure,
+      approach: procedure.approach || '',
+      blocks: normalizeBlocks(procedure.blocks),
+    })),
+  };
+}
+
 /** Idempotent. Arrays are legacy cards. Versioned books pass through. */
 export function migrateBook(raw) {
   if (!raw) return emptyBook();
   if (Array.isArray(raw)) return bookFromSurgeons(raw);
   if (raw.version === BOOK_VERSION && Array.isArray(raw.surgeons) && Array.isArray(raw.procedures)) {
     return raw;
+  }
+  if (raw.version === 1 && Array.isArray(raw.surgeons) && Array.isArray(raw.procedures)) {
+    return upgradeV1(raw);
   }
   if (Array.isArray(raw.surgeons) && !raw.version) return bookFromSurgeons(raw.surgeons);
   return emptyBook();

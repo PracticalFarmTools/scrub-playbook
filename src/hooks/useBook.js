@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BOOK_KEY, LEGACY_STORAGE_KEY, TECH_NAME_KEY, emptyProcedure, emptySurgeon, uid } from '../data/schema';
+import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { mergeBackup, placeIncomingCard } from '../data/share';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
@@ -136,7 +136,7 @@ export function useBook() {
       sample.surgeons.forEach(s => { if (!ids.has(s.id)) surgeons.push(s); });
       const pids = new Set(procedures.map(p => p.id));
       sample.procedures.forEach(p => { if (!pids.has(p.id)) procedures.push(p); });
-      return { version: 1, surgeons, procedures };
+      return { version: BOOK_VERSION, surgeons, procedures };
     });
   }, []);
 
