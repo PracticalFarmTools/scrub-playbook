@@ -10,6 +10,7 @@ import MicButton from './MicButton';
 import PhiPause from './PhiPause';
 
 const LAYERS = ['Skin', 'Subcutaneous', 'Fascia', 'Deep', 'Unspecified'];
+const APPROACHES = ['Anterior', 'Posterior', 'Lateral', 'Open', 'Laparoscopic', 'Robotic', 'Endoscopic', 'Arthroscopic', 'Percutaneous'];
 const GLOVE_OPTIONS = SURGICAL_GLOVES.map(g => ({
   value: g.id,
   label: g.model,
@@ -75,14 +76,31 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <label className={label}>Procedure, as the board writes it</label>
             <input value={draft.name === 'All cases (imported)' ? '' : draft.name} placeholder="Right primary total knee" onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} className={input} />
           </div>
-
           <div>
-            <label className={label}>How the room starts</label>
-            <textarea value={blocks.room.text} rows={2} placeholder="Supine, lights down, quiet room" onChange={e => setBlocks({ room: { ...blocks.room, text: e.target.value } })} className={input} />
+            <label className={label}>Approach</label>
+            <input list="scrub-approaches" maxLength={60} value={draft.approach || ''} placeholder="Anterior, laparoscopic, open" onChange={e => setDraft(d => ({ ...d, approach: e.target.value.slice(0, 60) }))} className={input} />
+            <datalist id="scrub-approaches">{APPROACHES.map(item => <option key={item} value={item} />)}</datalist>
+          </div>
+          <div>
+            <label className={label}>Position</label>
+            <textarea value={blocks.position?.text || ''} rows={2} placeholder="Supine, arms out on boards" onChange={e => setBlocks({ position: { ...blocks.position, text: e.target.value } })} className={input} />
+          </div>
+          <div>
+            <label className={label}>Prep</label>
+            <textarea value={blocks.prep?.text || ''} rows={2} placeholder="Chlorhexidine, toes to mid-thigh" onChange={e => setBlocks({ prep: { ...blocks.prep, text: e.target.value } })} className={input} />
+          </div>
+          <div>
+            <label className={label}>Drapes</label>
+            <textarea value={blocks.drapes?.text || ''} rows={2} placeholder="Extremity drape, stockinette, Ioban" onChange={e => setBlocks({ drapes: { ...blocks.drapes, text: e.target.value } })} className={input} />
           </div>
 
           <div>
-            <label className={label}>Equipment last observed</label>
+            <label className={label}>How the room starts</label>
+            <textarea value={blocks.room.text} rows={2} placeholder="Lights down, quiet room" onChange={e => setBlocks({ room: { ...blocks.room, text: e.target.value } })} className={input} />
+          </div>
+
+          <div>
+            <label className={label}>Equipment and settings</label>
             <textarea value={blocks.equipment.text} rows={2} placeholder="Bovie 35/35. Tourniquet 250." onChange={e => setBlocks({ equipment: { ...blocks.equipment, text: e.target.value } })} className={input} />
           </div>
 
@@ -197,7 +215,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
           </section>
 
           <div>
-            <label className={label}>End of the case</label>
+            <label className={label}>Dressing and end of case</label>
             <textarea value={blocks.endOfCase.text} rows={2} placeholder="Dressing, drains, specimens" onChange={e => setBlocks({ endOfCase: { ...blocks.endOfCase, text: e.target.value } })} className={input} />
           </div>
 

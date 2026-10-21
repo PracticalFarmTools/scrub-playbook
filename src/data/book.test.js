@@ -327,6 +327,24 @@ describe('share', () => {
     expect(classifyIncomingCard(book, sameName.surgeons[0], sameName.procedures[0]).kind).toBe('duplicate');
   });
 
+  it('shares the approach and keeps a different approach as its own procedure', () => {
+    const surgeon = { name: 'Dr. Chen', specialty: 'Orthopedics', facility: '', demo: false };
+    const procedure = emptyProcedure('s1', {
+      name: 'Right THA',
+      approach: 'Anterior',
+      blocks: { ...emptyBlocks(), position: textBlock('Supine, arms out', 'Alex') },
+    });
+    const glance = toGlanceText(surgeon, procedure);
+    expect(glance.text).toContain('Procedure: Right THA · Anterior');
+    expect(glance.text).toContain('Supine, arms out');
+    const parsed = parseImport(shareMessage(surgeon, procedure).message);
+    expect(parsed.book.procedures[0].approach).toBe('Anterior');
+    expect(parsed.book.procedures[0].blocks.position.text).toBe('Supine, arms out');
+    const book = { surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: '', demo: false }], procedures: [procedure] };
+    expect(classifyIncomingCard(book, surgeon, emptyProcedure('x', { name: 'Right THA', approach: 'Posterior' })).kind).toBe('attach');
+    expect(filterBook(book, 'anterior').procedures).toHaveLength(1);
+  });
+
   it('leaves the day list out of a book backup', () => {
     const book = migrateBook([{ id: 'real-1', name: 'Dr. Real', specialty: 'ENT', sutures: [], status: 'unconfirmed' }]);
     const backup = toBackup(book);

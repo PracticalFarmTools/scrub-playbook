@@ -42,7 +42,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
       <div className="px-5 pt-4 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h4 className="text-base font-extrabold text-slate-900 tracking-tight">{procedure.name}</h4>
+            <h4 className="text-base font-extrabold text-slate-900 tracking-tight">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h4>
             {surgeon?.facility && (
               <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin size={11} /> {surgeon.facility}</p>
             )}
@@ -70,13 +70,32 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         </p>
       )}
 
+      <TextBlock label="Position" text={blocks.position?.text} />
+      <TextBlock label="Prep" text={blocks.prep?.text} />
+      <TextBlock label="Drapes" text={blocks.drapes?.text} />
       <TextBlock label="Room start" text={blocks.room?.text} />
-      <TextBlock label="Equipment" text={blocks.equipment?.text} />
+      <TextBlock label="Equipment and settings" text={blocks.equipment?.text} />
 
       <div className="px-5 pb-4 flex flex-wrap gap-2">
         <GloveLine glove={blocks.gloves?.outer} label="Outer" />
         <GloveLine glove={blocks.gloves?.inner} label="Inner" />
       </div>
+
+      {trays.length > 0 && (
+        <div className="px-5 pb-4">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Trays</p>
+          <ul className="space-y-1">
+            {trays.map(tray => (
+              <li key={tray.id} className="text-sm text-slate-700">
+                <span className="font-semibold">{tray.commonName}</span>
+                {tray.spdName && <span className="text-slate-400"> · SPD: {tray.spdName}</span>}
+                {tray.vendorName && <span className="text-slate-400"> · {tray.vendorName}</span>}
+                <span className="text-slate-400"> · {tray.openOrHold === 'hold' ? 'Hold' : 'Open'}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {sutures.length > 0 && (
         <div className="px-5 pb-4">
@@ -111,22 +130,6 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
               </a>
             ))}
           </div>
-        </div>
-      )}
-
-      {trays.length > 0 && (
-        <div className="px-5 pb-4">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Trays</p>
-          <ul className="space-y-1">
-            {trays.map(tray => (
-              <li key={tray.id} className="text-sm text-slate-700">
-                <span className="font-semibold">{tray.commonName}</span>
-                {tray.spdName && <span className="text-slate-400"> · SPD: {tray.spdName}</span>}
-                {tray.vendorName && <span className="text-slate-400"> · {tray.vendorName}</span>}
-                <span className="text-slate-400"> · {tray.openOrHold === 'hold' ? 'Hold' : 'Open'}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 
@@ -175,7 +178,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         </div>
       )}
 
-      <TextBlock label="End of the case" text={blocks.endOfCase?.text} />
+      <TextBlock label="Dressing and end of case" text={blocks.endOfCase?.text} />
 
       {blocks.note?.text && (
         <p className="px-5 py-3 text-sm text-slate-600 whitespace-pre-wrap bg-slate-50">{blocks.note.text}</p>

@@ -2,6 +2,10 @@ function blobProcedure(procedure) {
   const b = procedure.blocks || {};
   return [
     procedure.name,
+    procedure.approach,
+    b.position?.text,
+    b.prep?.text,
+    b.drapes?.text,
     b.room?.text,
     b.equipment?.text,
     b.endOfCase?.text,

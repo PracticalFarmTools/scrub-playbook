@@ -34,6 +34,7 @@ function slimProcedure(procedure) {
   const stripped = stripConfirmation(procedure);
   return prune({
     name: stripped.name,
+    approach: stripped.approach,
     blocks: stripped.blocks,
     official: stripped.official?.label
       ? { label: stripped.official.label, note: stripped.official.note || '' }
@@ -60,12 +61,16 @@ export function toGlanceText(surgeon, procedure) {
   const who = [surgeon?.name, surgeon?.specialty].filter(Boolean).join(' · ');
   if (who) lines.push(who);
   if (surgeon?.facility?.trim()) lines.push(`Place: ${surgeon.facility.trim()}`);
-  lines.push(`Procedure: ${procedure?.name || 'Untitled case'}`);
+  const procedureTitle = [procedure?.name || 'Untitled case', procedure?.approach].filter(part => part && String(part).trim()).join(' · ');
+  lines.push(`Procedure: ${procedureTitle}`);
   if (procedure?.official?.label?.trim()) lines.push(`Official card: ${procedure.official.label.trim()}`);
   lines.push('', UNCONFIRMED_LINE);
 
+  if (blocks.position.text?.trim()) pushSection(lines, 'Position', [blocks.position.text]);
+  if (blocks.prep.text?.trim()) pushSection(lines, 'Prep', [blocks.prep.text]);
+  if (blocks.drapes.text?.trim()) pushSection(lines, 'Drapes', [blocks.drapes.text]);
   if (blocks.room.text?.trim()) pushSection(lines, 'Room start', [blocks.room.text]);
-  if (blocks.equipment.text?.trim()) pushSection(lines, 'Equipment', [blocks.equipment.text]);
+  if (blocks.equipment.text?.trim()) pushSection(lines, 'Equipment and settings', [blocks.equipment.text]);
 
   const gloves = [];
   if (blocks.gloves.outer?.model) {
@@ -75,6 +80,14 @@ export function toGlanceText(surgeon, procedure) {
     gloves.push(`Inner: ${[blocks.gloves.inner.model, blocks.gloves.inner.size].filter(Boolean).join(' ')}`);
   }
   pushSection(lines, 'Gloves', gloves);
+
+  pushSection(lines, 'Trays', (blocks.trays || []).map(tray => {
+    const parts = [tray.commonName];
+    if (tray.spdName) parts.push(`SPD: ${tray.spdName}`);
+    if (tray.vendorName) parts.push(tray.vendorName);
+    parts.push(tray.openOrHold === 'hold' ? 'Hold' : 'Open');
+    return parts.filter(Boolean).join(' · ');
+  }));
 
   pushSection(lines, 'Sutures', (blocks.sutures || []).map(suture => {
     const layer = suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? suture.layer : '';
@@ -86,14 +99,6 @@ export function toGlanceText(surgeon, procedure) {
     return [head, ...tail].filter(Boolean).join(' · ');
   }));
 
-  pushSection(lines, 'Trays', (blocks.trays || []).map(tray => {
-    const parts = [tray.commonName];
-    if (tray.spdName) parts.push(`SPD: ${tray.spdName}`);
-    if (tray.vendorName) parts.push(tray.vendorName);
-    parts.push(tray.openOrHold === 'hold' ? 'Hold' : 'Open');
-    return parts.filter(Boolean).join(' · ');
-  }));
-
   pushSection(lines, 'Implants', (blocks.implants || []).map(implant => {
     const name = implant.systemName || 'Unnamed system';
     return implant.repExpected ? `${name} · Rep expected` : name;
@@ -102,7 +107,7 @@ export function toGlanceText(surgeon, procedure) {
   pushSection(lines, 'Nicknames', (blocks.nicknames || []).map(nick => `“${nick.nickname}” → ${nick.actual || ''}`));
   pushSection(lines, 'People', (blocks.people || []).map(person => [person.name, person.role].filter(Boolean).join(' · ')));
 
-  if (blocks.endOfCase.text?.trim()) pushSection(lines, 'End of the case', [blocks.endOfCase.text]);
+  if (blocks.endOfCase.text?.trim()) pushSection(lines, 'Dressing and end of case', [blocks.endOfCase.text]);
   if (blocks.note.text?.trim()) pushSection(lines, 'Note', [blocks.note.text]);
 
   return { text: lines.join('\n').trim() };
@@ -193,6 +198,7 @@ function cardToBook(data) {
       ...data.procedure,
       id: uid(),
       surgeonId,
+      approach: data.procedure.approach || '',
       demo: false,
       confirmations: [],
       lastConfirmedAt: null,
@@ -267,6 +273,7 @@ export function classifyIncomingCard(book, surgeon, procedure) {
     item.surgeonId === found.id
     && !item.demo
     && sameProcedureName(item.name, procedure?.name)
+    && (item.approach || '').trim().toLowerCase() === (procedure?.approach || '').trim().toLowerCase()
   ));
   if (existing) return { kind: 'duplicate', surgeon: found, procedure: existing };
   return { kind: 'attach', surgeon: found };
