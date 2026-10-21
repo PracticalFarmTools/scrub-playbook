@@ -1,30 +1,32 @@
 import { useEffect, useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { findPhiSignals } from '../data/phi';
-import { emptyToday, loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleToday } from '../data/today';
+import { loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleDay } from '../data/today';
 import PhiPause from './PhiPause';
 
 const field = 'w-full rounded-lg bg-slate-50 border border-slate-200 text-sm px-2 py-2';
 
 export default function TodayList({ book, onOpen, onStartProcedure, onStartSurgeon }) {
   const [stored, setStored] = useState(loadToday);
-  const [clockDay, setClockDay] = useState(localDay);
+  const [today, setToday] = useState(localDay);
+  const [offset, setOffset] = useState(0);
   const [draft, setDraft] = useState({ startsAt: '', room: '', surgeonName: '', procedureName: '' });
   const [editing, setEditing] = useState(null);
   const [phi, setPhi] = useState([]);
   const [choice, setChoice] = useState(null);
-  const items = visibleToday(stored, clockDay);
+  const activeDay = localDay(offset);
+  const items = visibleDay(stored, activeDay);
 
   useEffect(() => {
     saveToday(stored);
   }, [stored]);
 
   useEffect(() => {
-    const timer = setInterval(() => setClockDay(localDay()), 60000);
+    const timer = setInterval(() => setToday(localDay()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const baseForToday = (prev) => (prev.day === localDay() ? prev : emptyToday());
+  const keepCurrent = (items) => items.filter(item => item.day >= today);
 
   const addItem = (event) => {
     event.preventDefault();
@@ -33,11 +35,8 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
       setPhi(hits);
       return;
     }
-    const item = todayItem(draft);
-    setStored(prev => {
-      const base = baseForToday(prev);
-      return { day: localDay(), items: [...base.items, item] };
-    });
+    const item = todayItem({ ...draft, day: activeDay });
+    setStored(prev => ({ v: 2, items: [...keepCurrent(prev.items || []), item] }));
     setDraft({ startsAt: '', room: '', surgeonName: '', procedureName: '' });
   };
 
@@ -49,17 +48,16 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
       return;
     }
     setStored(prev => ({
-      ...baseForToday(prev),
-      items: baseForToday(prev).items.map(item => item.id === editing.id ? { ...item, ...todayItem(editing), id: item.id } : item),
+      v: 2,
+      items: keepCurrent(prev.items || []).map(item => item.id === editing.id
+        ? { ...item, ...todayItem({ ...editing, day: item.day }), id: item.id, day: item.day }
+        : item),
     }));
     setEditing(null);
   };
 
   const removeItem = (id) => {
-    setStored(prev => {
-      const base = baseForToday(prev);
-      return { day: localDay(), items: base.items.filter(item => item.id !== id) };
-    });
+    setStored(prev => ({ v: 2, items: keepCurrent(prev.items || []).filter(item => item.id !== id) }));
   };
 
   const follow = (result) => {
@@ -90,7 +88,10 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-4 overflow-hidden">
       <div className="px-4 py-3">
-        <h2 className="text-sm font-extrabold text-slate-800">Today</h2>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setOffset(0)} className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer ${offset === 0 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Today</button>
+          <button type="button" onClick={() => setOffset(1)} className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer ${offset === 1 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Tomorrow</button>
+        </div>
         {items.length === 0 && (
           <p className="text-xs text-slate-500 mt-1">Add the board: time, room, surgeon, procedure.</p>
         )}
@@ -139,7 +140,7 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
           <p className="text-xs font-bold text-slate-500">Which procedure?</p>
           {choice.procedures.map(procedure => (
             <button type="button" key={procedure.id} onClick={() => { setChoice(null); onOpen(procedure); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 cursor-pointer">
-              {procedure.name}
+              {procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}
             </button>
           ))}
           <button type="button" onClick={() => setChoice(null)} className="text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>

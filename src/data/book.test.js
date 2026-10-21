@@ -6,7 +6,7 @@ import { resolveProductLink } from './productLink';
 import { filterBook } from './searchBook';
 import { classifyIncomingCard, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
-import { resolveTodayTap, visibleToday } from './today';
+import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
 import { validateProcedure } from './validate';
 
@@ -453,16 +453,41 @@ describe('today', () => {
     expect(resolveTodayTap(twins, { surgeonName: 'Dr. Chen', procedureName: 'Right total knee' }).action).toBe('choose');
   });
 
-  it('drops yesterday’s list', () => {
-    expect(visibleToday({ day: '2026-10-04', items: [{ id: 'a', startsAt: '07:30' }] }, '2026-10-05')).toEqual([]);
-    expect(visibleToday({
+  it('converts the old list, drops yesterday, and keeps tomorrow off today', () => {
+    const converted = loadToday({
       day: '2026-10-05',
       items: [
         { id: 'late', startsAt: '15:00' },
         { id: 'early', startsAt: '07:30' },
         { id: 'blank', startsAt: '' },
       ],
-    }, '2026-10-05').map(item => item.id)).toEqual(['early', 'late', 'blank']);
+    }, '2026-10-05');
+    expect(converted.v).toBe(2);
+    expect(converted.items.every(item => item.day === '2026-10-05')).toBe(true);
+    expect(visibleDay(converted, '2026-10-05').map(item => item.id)).toEqual(['early', 'late', 'blank']);
+    expect(loadToday({ day: '2026-10-04', items: [{ id: 'a', startsAt: '07:30' }] }, '2026-10-05').items).toEqual([]);
+    const mixed = {
+      v: 2,
+      items: [
+        { id: 'today', day: '2026-10-05', startsAt: '07:00' },
+        { id: 'tomorrow', day: '2026-10-06', startsAt: '08:00' },
+        { id: 'old', day: '2026-10-04', startsAt: '06:00' },
+      ],
+    };
+    expect(loadToday(mixed, '2026-10-05').items.map(item => item.id)).toEqual(['today', 'tomorrow']);
+    expect(visibleDay(mixed, '2026-10-05').map(item => item.id)).toEqual(['today']);
+    expect(visibleDay(mixed, '2026-10-06').map(item => item.id)).toEqual(['tomorrow']);
+  });
+
+  it('asks which approach when two procedures share a name', () => {
+    const anterior = emptyProcedure('s1', { name: 'Knee', approach: 'Anterior' });
+    const posterior = emptyProcedure('s1', { name: 'Knee', approach: 'Posterior' });
+    const result = resolveTodayTap(
+      { surgeons: [surgeon], procedures: [anterior, posterior] },
+      { surgeonName: 'Dr. Chen', procedureName: 'Knee' },
+    );
+    expect(result.action).toBe('choose');
+    expect(result.procedures.map(item => item.approach).sort()).toEqual(['Anterior', 'Posterior']);
   });
 
   it('pauses a today line that says patient', () => {

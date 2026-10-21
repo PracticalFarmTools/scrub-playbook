@@ -1,14 +1,15 @@
 import { TODAY_KEY, uid } from './schema';
 
-export function localDay(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+export function localDay(offsetDays = 0, date = new Date()) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offsetDays);
+  const y = next.getFullYear();
+  const m = String(next.getMonth() + 1).padStart(2, '0');
+  const d = String(next.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
-export function emptyToday(day = localDay()) {
-  return { day, items: [] };
+export function emptyToday() {
+  return { v: 2, items: [] };
 }
 
 /** A leading "Dr." is ignored. "Ann" does not match "Anne". */
@@ -28,35 +29,48 @@ export function sameProcedureName(a, b) {
   return left.length > 0 && left === right;
 }
 
-export function visibleToday(stored, today = localDay()) {
-  if (!stored || stored.day !== today) return [];
-  return [...(stored.items || [])].sort((a, b) => {
-    if (!a.startsAt && !b.startsAt) return 0;
-    if (!a.startsAt) return 1;
-    if (!b.startsAt) return -1;
-    return a.startsAt.localeCompare(b.startsAt);
-  });
+function convertToday(stored, today) {
+  if (!stored || typeof stored !== 'object') return emptyToday();
+  const source = Array.isArray(stored.items) ? stored.items : [];
+  const legacyDay = stored.v === 2 ? '' : (stored.day || '');
+  const items = source.map(item => ({
+    ...item,
+    day: item.day || legacyDay || today,
+  })).filter(item => item.day && item.day >= today);
+  return { v: 2, items };
 }
 
-export function loadToday() {
-  try {
-    const raw = localStorage.getItem(TODAY_KEY);
-    if (!raw) return emptyToday();
-    const stored = JSON.parse(raw);
-    if (!stored || stored.day !== localDay()) return emptyToday();
-    return { day: stored.day, items: Array.isArray(stored.items) ? stored.items : [] };
-  } catch {
-    return emptyToday();
+export function loadToday(source, today = localDay()) {
+  if (source === undefined) {
+    try {
+      const raw = localStorage.getItem(TODAY_KEY);
+      return convertToday(raw ? JSON.parse(raw) : null, today);
+    } catch {
+      return emptyToday();
+    }
   }
+  return convertToday(source, today);
+}
+
+export function visibleDay(stored, day) {
+  return [...(stored?.items || [])]
+    .filter(item => item.day === day)
+    .sort((a, b) => {
+      if (!a.startsAt && !b.startsAt) return 0;
+      if (!a.startsAt) return 1;
+      if (!b.startsAt) return -1;
+      return a.startsAt.localeCompare(b.startsAt);
+    });
 }
 
 export function saveToday(state) {
   localStorage.setItem(TODAY_KEY, JSON.stringify(state));
 }
 
-export function todayItem({ startsAt = '', room = '', surgeonName = '', procedureName = '' } = {}) {
+export function todayItem({ day = localDay(), startsAt = '', room = '', surgeonName = '', procedureName = '' } = {}) {
   return {
     id: uid(),
+    day,
     startsAt,
     room: room.trim(),
     surgeonName: surgeonName.trim(),
