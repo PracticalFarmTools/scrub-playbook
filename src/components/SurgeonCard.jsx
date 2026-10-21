@@ -27,14 +27,15 @@ export default function SurgeonCard({
   onDispute,
   onClearDispute,
   onShare,
-  onRename,
+  onUpdateSurgeon,
   onCopySample,
   onCaseView,
   onSaveFirstCase,
 }) {
   const [confirming, setConfirming] = useState(null);
-  const [renaming, setRenaming] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
   const [name, setName] = useState(surgeon.name);
+  const [place, setPlace] = useState(surgeon.facility || '');
   const [editingFirst, setEditingFirst] = useState(false);
   const [firstDraft, setFirstDraft] = useState(['', '', '']);
   const [phi, setPhi] = useState([]);
@@ -57,9 +58,17 @@ export default function SurgeonCard({
     <article className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <header className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {renaming ? (
-            <form onSubmit={(e) => { e.preventDefault(); onRename(surgeon.id, name); setRenaming(false); }} className="flex gap-2">
-              <input value={name} onChange={e => setName(e.target.value)} className="min-w-0 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
+          {editingDetails ? (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const next = { ...surgeon, name, facility: place };
+              const hits = findPhiInSurgeon(next);
+              if (hits.length) { setPhi(hits); return; }
+              onUpdateSurgeon?.(surgeon.id, { name, facility: place });
+              setEditingDetails(false);
+            }} className="space-y-2">
+              <input value={name} onChange={e => setName(e.target.value)} aria-label="Name" className="w-full min-w-0 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
+              <input value={place} onChange={e => setPlace(e.target.value)} aria-label="Place" placeholder="Place" className="w-full min-w-0 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
               <button className="text-xs font-bold text-white cursor-pointer">Save</button>
             </form>
           ) : (
@@ -67,8 +76,8 @@ export default function SurgeonCard({
           )}
           <p className="text-medical-200 text-sm flex items-center gap-1.5 mt-0.5"><Stethoscope size={14} /> {surgeon.specialty}</p>
           {surgeon.demo && <p className="text-[10px] uppercase tracking-widest text-medical-300 mt-1">Sample · not your hospital</p>}
-          {!surgeon.demo && !renaming && (
-            <button type="button" onClick={() => { setName(surgeon.name); setRenaming(true); }} className="text-[10px] font-bold text-medical-200 mt-1 cursor-pointer">Rename</button>
+          {!surgeon.demo && !editingDetails && (
+            <button type="button" onClick={() => { setName(surgeon.name); setPlace(surgeon.facility || ''); setEditingDetails(true); }} className="text-[10px] font-bold text-medical-200 mt-1 cursor-pointer">Edit details</button>
           )}
         </div>
         <button

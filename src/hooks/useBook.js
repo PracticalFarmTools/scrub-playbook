@@ -108,12 +108,12 @@ export function useBook() {
     }));
   }, []);
 
-  const renameSurgeon = useCallback((id, name) => {
+  const updateSurgeon = useCallback((id, { name, facility } = {}) => {
     const trimmed = (name || '').trim();
     if (!trimmed) return;
     setBook(prev => ({
       ...prev,
-      surgeons: prev.surgeons.map(s => s.id === id ? { ...s, name: trimmed } : s),
+      surgeons: prev.surgeons.map(s => s.id === id ? { ...s, name: trimmed, facility: (facility || '').trim() } : s),
     }));
   }, []);
 
@@ -181,7 +181,7 @@ export function useBook() {
     disputeProcedure,
     clearDispute,
     saveFirstCase,
-    renameSurgeon,
+    updateSurgeon,
     copySample,
     loadSamples,
     importIncoming,

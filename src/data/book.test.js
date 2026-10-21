@@ -396,6 +396,7 @@ describe('share', () => {
       procedures: [procedure],
     }, 'bovie').surgeons).toHaveLength(1);
     expect(findPhiInSurgeon({ name: 'Dr. Chen', firstCase: ['patient number 12'] }).map(hit => hit.id)).toContain('patient-number');
+    expect(findPhiInSurgeon({ name: 'Dr. Chen', facility: 'Patient #4471' }).map(hit => hit.id)).toContain('patient-number');
 
     const samples = buildSampleBook();
     expect(samples.surgeons.find(item => item.id === 'demo-1').firstCase).toEqual([

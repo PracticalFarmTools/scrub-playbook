@@ -237,7 +237,7 @@ export default function App() {
                 onDispute={(procedure) => bookApi.disputeProcedure(procedure.id)}
                 onClearDispute={(id) => bookApi.clearDispute(id)}
                 onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
-                onRename={(id, name) => bookApi.renameSurgeon(id, name)}
+                onUpdateSurgeon={(id, details) => bookApi.updateSurgeon(id, details)}
                 onSaveFirstCase={(id, lines) => bookApi.saveFirstCase(id, lines)}
                 onCaseView={openCase}
                 onCopySample={(id) => {
