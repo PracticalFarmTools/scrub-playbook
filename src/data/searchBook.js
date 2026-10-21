@@ -6,6 +6,7 @@ function blobProcedure(procedure) {
     b.position?.text,
     b.prep?.text,
     b.drapes?.text,
+    ...(b.steps || []).flatMap(step => [step.title, step.ready, step.habit]),
     b.room?.text,
     b.equipment?.text,
     b.endOfCase?.text,

@@ -30,7 +30,7 @@ function GloveLine({ glove, label }) {
   );
 }
 
-export default function ProcedureGlance({ procedure, mode = 'personal', staleDays, surgeon }) {
+export default function ProcedureGlance({ procedure, mode = 'personal', staleDays, surgeon, onCaseView }) {
   const state = trustState(procedure, { mode, staleDays });
   const blocks = procedure.blocks || {};
   const sutures = blocks.sutures || [];
@@ -80,6 +80,13 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <GloveLine glove={blocks.gloves?.outer} label="Outer" />
         <GloveLine glove={blocks.gloves?.inner} label="Inner" />
       </div>
+
+      {(blocks.steps || []).length > 0 && (
+        <div className="px-5 pb-4 flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-700">Case flow · {blocks.steps.length} {blocks.steps.length === 1 ? 'step' : 'steps'}</p>
+          {onCaseView && <button type="button" onClick={onCaseView} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Case view</button>}
+        </div>
+      )}
 
       {trays.length > 0 && (
         <div className="px-5 pb-4">

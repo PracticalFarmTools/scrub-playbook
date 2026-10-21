@@ -81,6 +81,13 @@ export function toGlanceText(surgeon, procedure) {
   }
   pushSection(lines, 'Gloves', gloves);
 
+  pushSection(lines, 'Case flow', (blocks.steps || []).filter(step => step.title?.trim()).map((step, index) => {
+    const parts = [`${index + 1}. ${step.title.trim()}`];
+    if (step.ready?.trim()) parts.push(`Have ready: ${step.ready.trim()}`);
+    if (step.habit?.trim()) parts.push(step.habit.trim());
+    return parts.join(' · ');
+  }));
+
   pushSection(lines, 'Trays', (blocks.trays || []).map(tray => {
     const parts = [tray.commonName];
     if (tray.spdName) parts.push(`SPD: ${tray.spdName}`);

@@ -121,6 +121,18 @@ export function emptyProcedure(surgeonId, partial = {}) {
   };
 }
 
+export function cleanSteps(steps = []) {
+  return steps
+    .filter(step => step?.title?.trim())
+    .slice(0, 30)
+    .map(step => ({
+      id: step.id,
+      title: step.title.trim().slice(0, 80),
+      ready: (step.ready || '').trim().slice(0, 200),
+      habit: (step.habit || '').trim().slice(0, 200),
+    }));
+}
+
 export function gloveChoice({ productId = null, model = '', brand = '', color = '', size = '7.0' } = {}) {
   if (!model && !productId) return null;
   return { productId, model, brand, color, size };

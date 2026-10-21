@@ -20,6 +20,7 @@ export default function SurgeonCard({
   onShare,
   onRename,
   onCopySample,
+  onCaseView,
 }) {
   const [confirming, setConfirming] = useState(null);
   const [renaming, setRenaming] = useState(false);
@@ -83,7 +84,7 @@ export default function SurgeonCard({
           id={`procedure-${procedure.id}`}
           className={`scroll-mt-28 ${highlightId === procedure.id ? 'ring-2 ring-medical-500 ring-offset-2' : ''}`}
         >
-          <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} />
+          <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
           <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
             {surgeon.demo ? (
               <button type="button" onClick={() => onCopySample(surgeon.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy into my book</button>

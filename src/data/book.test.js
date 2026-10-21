@@ -5,7 +5,7 @@ import { findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
 import { filterBook } from './searchBook';
 import { classifyIncomingCard, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, toBackup, toGlanceText, toShareableCard } from './share';
-import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, emptyBlocks, emptyProcedure, textBlock } from './schema';
+import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { resolveTodayTap, visibleToday } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
 import { validateProcedure } from './validate';
@@ -343,6 +343,29 @@ describe('share', () => {
     const book = { surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: '', demo: false }], procedures: [procedure] };
     expect(classifyIncomingCard(book, surgeon, emptyProcedure('x', { name: 'Right THA', approach: 'Posterior' })).kind).toBe('attach');
     expect(filterBook(book, 'anterior').procedures).toHaveLength(1);
+  });
+
+  it('keeps case-flow order through a share and drops an empty step', () => {
+    const surgeon = { name: 'Dr. Chen', specialty: 'Orthopedics', demo: false };
+    const procedure = emptyProcedure('s1', {
+      name: 'Right total knee',
+      blocks: {
+        ...emptyBlocks(),
+        steps: [
+          { id: 'a', title: 'Exposure', ready: 'Cobb', habit: 'Says “Cobb”' },
+          { id: 'b', title: '  ', ready: 'skip', habit: '' },
+          { id: 'c', title: 'Closing', ready: 'Vicryl', habit: '' },
+        ],
+      },
+    });
+    expect(cleanSteps(procedure.blocks.steps).map(step => step.title)).toEqual(['Exposure', 'Closing']);
+    const message = shareMessage(surgeon, procedure);
+    expect(message.glance.indexOf('1. Exposure')).toBeLessThan(message.glance.indexOf('2. Closing'));
+    expect(message.glance).toContain('Have ready: Cobb');
+    const parsed = parseImport(message.message);
+    expect(parsed.book.procedures[0].blocks.steps.map(step => step.title)).toEqual(['Exposure', '  ', 'Closing']);
+    const book = { surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false }], procedures: [procedure] };
+    expect(filterBook(book, 'cobb').procedures).toHaveLength(1);
   });
 
   it('leaves the day list out of a book backup', () => {

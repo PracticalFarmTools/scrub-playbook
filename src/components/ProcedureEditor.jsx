@@ -4,7 +4,7 @@ import { SURGICAL_GLOVES, GLOVE_SIZES, GLOVE_COLOR_HEX } from '../data/gloves';
 import { NEEDLE_TYPES, SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
 import { productsByKind, productIdForSuture } from '../data/products';
 import { findPhiInProcedure } from '../data/phi';
-import { uid } from '../data/schema';
+import { cleanSteps, uid } from '../data/schema';
 import SearchableDropdown from './SearchableDropdown';
 import MicButton from './MicButton';
 import PhiPause from './PhiPause';
@@ -48,7 +48,13 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
       setPhi(hits);
       return;
     }
-    onSave({ ...draft, name: draft.name.trim() || 'Untitled case' });
+    const steps = cleanSteps(draft.blocks.steps);
+    onSave({
+      ...draft,
+      name: draft.name.trim() || 'Untitled case',
+      approach: (draft.approach || '').trim().slice(0, 60),
+      blocks: { ...draft.blocks, steps },
+    });
     onClose();
   };
 
@@ -201,6 +207,31 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
                 </div>
               </div>
             ))}
+          </section>
+
+          <section className="space-y-2">
+            <p className="text-sm font-bold text-medical-700">Case flow</p>
+            {(blocks.steps || []).map((step, index) => (
+              <div key={step.id} className="space-y-2 border border-slate-100 rounded-xl p-3">
+                <input value={step.title} maxLength={80} placeholder="Step" onChange={e => setBlocks({ steps: blocks.steps.map((item, i) => i === index ? { ...item, title: e.target.value } : item) })} className={input} />
+                <input value={step.ready || ''} maxLength={200} placeholder="Have ready" onChange={e => setBlocks({ steps: blocks.steps.map((item, i) => i === index ? { ...item, ready: e.target.value } : item) })} className={input} />
+                <input value={step.habit || ''} maxLength={200} placeholder="What they do or say" onChange={e => setBlocks({ steps: blocks.steps.map((item, i) => i === index ? { ...item, habit: e.target.value } : item) })} className={input} />
+                <div className="flex gap-3 text-xs font-bold">
+                  <button type="button" disabled={index === 0} onClick={() => {
+                    const steps = [...blocks.steps];
+                    [steps[index - 1], steps[index]] = [steps[index], steps[index - 1]];
+                    setBlocks({ steps });
+                  }} className="text-medical-700 disabled:opacity-30 cursor-pointer">Up</button>
+                  <button type="button" disabled={index === blocks.steps.length - 1} onClick={() => {
+                    const steps = [...blocks.steps];
+                    [steps[index + 1], steps[index]] = [steps[index], steps[index + 1]];
+                    setBlocks({ steps });
+                  }} className="text-medical-700 disabled:opacity-30 cursor-pointer">Down</button>
+                  <button type="button" onClick={() => setBlocks({ steps: blocks.steps.filter((_, i) => i !== index) })} className="text-rose-500 cursor-pointer">Delete</button>
+                </div>
+              </div>
+            ))}
+            <button type="button" disabled={(blocks.steps || []).length >= 30} onClick={() => setBlocks({ steps: [...(blocks.steps || []), { id: uid(), title: '', ready: '', habit: '' }] })} className="text-xs font-bold text-medical-700 disabled:opacity-40 cursor-pointer inline-flex items-center gap-1"><Plus size={14} /> Add step</button>
           </section>
 
           <section className="space-y-2">
