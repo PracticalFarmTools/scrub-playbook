@@ -9,6 +9,7 @@ import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, 
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
+import { applyUnitBook, publishUnitBook, unitPreviewText } from './unitBook';
 import { validateProcedure } from './validate';
 
 describe('migrateBook', () => {
@@ -618,6 +619,76 @@ describe('product links', () => {
       now: Date.parse('2026-10-05T00:00:00.000Z') + (LINK_FRESH_DAYS + 5) * 86400000,
     });
     expect(stale.kind).toBe('company');
+  });
+});
+
+describe('unit book', () => {
+  it('replaces a newer revision, keeps a match on an unchanged card, and leaves personal cards', () => {
+    const blocks = emptyBlocks();
+    const unitProcedure = emptyProcedure('surg-1', { id: 'proc-1', name: 'Knee', approach: 'Anterior', blocks });
+    const confirmed = {
+      ...withConfirmation(unitProcedure, { name: 'Alex', at: '2026-10-01T00:00:00.000Z' }),
+      unitBook: { id: 'unit-1', revision: 1 },
+    };
+    const gone = { ...emptyProcedure('surg-1', { id: 'proc-old', name: 'Retired', blocks }), unitBook: { id: 'unit-1', revision: 1 } };
+    const personal = withConfirmation(emptyProcedure('mine', { id: 'personal-1', name: 'My knee', blocks }), { name: 'Alex', at: '2026-10-02T00:00:00.000Z' });
+    const book = {
+      version: 2,
+      surgeons: [
+        { id: 'surg-1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, unitBook: { id: 'unit-1', revision: 1 } },
+        { id: 'mine', name: 'Me', specialty: 'Orthopedics', facility: 'Main', demo: false },
+      ],
+      procedures: [confirmed, gone, personal],
+    };
+    const file = {
+      kind: 'scrubplaybook-unitbook',
+      v: 1,
+      unitBookId: 'unit-1',
+      place: 'Main',
+      revision: 2,
+      publishedBy: 'Alex',
+      book: {
+        version: 2,
+        surgeons: [{ id: 'surg-1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false }],
+        procedures: [emptyProcedure('surg-1', { id: 'proc-1', name: 'Knee', approach: 'Anterior', blocks })],
+      },
+    };
+    const updated = applyUnitBook(book, file);
+    expect(updated.status).toBe('updated');
+    expect(updated.book.procedures.find(item => item.id === 'proc-1').confirmations).toHaveLength(1);
+    expect(updated.book.procedures.find(item => item.id === 'proc-1').unitBook).toEqual({ id: 'unit-1', revision: 2 });
+    expect(updated.book.procedures.some(item => item.id === 'proc-old')).toBe(false);
+    expect(updated.book.procedures.find(item => item.id === 'personal-1').confirmations).toHaveLength(1);
+    expect(updated.book.procedures.find(item => item.id === 'personal-1').unitBook).toBeUndefined();
+    expect(applyUnitBook(updated.book, file).status).toBe('older');
+    expect(applyUnitBook(updated.book, file).revision).toBe(2);
+
+    const changed = applyUnitBook(updated.book, {
+      ...file,
+      revision: 3,
+      book: {
+        ...file.book,
+        procedures: [emptyProcedure('surg-1', { id: 'proc-1', name: 'Knee revised', approach: 'Anterior', blocks })],
+      },
+    });
+    expect(changed.book.procedures.find(item => item.id === 'proc-1').confirmations).toEqual([]);
+    expect(changed.book.procedures.find(item => item.id === 'personal-1').name).toBe('My knee');
+
+    const source = {
+      surgeons: [
+        { id: 'surg-1', name: 'Dr. Chen', facility: 'Main', demo: false },
+        { id: 'demo-1', name: 'Sample', facility: 'Main', demo: true },
+      ],
+      procedures: [withConfirmation(emptyProcedure('surg-1', { id: 'proc-1', name: 'Knee', blocks }), { name: 'Alex' })],
+    };
+    const first = publishUnitBook(source, 'Main', 'Alex', { now: '2026-10-21T00:00:00.000Z', published: {}, persist: false });
+    const second = publishUnitBook(source, 'Main', 'Alex', { published: first.published, persist: false });
+    expect(second.file.revision).toBe(2);
+    expect(second.file.unitBookId).toBe(first.file.unitBookId);
+    expect(second.file.book.procedures[0].confirmations).toEqual([]);
+    expect(second.file.book.surgeons.map(item => item.id)).toEqual(['surg-1']);
+    expect(unitPreviewText(first.file)).toBe('Unit book for Main, revision 1 from Alex.');
+    expect(parseImport(JSON.stringify(first.file)).type).toBe('unitbook');
   });
 });
 

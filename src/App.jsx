@@ -6,6 +6,7 @@ import { STALE_AFTER_DAYS, emptyProcedure } from './data/schema';
 import { facilityLabels, filterBook } from './data/searchBook';
 import { parseImport, toBackup, toPlacePack } from './data/share';
 import { readTechName, useBook } from './hooks/useBook';
+import { publishUnitBook } from './data/unitBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import CaseView from './components/CaseView';
@@ -66,23 +67,14 @@ export default function App() {
   const handOffPlace = async (place) => {
     const pack = toPlacePack(book, place, readTechName() || 'A tech');
     const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
-    const filename = `scrubplaybook-${slug}-${new Date().toISOString().slice(0, 10)}.json`;
-    const body = JSON.stringify(pack, null, 2);
-    const file = new File([body], filename, { type: 'application/json' });
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: filename });
-        return;
-      } catch (err) {
-        if (err?.name === 'AbortError') return;
-      }
-    }
-    const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    await shareFile(`scrubplaybook-${slug}-${new Date().toISOString().slice(0, 10)}.json`, pack);
+  };
+
+  const publishPlace = async (place) => {
+    const { file } = publishUnitBook(book, place, readTechName() || 'A tech');
+    const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
+    await shareFile(`scrubplaybook-unit-${slug}-r${file.revision}.json`, file);
+    setNotice(`Published ${place} as unit book revision ${file.revision}.`);
   };
 
   const exportPlaybook = () => {
@@ -103,8 +95,36 @@ export default function App() {
     setLastExportAt(now);
   };
 
+  const shareFile = async (filename, data) => {
+    const body = JSON.stringify(data, null, 2);
+    const file = new File([body], filename, { type: 'application/json' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const onImport = (incoming, options = {}) => {
     try {
+      if (options.unitFile) {
+        const result = bookApi.importUnitBook(options.unitFile);
+        if (result.status !== 'updated') {
+          return { success: false, error: `You already have revision ${result.revision}.` };
+        }
+        addAudit({ action: 'Unit book updated', surgeonName: options.unitFile.place, note: `Revision ${result.revision}` });
+        setNotice(`Unit book for ${options.unitFile.place} is now revision ${result.revision}.`);
+        return { success: true, imported: 1, skipped: 0 };
+      }
       const parsed = incoming?.surgeons ? { book: incoming } : parseImport(incoming);
       const result = bookApi.importIncoming(parsed.book, options);
       addAudit({ action: 'Backup imported', surgeonName: `${result.imported} added`, note: `${result.skipped} skipped` });
@@ -265,6 +285,10 @@ export default function App() {
                 onUpdateSurgeon={(id, details) => bookApi.updateSurgeon(id, details)}
                 onSaveFirstCase={(id, lines) => bookApi.saveFirstCase(id, lines)}
                 onCaseView={openCase}
+                onCopyToNotes={(id) => {
+                  bookApi.copyToNotes(id);
+                  setNotice('Copied into your notes. It is unconfirmed until you were in that case.');
+                }}
                 onCopySample={(id) => {
                   bookApi.copySample(id);
                   setNotice('Copied into your book. It is unconfirmed until you were in that case.');
@@ -327,6 +351,7 @@ export default function App() {
           onHandOff={handOffPlace}
           onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
           onDelete={(place) => bookApi.removePlace(place)}
+          onPublish={publishPlace}
         />
       )}
       {showImport && (

@@ -23,7 +23,7 @@ function groupsFor(book, archived) {
     });
 }
 
-export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDelete }) {
+export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDelete, onPublish }) {
   const groups = groupsFor(book, false);
   const archived = groupsFor(book, true);
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -48,6 +48,9 @@ export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDel
               <div className="flex flex-wrap gap-2">
                 {group.place && (
                   <button type="button" onClick={() => onHandOff(group.place)} className="text-xs font-bold text-white bg-medical-600 rounded-lg px-3 py-2 cursor-pointer">Hand off</button>
+                )}
+                {group.place && (
+                  <button type="button" onClick={() => onPublish(group.place)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 py-2 cursor-pointer">Publish as unit book</button>
                 )}
                 <button type="button" onClick={() => onArchive(group.place, true)} className="text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-3 py-2 cursor-pointer">Archive</button>
                 <button type="button" onClick={() => setPendingDelete({ place: group.place, archived: false })} className="text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 py-2 cursor-pointer">Delete</button>

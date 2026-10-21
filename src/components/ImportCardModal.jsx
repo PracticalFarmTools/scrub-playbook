@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Download, X } from 'lucide-react';
 import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
 import { classifyIncomingCard, importPreviewText, parseImport } from '../data/share';
+import { unitPreviewText, unitRevision } from '../data/unitBook';
 import PhiPause from './PhiPause';
 import ProcedureGlance from './ProcedureGlance';
 
@@ -48,6 +49,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
         classification = classifyIncomingCard(book, surgeon, procedure);
       } else {
         for (const procedure of parsed.book.procedures || []) signals.push(...findPhiInProcedure(procedure));
+        for (const surgeon of parsed.book.surgeons || []) signals.push(...findPhiInSurgeon(surgeon));
       }
       setPreview({ parsed, classification, phi: uniqueSignals(signals) });
       setError('');
@@ -62,7 +64,10 @@ export default function ImportCardModal({ book, onClose, onImport }) {
 
   const commit = (surgeonId) => {
     if (!preview || preview.phi.length) return;
-    const result = onImport(preview.parsed.book, surgeonId ? { surgeonId } : {});
+    const result = onImport(preview.parsed.book, {
+      ...(surgeonId ? { surgeonId } : {}),
+      ...(preview.parsed.type === 'unitbook' ? { unitFile: preview.parsed.file } : {}),
+    });
     if (result && result.success === false) {
       setError(result.error || 'Could not import that.');
       return;
@@ -179,7 +184,19 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
-          {preview && !card && (
+          {preview && preview.parsed.type === 'unitbook' && (
+            <>
+              <p className="text-sm text-slate-700">{unitPreviewText(preview.parsed.file)}</p>
+              {unitRevision(book, preview.parsed.file.unitBookId) > 0 && preview.parsed.file.revision <= unitRevision(book, preview.parsed.file.unitBookId) && (
+                <p className="text-sm text-slate-700">You already have revision {unitRevision(book, preview.parsed.file.unitBookId)}.</p>
+              )}
+              {preview.phi.length === 0 && !(unitRevision(book, preview.parsed.file.unitBookId) > 0 && preview.parsed.file.revision <= unitRevision(book, preview.parsed.file.unitBookId)) && (
+                <button type="button" onClick={() => commit()} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unit book</button>
+              )}
+              <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
+            </>
+          )}
+          {preview && !card && preview.parsed.type !== 'unitbook' && (
             <>
               <p className="text-sm text-slate-700">{importPreviewText(preview.parsed)}</p>
               {preview.phi.length === 0 && (

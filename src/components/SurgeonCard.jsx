@@ -29,6 +29,7 @@ export default function SurgeonCard({
   onShare,
   onUpdateSurgeon,
   onCopySample,
+  onCopyToNotes,
   onCaseView,
   onSaveFirstCase,
 }) {
@@ -170,7 +171,11 @@ export default function SurgeonCard({
               <button type="button" onClick={() => onCopySample(surgeon.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy into my book</button>
             ) : (
               <>
-                <button type="button" onClick={() => onEdit(procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Edit</button>
+                {procedure.unitBook?.id ? (
+                  <button type="button" onClick={() => onCopyToNotes(procedure.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy to my notes</button>
+                ) : (
+                  <button type="button" onClick={() => onEdit(procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Edit</button>
+                )}
                 <button type="button" onClick={() => onConfirm(procedure)} className="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1 cursor-pointer">I was in this case</button>
                 {procedure.disputed ? (
                   <button type="button" onClick={() => onClearDispute(procedure.id)} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Clear flag</button>

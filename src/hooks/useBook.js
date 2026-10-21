@@ -3,6 +3,7 @@ import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCa
 import { migrateBook } from '../data/migrate';
 import { mergeBackup, placeIncomingCard } from '../data/share';
 import { archivePlace, deletePlace } from '../data/places';
+import { applyUnitBook } from '../data/unitBook';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
 
 function loadBook() {
@@ -162,6 +163,41 @@ export function useBook() {
     });
   }, []);
 
+  const importUnitBook = useCallback((file) => {
+    let result = { status: 'older', revision: 0, book: null };
+    setBook(prev => {
+      result = applyUnitBook(prev, file);
+      return result.status === 'updated' ? result.book : prev;
+    });
+    return result;
+  }, []);
+
+  const copyToNotes = useCallback((procedureId) => {
+    setBook(prev => {
+      const procedure = prev.procedures.find(item => item.id === procedureId);
+      const surgeon = prev.surgeons.find(item => item.id === procedure?.surgeonId);
+      if (!procedure || !surgeon) return prev;
+      const id = uid();
+      const now = new Date().toISOString();
+      const copySurgeon = { ...surgeon, id, demo: false, archived: false, createdAt: now, addedBy: readTechName() };
+      delete copySurgeon.unitBook;
+      const copyProcedure = stripConfirmation({
+        ...procedure,
+        id: uid(),
+        surgeonId: id,
+        demo: false,
+        updatedAt: now,
+        baseUpdatedAt: now,
+      });
+      delete copyProcedure.unitBook;
+      return {
+        ...prev,
+        surgeons: [copySurgeon, ...prev.surgeons],
+        procedures: [copyProcedure, ...prev.procedures],
+      };
+    });
+  }, []);
+
   const importIncoming = useCallback((incoming, options = {}) => {
     let result = { imported: 0, skipped: 0 };
     setBook(prev => {
@@ -195,6 +231,8 @@ export function useBook() {
     updateSurgeon,
     copySample,
     loadSamples,
+    importUnitBook,
+    copyToNotes,
     importIncoming,
     replaceProcedure,
     newProcedure: emptyProcedure,

@@ -328,6 +328,10 @@ function cardToBook(data) {
 export function parseImport(raw) {
   const data = typeof raw === 'string' ? extractPayload(raw) : raw;
   if (!data || typeof data !== 'object') throw new Error('empty');
+  if (data.kind === 'scrubplaybook-unitbook') {
+    if (data.v === 1 && data.unitBookId && data.book) return { type: 'unitbook', file: data, book: data.book };
+    throw new Error('unitbook');
+  }
   if (data.kind === 'scrubplaybook-backup') {
     if (data.v === 2 && data.book) {
       return {
