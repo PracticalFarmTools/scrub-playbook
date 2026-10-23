@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { findPhiSignals } from '../data/phi';
 import { CARD_STATUS, normalizeBlocks } from '../data/schema';
@@ -20,7 +20,18 @@ function storedDark() {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
 
-function trustLine(procedure, staleDays) {
+const WAKE_TEXT = {
+  asking: 'Asking to keep the screen on',
+  on: 'Screen stays on',
+  off: 'This browser may dim the screen',
+};
+
+function wakeSupported() {
+  return typeof navigator !== 'undefined' && typeof navigator.wakeLock?.request === 'function';
+}
+
+function trustLine(procedure, staleDays, sample) {
+  if (sample) return `Sample · ${trustLine(procedure, staleDays, false)}`;
   const state = trustState(procedure, { staleDays });
   if (state.status === CARD_STATUS.CONFIRMED) return state.at ? `Matched a case · ${timeAgo(state.at)}` : 'Matched a case';
   if (state.status === CARD_STATUS.NOTED) return `One staff member · ${timeAgo(state.at)}`;
@@ -75,7 +86,8 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
   const targets = useMemo(() => pullTargets(blocks), [blocks]);
   const [checks, setChecks] = useState({});
   const [dark, setDark] = useState(storedDark);
-  const [awake, setAwake] = useState(false);
+  const [wake, setWake] = useState(() => (wakeSupported() ? 'asking' : 'off'));
+  const closeRef = useRef(null);
   const [suggesting, setSuggesting] = useState(false);
   const [cardSays, setCardSays] = useState(procedure?.official?.note || '');
   const [seen, setSeen] = useState('');
@@ -89,8 +101,15 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
   }, [surgeon, procedure, onClose]);
 
   useEffect(() => {
-    const supported = typeof navigator !== 'undefined' && navigator.wakeLock?.request;
-    if (!supported) return undefined;
+    const previous = document.activeElement;
+    closeRef.current?.focus();
+    return () => {
+      if (previous && typeof previous.focus === 'function' && document.contains(previous)) previous.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!wakeSupported()) return undefined;
     let released = false;
     let current = null;
     const request = async () => {
@@ -100,12 +119,12 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
           current.release();
           return;
         }
-        setAwake(true);
+        setWake('on');
         current.addEventListener('release', () => {
-          if (!released) setAwake(false);
+          if (!released) setWake('off');
         });
       } catch {
-        if (!released) setAwake(false);
+        if (!released) setWake('off');
       }
     };
     request();
@@ -120,8 +139,21 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
     };
   }, []);
 
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      if (phi.length) setPhi([]);
+      else if (suggesting) setSuggesting(false);
+      else onClose?.();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [phi.length, suggesting, onClose]);
+
   if (!surgeon || !procedure) return null;
 
+  const sample = Boolean(procedure.demo || surgeon.demo);
   const page = dark ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-900';
   const muted = dark ? 'text-slate-400' : 'text-slate-500';
   const bar = dark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
@@ -187,26 +219,36 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
         className="case-check mt-1 h-6 w-6 shrink-0"
         checked={Boolean(checks[id])}
         onChange={() => toggle(id)}
-        aria-label="Pulled"
       />
     )
     : null;
 
   return createPortal(
-    <div id="case-view-root" className={`fixed inset-0 z-[55] overflow-y-auto ${page}`}>
+    <div
+      id="case-view-root"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="case-view-surgeon case-view-procedure"
+      className={`fixed inset-0 z-[55] overflow-y-auto ${page}`}
+    >
       <div className={`case-topbar sticky top-0 z-10 border-b px-4 py-3 flex flex-wrap items-center gap-2 ${bar}`}>
-        <button type="button" onClick={onClose} className={button}>Close</button>
+        <button ref={closeRef} type="button" onClick={onClose} className={button}>Close</button>
         <button type="button" aria-pressed={dark} onClick={() => setDarkMode(!dark)} className={button}>Dark</button>
         <button type="button" onClick={() => window.print()} className={button}>Print</button>
-        <p className="text-lg font-semibold px-1">{awake ? 'Screen stays on' : 'This browser may dim the screen'}</p>
+        <p className="text-lg font-semibold px-1" aria-live="polite">{WAKE_TEXT[wake]}</p>
         <p className="text-lg font-semibold">{pulled} of {targets.length} pulled</p>
         <button type="button" onClick={() => setChecks({})} className={button}>Clear</button>
       </div>
 
       <div className="max-w-3xl mx-auto px-5 pb-16">
         <header className="py-5 border-b border-current/10">
-          <p className="text-xl font-bold">{surgeon.name}</p>
-          <h1 className="text-xl font-bold mt-1">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h1>
+          {sample && (
+            <p className={`mb-3 rounded-xl px-3 py-2 text-lg font-bold ${dark ? 'bg-slate-800 text-slate-100' : 'bg-slate-100 text-slate-700'}`}>
+              Sample. Not from your hospital.
+            </p>
+          )}
+          <p id="case-view-surgeon" className="text-xl font-bold">{surgeon.name}</p>
+          <h1 id="case-view-procedure" className="text-xl font-bold mt-1">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h1>
           {surgeon.facility?.trim() && <p className={`text-lg mt-1 ${muted}`}>{surgeon.facility}</p>}
           {procedure.official?.label?.trim() && (
             <p className="text-lg mt-2">Official card: {procedure.official.label.trim()}</p>
@@ -214,14 +256,14 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
           {procedure.official?.note?.trim() && (
             <p className={`text-lg mt-1 whitespace-pre-wrap ${muted}`}>{procedure.official.note}</p>
           )}
-          <p className={`text-lg mt-2 ${muted}`}>{trustLine(procedure, staleDays)}</p>
+          <p className={`text-lg mt-2 ${muted}`}>{trustLine(procedure, staleDays, sample)}</p>
           <p className={`text-lg mt-2 ${muted}`}>Staff notes. The surgeon and the official card win.</p>
         </header>
 
         {firstCase.length > 0 && (
           <Section title={`New to ${surgeon.name}`} muted={muted}>
             <ul className="space-y-1">
-              {firstCase.map(line => <li key={line}>• {line}</li>)}
+              {firstCase.map((line, index) => <li key={index}>• {line}</li>)}
             </ul>
           </Section>
         )}
@@ -344,7 +386,7 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
           </Section>
         )}
 
-        {!procedure.demo && !surgeon.demo && (
+        {!sample && (
           <div className="case-noprint py-6">
             {!suggesting && (
               <button type="button" onClick={() => { setCardSays(procedure.official?.note || ''); setSuggesting(true); }} className={button}>Suggest a card change</button>

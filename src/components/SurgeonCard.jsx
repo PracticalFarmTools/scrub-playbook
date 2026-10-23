@@ -144,7 +144,7 @@ export default function SurgeonCard({
             ) : (
               <>
                 <ul className="mt-1.5 space-y-1">
-                  {firstLines.map(line => <li key={line} className="text-sm text-slate-700">• {line}</li>)}
+                  {firstLines.map((line, index) => <li key={index} className="text-sm text-slate-700">• {line}</li>)}
                 </ul>
                 {updatedLine && <p className="text-[11px] text-slate-400 mt-1.5">{updatedLine}</p>}
               </>
