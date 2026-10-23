@@ -3,6 +3,7 @@ function blobProcedure(procedure) {
   return [
     procedure.name,
     procedure.approach,
+    ...(Array.isArray(procedure.aliases) ? procedure.aliases : []),
     b.position?.text,
     b.prep?.text,
     b.drapes?.text,
@@ -37,11 +38,51 @@ export function filterBook(book, query, facility = null) {
   ).map(s => s.id));
 
   const procedureHits = procedures.filter(p => surgeonHits.has(p.surgeonId) || blobProcedure(p).includes(q));
-  const visibleSurgeonIds = new Set(procedureHits.map(p => p.surgeonId));
+  const visibleSurgeonIds = new Set([...surgeonHits, ...procedureHits.map(p => p.surgeonId)]);
   return {
     surgeons: surgeons.filter(s => visibleSurgeonIds.has(s.id)),
     procedures: procedureHits,
   };
+}
+
+export const SORT_CHOICES = [
+  ['attention', 'Needs attention first'],
+  ['name', 'Name A to Z'],
+  ['recent', 'Recently changed'],
+];
+
+const ATTENTION = { disputed: 0, unconfirmed: 1, noted: 1, stale: 2, confirmed: 3 };
+
+function lastName(name) {
+  const words = String(name || '').toLowerCase().replace(/^dr\.?\s+/, '').split(/[\s,]+/).filter(Boolean);
+  const comma = String(name || '').includes(',');
+  return (comma ? words[0] : words.at(-1)) || '';
+}
+
+/**
+ * Surgeons in the chosen order. `rowStatus(surgeon)` gives the row's trust status for
+ * 'attention'; samples always go last.
+ */
+export function sortSurgeons(surgeons, procedures, mode = 'attention', rowStatus = () => null) {
+  const latest = new Map();
+  for (const procedure of procedures || []) {
+    const at = procedure.updatedAt || '';
+    if (at > (latest.get(procedure.surgeonId) || '')) latest.set(procedure.surgeonId, at);
+  }
+  const byName = (a, b) => lastName(a.name).localeCompare(lastName(b.name)) || a.name.localeCompare(b.name);
+  const ranked = (surgeons || []).map(surgeon => ({
+    surgeon,
+    demo: surgeon.demo ? 1 : 0,
+    attention: ATTENTION[rowStatus(surgeon)] ?? 4,
+    at: latest.get(surgeon.id) || surgeon.firstCaseAt || surgeon.createdAt || '',
+  }));
+  ranked.sort((a, b) => {
+    if (a.demo !== b.demo) return a.demo - b.demo;
+    if (mode === 'attention' && a.attention !== b.attention) return a.attention - b.attention;
+    if (mode === 'recent' && a.at !== b.at) return a.at < b.at ? 1 : -1;
+    return byName(a.surgeon, b.surgeon);
+  });
+  return ranked.map(entry => entry.surgeon);
 }
 
 export function facilityLabels(book) {

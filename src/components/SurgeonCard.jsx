@@ -1,10 +1,19 @@
 import { useState } from 'react';
-import { Plus, Share2, Stethoscope, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Share2, Stethoscope, Trash2 } from 'lucide-react';
 import { findPhiInSurgeon, findPhiSignals } from '../data/phi';
-import { rowTrust, timeAgo } from '../data/trust';
+import { rowTrust, timeAgo, trustState } from '../data/trust';
+import { sourceLabel } from '../data/unitBook';
 import ProcedureGlance from './ProcedureGlance';
 import PhiPause from './PhiPause';
 import { STATUS_CLASS } from './statusStyle';
+
+const SHORT_STATUS = {
+  confirmed: 'Matched',
+  noted: 'One person',
+  stale: 'Stale',
+  disputed: 'Flagged',
+  unconfirmed: 'Unconfirmed',
+};
 
 function formatUpdated(iso) {
   if (!iso) return '';
@@ -20,6 +29,7 @@ export default function SurgeonCard({
   staleDays,
   trustFor,
   highlightId,
+  autoOpen = false,
   onDeleteSurgeon,
   onDeleteProcedure,
   onEdit,
@@ -45,6 +55,14 @@ export default function SurgeonCard({
   const [phiNext, setPhiNext] = useState('Take that detail out, then save.');
   const [flagging, setFlagging] = useState(null);
   const [flagReason, setFlagReason] = useState('');
+  const [openIds, setOpenIds] = useState(() => new Set());
+  const isOpen = (id) => openIds.has(id) || highlightId === id || flagging === id || confirming === id || (autoOpen && procedures.length <= 3);
+  const toggleOpen = (id) => setOpenIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
   const firstLines = (surgeon.firstCase || []).map(line => String(line || '').trim()).filter(Boolean).slice(0, 3);
   const updated = formatUpdated(surgeon.firstCaseAt);
   const updatedBy = (surgeon.firstCaseBy || '').trim();
@@ -63,7 +81,7 @@ export default function SurgeonCard({
     : row?.label;
 
   return (
-    <article className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <article className="surgeon-card bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <header className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white flex items-start justify-between gap-3">
         <div className="min-w-0">
           {editingDetails ? (
@@ -180,73 +198,100 @@ export default function SurgeonCard({
         <p className="px-5 py-6 text-sm text-slate-400">No procedure yet. Add the case the way the board writes it.</p>
       )}
 
-      {procedures.map(procedure => (
-        <div
-          key={procedure.id}
-          id={`procedure-${procedure.id}`}
-          className={`scroll-mt-28 transition-colors ${highlightId === procedure.id ? 'ring-4 ring-inset ring-medical-500 bg-medical-50/60' : ''}`}
-        >
-          <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} {...(trustFor ? trustFor(procedure) : {})} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
-          <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
-            <button type="button" onClick={() => onCaseView?.(surgeon, procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Case view</button>
-            {surgeon.demo ? (
-              <button type="button" onClick={() => onCopySample(surgeon.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy into my book</button>
-            ) : (
-              <>
-                {procedure.unitBook?.id ? (
-                  <button type="button" onClick={() => onCopyToNotes(procedure.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">
-                    {(trustProcedures || procedures).some(item => item.copiedFrom === procedure.id && !item.unitBook) ? 'Go to my copy' : 'Copy to my notes'}
-                  </button>
-                ) : (
-                  <button type="button" onClick={() => onEdit(procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Edit</button>
+      {procedures.map(procedure => {
+        const open = isOpen(procedure.id);
+        const options = trustFor ? trustFor(procedure) : { staleDays };
+        const state = trustState(procedure, options);
+        return (
+          <div
+            key={procedure.id}
+            id={`procedure-${procedure.id}`}
+            className={`scroll-mt-28 transition-colors ${highlightId === procedure.id ? 'ring-4 ring-inset ring-medical-500 bg-medical-50/60' : ''}`}
+          >
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={`procedure-body-${procedure.id}`}
+              onClick={() => toggleOpen(procedure.id)}
+              className="w-full min-h-12 px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-slate-50"
+            >
+              <span className="min-w-0">
+                <span className="block text-base font-bold text-slate-900 truncate">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</span>
+                {sourceLabel(procedure) && <span className="block text-[11px] font-semibold text-medical-700">{sourceLabel(procedure)}</span>}
+              </span>
+              <span className="flex items-center gap-2 shrink-0">
+                {!surgeon.demo && (
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_CLASS[state.status]}`}>{SHORT_STATUS[state.status]}</span>
                 )}
-                <button type="button" onClick={() => onConfirm(procedure)} className="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1 cursor-pointer">I was in this case</button>
-                {procedure.disputed ? (
-                  <button type="button" onClick={() => onClearDispute(procedure.id)} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Clear flag</button>
-                ) : (
-                  <button type="button" onClick={() => { setFlagReason(''); setFlagging(procedure.id); }} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Flag</button>
+                <ChevronDown size={18} aria-hidden="true" className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+              </span>
+            </button>
+            {open && (
+              <div id={`procedure-body-${procedure.id}`}>
+                <ProcedureGlance procedure={procedure} surgeon={surgeon} {...options} showTitle={false} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
+                <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
+                  <button type="button" onClick={() => onCaseView?.(surgeon, procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Case view</button>
+                  {surgeon.demo ? (
+                    <button type="button" onClick={() => onCopySample(surgeon.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy into my book</button>
+                  ) : (
+                    <>
+                      {procedure.unitBook?.id ? (
+                        <button type="button" onClick={() => onCopyToNotes(procedure.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">
+                          {(trustProcedures || procedures).some(item => item.copiedFrom === procedure.id && !item.unitBook) ? 'Go to my copy' : 'Copy to my notes'}
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => onEdit(procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Edit</button>
+                      )}
+                      <button type="button" onClick={() => onConfirm(procedure)} className="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1 cursor-pointer">I was in this case</button>
+                      {procedure.disputed ? (
+                        <button type="button" onClick={() => onClearDispute(procedure.id)} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Clear flag</button>
+                      ) : (
+                        <button type="button" onClick={() => { setFlagReason(''); setFlagging(procedure.id); }} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Flag</button>
+                      )}
+                      <button type="button" onClick={() => onShare(surgeon, procedure)} className="text-[11px] font-bold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1 cursor-pointer inline-flex items-center gap-1"><Share2 size={11} /> Share</button>
+                      <button type="button" onClick={() => setConfirming(procedure.id)} className="text-[11px] font-bold text-slate-500 cursor-pointer">Delete case</button>
+                    </>
+                  )}
+                </div>
+                {flagging === procedure.id && (
+                  <form
+                    className="px-5 py-3 space-y-2 border-t border-rose-100 bg-rose-50/40"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const reason = flagReason.trim();
+                      if (!reason) return;
+                      const hits = findPhiSignals(reason);
+                      if (hits.length) {
+                        setPhiNext('Take that detail out, then flag the card.');
+                        setPhi(hits);
+                        return;
+                      }
+                      onDispute(procedure, reason);
+                      setFlagging(null);
+                    }}
+                  >
+                    <label className="block text-sm font-semibold text-rose-900">
+                      What did not match?
+                      <textarea required value={flagReason} onChange={e => setFlagReason(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800" />
+                    </label>
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={!flagReason.trim()} className="min-h-11 px-4 rounded-xl bg-rose-700 text-white text-sm font-bold disabled:opacity-40 cursor-pointer">Flag</button>
+                      <button type="button" onClick={() => setFlagging(null)} className="min-h-11 px-4 rounded-xl bg-white border border-rose-200 text-rose-800 text-sm font-bold cursor-pointer">Cancel</button>
+                    </div>
+                  </form>
                 )}
-                <button type="button" onClick={() => onShare(surgeon, procedure)} className="text-[11px] font-bold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1 cursor-pointer inline-flex items-center gap-1"><Share2 size={11} /> Share</button>
-                <button type="button" onClick={() => setConfirming(procedure.id)} className="text-[11px] font-bold text-slate-500 cursor-pointer">Delete case</button>
-              </>
+                {confirming === procedure.id && (
+                  <div className="px-5 py-2 text-xs text-rose-700 flex gap-3">
+                    <span>Delete this procedure?</span>
+                    <button onClick={() => { setConfirming(null); onDeleteProcedure(procedure.id); }} className="font-bold cursor-pointer">Delete</button>
+                    <button onClick={() => setConfirming(null)} className="cursor-pointer">Cancel</button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-          {flagging === procedure.id && (
-            <form
-              className="px-5 py-3 space-y-2 border-t border-rose-100 bg-rose-50/40"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const reason = flagReason.trim();
-                if (!reason) return;
-                const hits = findPhiSignals(reason);
-                if (hits.length) {
-                  setPhiNext('Take that detail out, then flag the card.');
-                  setPhi(hits);
-                  return;
-                }
-                onDispute(procedure, reason);
-                setFlagging(null);
-              }}
-            >
-              <label className="block text-sm font-semibold text-rose-900">
-                What did not match?
-                <textarea required value={flagReason} onChange={e => setFlagReason(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800" />
-              </label>
-              <div className="flex gap-2">
-                <button type="submit" disabled={!flagReason.trim()} className="min-h-11 px-4 rounded-xl bg-rose-700 text-white text-sm font-bold disabled:opacity-40 cursor-pointer">Flag</button>
-                <button type="button" onClick={() => setFlagging(null)} className="min-h-11 px-4 rounded-xl bg-white border border-rose-200 text-rose-800 text-sm font-bold cursor-pointer">Cancel</button>
-              </div>
-            </form>
-          )}
-          {confirming === procedure.id && (
-            <div className="px-5 py-2 text-xs text-rose-700 flex gap-3">
-              <span>Delete this procedure?</span>
-              <button onClick={() => onDeleteProcedure(procedure.id)} className="font-bold cursor-pointer">Delete</button>
-              <button onClick={() => setConfirming(null)} className="cursor-pointer">Cancel</button>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
 
       {!surgeon.demo && (
         <button type="button" onClick={onAddProcedure} className="w-full px-5 py-3 text-xs font-bold text-medical-700 hover:bg-medical-50 cursor-pointer inline-flex items-center justify-center gap-1 border-t border-slate-100">

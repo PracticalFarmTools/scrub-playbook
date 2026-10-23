@@ -32,7 +32,7 @@ function GloveLine({ glove, label }) {
   );
 }
 
-export default function ProcedureGlance({ procedure, mode = 'personal', staleDays, surgeon, onCaseView }) {
+export default function ProcedureGlance({ procedure, mode = 'personal', staleDays, surgeon, onCaseView, showTitle = true }) {
   const state = trustState(procedure, { mode, staleDays });
   const blocks = procedure.blocks || {};
   const sutures = blocks.sutures || [];
@@ -44,8 +44,8 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
       <div className="px-5 pt-4 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h4 className="text-base font-extrabold text-slate-900 tracking-tight">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h4>
-            {sourceLabel(procedure) && (
+            {showTitle && <h4 className="text-base font-extrabold text-slate-900 tracking-tight">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h4>}
+            {showTitle && sourceLabel(procedure) && (
               <p className="text-[10px] font-bold uppercase tracking-widest text-medical-600 mt-0.5">{sourceLabel(procedure)}</p>
             )}
             {surgeon?.facility && (

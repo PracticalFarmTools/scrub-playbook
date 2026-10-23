@@ -141,13 +141,36 @@ export function useBook() {
     return surgeon;
   }, []);
 
+  const commit = useCallback((next) => {
+    bookRef.current = next;
+    setBook(next);
+  }, []);
+
   const deleteSurgeon = useCallback((id) => {
-    setBook(prev => ({
+    const prev = bookRef.current;
+    const removed = {
+      surgeons: prev.surgeons.filter(s => s.id === id),
+      procedures: prev.procedures.filter(p => p.surgeonId === id),
+    };
+    commit({
       ...prev,
       surgeons: prev.surgeons.filter(s => s.id !== id),
       procedures: prev.procedures.filter(p => p.surgeonId !== id),
-    }));
-  }, []);
+    });
+    return removed;
+  }, [commit]);
+
+  /** Puts back what a delete removed. Anything already back in the book is left as it is. */
+  const restoreRemoved = useCallback((removed) => {
+    const prev = bookRef.current;
+    const surgeonIds = new Set(prev.surgeons.map(s => s.id));
+    const procedureIds = new Set(prev.procedures.map(p => p.id));
+    const surgeons = (removed?.surgeons || []).filter(s => !surgeonIds.has(s.id));
+    const keptSurgeons = new Set([...surgeonIds, ...surgeons.map(s => s.id)]);
+    const procedures = (removed?.procedures || []).filter(p => !procedureIds.has(p.id) && keptSurgeons.has(p.surgeonId));
+    commit({ ...prev, surgeons: [...surgeons, ...prev.surgeons], procedures: [...procedures, ...prev.procedures] });
+    return { surgeons: surgeons.length, procedures: procedures.length };
+  }, [commit]);
 
   const saveProcedure = useCallback((procedure) => {
     setBook(prev => {
@@ -163,8 +186,11 @@ export function useBook() {
   }, []);
 
   const deleteProcedure = useCallback((id) => {
-    setBook(prev => ({ ...prev, procedures: prev.procedures.filter(p => p.id !== id) }));
-  }, []);
+    const prev = bookRef.current;
+    const removed = { surgeons: [], procedures: prev.procedures.filter(p => p.id === id) };
+    commit({ ...prev, procedures: prev.procedures.filter(p => p.id !== id) });
+    return removed;
+  }, [commit]);
 
   const confirmProcedure = useCallback((id, name, { mode = 'personal' } = {}) => {
     const tech = writeTechName(name) || name;
@@ -219,8 +245,15 @@ export function useBook() {
   }, []);
 
   const removePlace = useCallback((place, options) => {
-    setBook(prev => deletePlace(prev, place, options));
-  }, []);
+    const prev = bookRef.current;
+    const next = deletePlace(prev, place, options);
+    const left = new Set(next.surgeons.map(s => s.id));
+    commit(next);
+    return {
+      surgeons: prev.surgeons.filter(s => !left.has(s.id)),
+      procedures: prev.procedures.filter(p => !left.has(p.surgeonId)),
+    };
+  }, [commit]);
 
   const updateSurgeon = useCallback((id, { name, facility } = {}) => {
     const trimmed = (name || '').trim();
@@ -340,6 +373,7 @@ export function useBook() {
     restoreOwnBackup,
     replaceProcedure,
     replaceBook,
+    restoreRemoved,
     newProcedure: emptyProcedure,
   };
 }

@@ -44,11 +44,12 @@ describe('SurgeonCard', () => {
     expect(screen.queryByText('Edit details')).toBeNull();
     expect(screen.queryByText('Edit')).toBeNull();
     expect(screen.getByText('Unit book · revision 3', { selector: 'header p' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Knee/ }));
     fireEvent.click(screen.getByText('Copy to my notes'));
     expect(onCopyToNotes).toHaveBeenCalledWith('p1');
 
     const copy = { ...emptyProcedure('s1', { id: 'p2', name: 'Knee' }), copiedFrom: 'p1' };
-    rerender(<SurgeonCard surgeon={surgeon} procedures={[copy, unitCard]} staleDays={90} onUpdateSurgeon={noop} onCopyToNotes={onCopyToNotes} {...handlers} />);
+    rerender(<SurgeonCard surgeon={surgeon} procedures={[copy, unitCard]} staleDays={90} autoOpen onUpdateSurgeon={noop} onCopyToNotes={onCopyToNotes} {...handlers} />);
     expect(screen.getByText('Go to my copy')).toBeTruthy();
     expect(screen.getByText('My notes')).toBeTruthy();
     expect(screen.getAllByText('Edit')).toHaveLength(1);
@@ -62,8 +63,27 @@ describe('SurgeonCard', () => {
     const trustFor = () => ({ staleDays: 90, mode: 'facility' });
     render(<SurgeonCard surgeon={surgeon} procedures={[procedure]} staleDays={90} trustFor={trustFor} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
     expect(screen.getByText('Unconfirmed')).toBeTruthy();
+    expect(screen.getByText('One person')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Knee/ }));
     expect(screen.getByText(/One staff member/)).toBeTruthy();
     expect(screen.getByText('Changed in revision 4: Trays, Sutures.')).toBeTruthy();
+  });
+
+  it('starts with procedures collapsed and opens one on tap', () => {
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
+    const knee = emptyProcedure('s1', { id: 'p1', name: 'Knee', blocks: { ...emptyProcedure('s1').blocks, position: { text: 'Supine' } } });
+    const hip = emptyProcedure('s1', { id: 'p2', name: 'Hip' });
+    render(<SurgeonCard surgeon={surgeon} procedures={[knee, hip]} staleDays={90} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    const row = screen.getByRole('button', { name: /^Knee/ });
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Supine')).toBeNull();
+    expect(screen.queryByText('I was in this case')).toBeNull();
+    fireEvent.click(row);
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Supine')).toBeTruthy();
+    expect(screen.getAllByText('I was in this case')).toHaveLength(1);
+    fireEvent.click(row);
+    expect(screen.queryByText('Supine')).toBeNull();
   });
 
   it('draws the highlight inside the highlighted card only', () => {

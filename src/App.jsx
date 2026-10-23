@@ -1,10 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Download, Menu, Plus, Search, Upload, Wifi, WifiOff, X } from 'lucide-react';
+import { BookOpen, Download, Menu, Plus, Upload, Wifi, WifiOff } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
-import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, emptyProcedure } from './data/schema';
-import { personId, trustState, withConfirmation } from './data/trust';
-import { facilityLabels, filterBook } from './data/searchBook';
+import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, emptyProcedure } from './data/schema';
+import { personId, rowTrust, trustState, withConfirmation } from './data/trust';
+import { SORT_CHOICES, facilityLabels, filterBook, sortSurgeons } from './data/searchBook';
 import { parseImport, restoreExtras, toBackup, toPlacePack } from './data/share';
 import { loadToday, localDay, saveToday } from './data/today';
 import { readTechName, useBook } from './hooks/useBook';
@@ -17,6 +17,7 @@ import { findPhiInBook, phiFoundText } from './data/phi';
 import { inPlaceGroup } from './data/places';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import SurgeonCard from './components/SurgeonCard';
+import SearchBox from './components/SearchBox';
 import TodayList from './components/TodayList';
 import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
@@ -49,6 +50,16 @@ export default function App() {
   const { isOnline } = useNetworkStatus();
 
   const [search, setSearch] = useState('');
+  const [searchKey, setSearchKey] = useState(0);
+  const clearSearch = () => {
+    clearSearch();
+    setSearchKey(key => key + 1);
+  };
+  const [sortMode, setSortMode] = useState(() => {
+    const saved = safeGet(SORT_KEY, 'attention');
+    return SORT_CHOICES.some(([value]) => value === saved) ? saved : 'attention';
+  });
+  const [undo, setUndo] = useState(null);
   const [activeFacility, setActiveFacility] = useState(null);
   const [addDraft, setAddDraft] = useState(null);
   const [highlight, setHighlight] = useState(null);
@@ -104,6 +115,40 @@ export default function App() {
     (procedure) => trustOptionsFor(procedure, book.surgeons.find(surgeon => surgeon.id === procedure.surgeonId), published),
     [book.surgeons, published],
   );
+
+  const bySurgeon = useMemo(() => {
+    const all = new Map();
+    const shown = new Map();
+    const push = (map, procedure) => {
+      if (!map.has(procedure.surgeonId)) map.set(procedure.surgeonId, []);
+      map.get(procedure.surgeonId).push(procedure);
+    };
+    book.procedures.forEach(procedure => push(all, procedure));
+    filtered.procedures.forEach(procedure => push(shown, procedure));
+    return { all, shown };
+  }, [book.procedures, filtered.procedures]);
+
+  const sortedSurgeons = useMemo(
+    () => sortSurgeons(filtered.surgeons, book.procedures, sortMode, surgeon => rowTrust(bySurgeon.all.get(surgeon.id) || [], {}, trustFor)?.status),
+    [filtered.surgeons, book.procedures, sortMode, bySurgeon, trustFor],
+  );
+
+  useEffect(() => {
+    if (!undo) return undefined;
+    const timer = setTimeout(() => setUndo(null), 20000);
+    return () => clearTimeout(timer);
+  }, [undo]);
+
+  const offerUndo = (text, removed) => {
+    if (removed?.surgeons?.length || removed?.procedures?.length) setUndo({ text, removed });
+  };
+
+  const undoDelete = () => {
+    if (!undo) return;
+    const result = bookApi.restoreRemoved(undo.removed);
+    addAudit({ action: 'Delete undone', surgeonName: undo.removed.surgeons[0]?.name || '', note: `${result.surgeons} surgeons, ${result.procedures} procedures back` });
+    setUndo(null);
+  };
 
   const confirmCard = (procedure, name, surgeonName) => {
     const options = trustFor(procedure);
@@ -265,13 +310,13 @@ export default function App() {
   };
 
   const openTodayCase = (procedure) => {
-    setSearch('');
+    clearSearch();
     setActiveFacility(null);
     setCaseView({ queue: [procedure.id], index: 0, returnTo: true });
   };
 
   const openTodayAll = (ready) => {
-    setSearch('');
+    clearSearch();
     setActiveFacility(null);
     setCaseView({ queue: ready.map(entry => entry.procedure.id), index: 0, returnTo: true });
   };
@@ -368,11 +413,7 @@ export default function App() {
               </button>
             </div>
           </div>
-          <div className="relative">
-            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search surgeons, sutures, trays, nicknames…" className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-medical-400/40 focus:bg-white" />
-            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"><X size={16} /></button>}
-          </div>
+          <SearchBox key={searchKey} initialValue={search} onChange={setSearch} />
           {labels.length > 1 && (
             <div className="flex gap-1.5 mt-2.5 overflow-x-auto">
               <button onClick={() => setActiveFacility(null)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${!placeFilter ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>All places</button>
@@ -453,6 +494,22 @@ export default function App() {
           onStartSurgeon={(surgeonName, procedureName) => setAddDraft({ name: surgeonName, procedureName })}
         />
 
+        {filtered.surgeons.length > 1 && (
+          <div className="flex justify-end mb-3">
+            <label htmlFor="home-sort" className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              Sort
+              <select
+                id="home-sort"
+                value={sortMode}
+                onChange={e => { setSortMode(e.target.value); safeSet(SORT_KEY, e.target.value); }}
+                className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              >
+                {SORT_CHOICES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+
         {filtered.surgeons.length === 0 ? (
           <EmptyState
             hasQuery={!!q}
@@ -464,20 +521,27 @@ export default function App() {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.surgeons.map(surgeon => (
+            {sortedSurgeons.map(surgeon => (
               <SurgeonCard
                 key={surgeon.id}
                 surgeon={surgeon}
-                procedures={filtered.procedures.filter(p => p.surgeonId === surgeon.id)}
-                trustProcedures={book.procedures.filter(p => p.surgeonId === surgeon.id)}
+                procedures={bySurgeon.shown.get(surgeon.id) || []}
+                trustProcedures={bySurgeon.all.get(surgeon.id) || []}
                 staleDays={STALE_AFTER_DAYS}
                 trustFor={trustFor}
                 highlightId={highlight?.id}
+                autoOpen={Boolean(q)}
                 onDeleteSurgeon={(id) => {
-                  bookApi.deleteSurgeon(id);
-                  addAudit({ action: 'Surgeon deleted', surgeonName: surgeon.name });
+                  const removed = bookApi.deleteSurgeon(id);
+                  addAudit({ action: 'Surgeon deleted', surgeonName: surgeon.name, note: `${removed.procedures.length} procedures` });
+                  if (!surgeon.demo) offerUndo(`Deleted ${surgeon.name} and ${removed.procedures.length} ${removed.procedures.length === 1 ? 'procedure' : 'procedures'}.`, removed);
                 }}
-                onDeleteProcedure={(id) => bookApi.deleteProcedure(id)}
+                onDeleteProcedure={(id) => {
+                  const removed = bookApi.deleteProcedure(id);
+                  const name = removed.procedures[0]?.name || '';
+                  addAudit({ action: 'Procedure deleted', surgeonName: surgeon.name, note: name });
+                  if (!surgeon.demo) offerUndo(`Deleted ${name || 'the procedure'} for ${surgeon.name}.`, removed);
+                }}
                 onEdit={(procedure) => setEditor({ surgeon, procedure })}
                 onAddProcedure={() => setEditor({ surgeon, procedure: emptyProcedure(surgeon.id, { name: '' }) })}
                 onConfirm={(procedure) => setConfirmTarget(procedure)}
@@ -487,8 +551,14 @@ export default function App() {
                 }}
                 onClearDispute={(id) => bookApi.clearDispute(id)}
                 onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
-                onUpdateSurgeon={(id, details) => bookApi.updateSurgeon(id, details)}
-                onSaveFirstCase={(id, lines) => bookApi.saveFirstCase(id, lines)}
+                onUpdateSurgeon={(id, details) => {
+                  bookApi.updateSurgeon(id, details);
+                  addAudit({ action: 'Surgeon details edited', surgeonName: details.name || surgeon.name, note: details.facility || '' });
+                }}
+                onSaveFirstCase={(id, lines) => {
+                  bookApi.saveFirstCase(id, lines);
+                  addAudit({ action: 'First-case notes edited', surgeonName: surgeon.name });
+                }}
                 onCaseView={openCase}
                 onCopyToNotes={(id) => {
                   const result = bookApi.copyToNotes(id);
@@ -563,7 +633,11 @@ export default function App() {
             onClose={() => setShowPlaces(false)}
             onHandOff={handOffPlace}
             onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
-            onDelete={(place, options) => bookApi.removePlace(place, options)}
+            onDelete={(place, options) => {
+              const removed = bookApi.removePlace(place, options);
+              addAudit({ action: 'Place deleted', surgeonName: place, note: `${removed.surgeons.length} surgeons, ${removed.procedures.length} procedures` });
+              offerUndo(`Deleted ${removed.surgeons.length} ${removed.surgeons.length === 1 ? 'surgeon' : 'surgeons'} at ${place}.`, removed);
+            }}
             onPublish={publishPlace}
           />
         </Suspense>
@@ -615,6 +689,14 @@ export default function App() {
             onDone={donePrinting}
           />
         </Suspense>
+      )}
+      {undo && (
+        <div role="status" className="fixed inset-x-0 bottom-4 z-[70] flex justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto max-w-md w-full rounded-2xl bg-slate-900 text-white shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm">{undo.text}</p>
+            <button type="button" onClick={undoDelete} className="shrink-0 min-h-11 px-4 rounded-xl bg-white text-slate-900 text-sm font-bold cursor-pointer">Undo</button>
+          </div>
+        </div>
       )}
       {showDisclaimer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)' }}>
