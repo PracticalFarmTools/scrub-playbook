@@ -1,7 +1,7 @@
 {
   "name": "ScrubPlaybook",
   "short_name": "ScrubPlaybook",
-  "description": "Your Surgeons. Your Rules. Surgical preference cards built by scrub techs, for scrub techs.",
+  "description": "Staff notes for how a surgical case runs. The hospital's official preference card still wins.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",

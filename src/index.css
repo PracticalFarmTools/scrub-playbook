@@ -33,7 +33,7 @@
   --color-rose-400: #fb7185;
   --color-rose-500: #f43e5e;
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter Variable', system-ui, -apple-system, sans-serif;
 }
 
 @layer base {

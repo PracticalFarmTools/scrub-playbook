@@ -9,7 +9,7 @@ export function VendorResults({ vendors }) {
     <div className="max-w-5xl mx-auto px-4 mt-4">
       <div className="bg-medical-50 border border-medical-200 rounded-2xl p-4">
         <p className="text-xs font-semibold text-medical-600 uppercase tracking-wider mb-3">
-          Vendor Matches ({vendors.length})
+          Company pages ({vendors.length})
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {vendors.map((v, i) => (
@@ -41,8 +41,8 @@ export function VendorLibrary({ onClose }) {
     <div className="max-w-5xl mx-auto px-4 mt-4">
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-bold text-slate-700">📋 Vendor IFU Library ({SURGICAL_VENDORS.length})</p>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={16} /></button>
+          <p className="text-sm font-bold text-slate-700">Company pages ({SURGICAL_VENDORS.length})</p>
+          <button onClick={onClose} aria-label="Close company pages" className="min-h-11 min-w-11 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"><X size={16} /></button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto">
           {SURGICAL_VENDORS.map((v, i) => (

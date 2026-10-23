@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+import vercel from './vercel.json' with { type: 'json' }
+
+const securityHeaders = Object.fromEntries(
+  vercel.headers.find(rule => rule.source === '/(.*)').headers.map(({ key, value }) => [key, value]),
+)
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -11,19 +17,15 @@ export default defineConfig({
     VitePWA({
       // A waiting version installs only when no case or editor is open (src/pwa.js).
       registerType: 'prompt',
-      // Card data lives in localStorage; this only needs to guarantee the
-      // app shell (JS/CSS/fonts) loads with zero connectivity — the real
-      // "cellular dead zone in the OR" scenario for traveler techs.
+      // The book lives in IndexedDB on the phone. The service worker only keeps the
+      // app shell, including the self-hosted font, so it opens with no signal.
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}', '**/inter-latin-*.woff2'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.endsWith('.woff2'),
             handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
+            options: { cacheName: 'font-subsets', expiration: { maxEntries: 10 } },
           },
         ],
       },
@@ -31,4 +33,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons.svg', 'icon-512.png'],
     }),
   ],
+  preview: {
+    headers: securityHeaders,
+  },
 })
