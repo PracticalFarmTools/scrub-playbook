@@ -38,7 +38,8 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [activeFacility, setActiveFacility] = useState(null);
   const [addDraft, setAddDraft] = useState(null);
-  const [highlightId, setHighlightId] = useState(null);
+  const [highlight, setHighlight] = useState(null);
+  const flashProcedure = (id) => setHighlight({ id });
   const [showImport, setShowImport] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
   const [editor, setEditor] = useState(null);
@@ -163,17 +164,17 @@ export default function App() {
   };
 
   const closeCase = () => {
-    if (caseView?.returnTo) setHighlightId(caseView.returnTo);
+    if (caseView?.returnTo) flashProcedure(caseView.returnTo);
     setCaseView(null);
   };
 
   useEffect(() => {
-    if (!highlightId) return undefined;
-    const el = document.getElementById(`procedure-${highlightId}`);
+    if (!highlight) return undefined;
+    const el = document.getElementById(`procedure-${highlight.id}`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const timer = setTimeout(() => setHighlightId(null), 2000);
+    const timer = setTimeout(() => setHighlight(null), 2500);
     return () => clearTimeout(timer);
-  }, [highlightId]);
+  }, [highlight]);
 
   const saveProcedure = (procedure) => {
     bookApi.saveProcedure(procedure);
@@ -279,7 +280,7 @@ export default function App() {
                 procedures={filtered.procedures.filter(p => p.surgeonId === surgeon.id)}
                 trustProcedures={book.procedures.filter(p => p.surgeonId === surgeon.id)}
                 staleDays={STALE_AFTER_DAYS}
-                highlightId={highlightId}
+                highlightId={highlight?.id}
                 onDeleteSurgeon={(id) => {
                   bookApi.deleteSurgeon(id);
                   addAudit({ action: 'Surgeon deleted', surgeonName: surgeon.name });
@@ -297,7 +298,7 @@ export default function App() {
                 onCopyToNotes={(id) => {
                   const result = bookApi.copyToNotes(id);
                   if (result.status === 'missing') return;
-                  setHighlightId(result.procedureId);
+                  flashProcedure(result.procedureId);
                   setNotice(result.status === 'already'
                     ? 'This card is already in your notes. Your copy is highlighted.'
                     : 'Copied into your notes under the same surgeon. It is unconfirmed until you are in that case.');

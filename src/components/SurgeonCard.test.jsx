@@ -54,6 +54,14 @@ describe('SurgeonCard', () => {
     expect(screen.getAllByText('Edit')).toHaveLength(1);
   });
 
+  it('draws the highlight inside the highlighted card only', () => {
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
+    const cards = [emptyProcedure('s1', { id: 'p1', name: 'Knee' }), emptyProcedure('s1', { id: 'p2', name: 'Hip' })];
+    const { container } = render(<SurgeonCard surgeon={surgeon} procedures={cards} staleDays={90} highlightId="p2" onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    expect(container.querySelector('#procedure-p2').className).toContain('ring-inset');
+    expect(container.querySelector('#procedure-p1').className).not.toContain('ring-inset');
+  });
+
   it('keeps two identical first-case lines', () => {
     const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: ['Same', 'Same'] };
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});

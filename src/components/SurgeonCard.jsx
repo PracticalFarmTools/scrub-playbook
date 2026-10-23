@@ -180,7 +180,7 @@ export default function SurgeonCard({
         <div
           key={procedure.id}
           id={`procedure-${procedure.id}`}
-          className={`scroll-mt-28 ${highlightId === procedure.id ? 'ring-2 ring-medical-500 ring-offset-2' : ''}`}
+          className={`scroll-mt-28 transition-colors ${highlightId === procedure.id ? 'ring-4 ring-inset ring-medical-500 bg-medical-50/60' : ''}`}
         >
           <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
           <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
