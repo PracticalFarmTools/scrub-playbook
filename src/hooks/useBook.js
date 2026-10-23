@@ -2,48 +2,128 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { refreshSamples } from '../data/defaults';
-import { requestPersistentStorage } from '../data/storage';
+import { requestPersistentStorage, safeGet, safeRemove, safeSet } from '../data/storage';
+import { openChannel, readValue, writeValue } from '../data/store';
 import { mergeBackup, placeIncomingCard } from '../data/share';
 import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
 
-function loadBook() {
-  try {
-    const saved = localStorage.getItem(BOOK_KEY);
-    if (saved) return refreshSamples(migrateBook(JSON.parse(saved)));
-    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacy) return refreshSamples(migrateBook(JSON.parse(legacy)));
-  } catch {
-    /* keep an empty book if storage is unreadable */
+export const UNREADABLE_KEY = 'scrubplaybook_book_unreadable';
+
+function parseRaw(raw) {
+  if (raw === null) return undefined;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+/**
+ * Reads the saved book. `unreadable` is true when something is stored but cannot be read;
+ * that copy is kept under UNREADABLE_KEY and is never overwritten by an empty book.
+ */
+export async function loadStoredBook() {
+  let unreadable = false;
+  const saved = await readValue(BOOK_KEY);
+  const localRaw = safeGet(BOOK_KEY);
+  let source = saved;
+  let legacy = false;
+  if (source === undefined && localRaw !== null) unreadable = true;
+  if (source === undefined && !unreadable) {
+    const legacyValue = parseRaw(safeGet(LEGACY_STORAGE_KEY));
+    if (legacyValue === null) unreadable = true;
+    else if (legacyValue !== undefined) { source = legacyValue; legacy = true; }
   }
-  return migrateBook(null);
+  if (unreadable) {
+    safeSet(UNREADABLE_KEY, localRaw ?? safeGet(LEGACY_STORAGE_KEY) ?? '');
+    return { book: migrateBook(null), unreadable, legacy };
+  }
+  try {
+    const book = refreshSamples(migrateBook(source ?? null));
+    return { book, unreadable: false, legacy };
+  } catch {
+    if (source !== undefined) safeSet(UNREADABLE_KEY, JSON.stringify(source));
+    return { book: migrateBook(null), unreadable: source !== undefined, legacy };
+  }
 }
 
 export function readTechName() {
-  try { return localStorage.getItem(TECH_NAME_KEY) || ''; }
-  catch { return ''; }
+  return safeGet(TECH_NAME_KEY, '') || '';
 }
 
 export function writeTechName(name) {
   const trimmed = (name || '').trim();
-  if (trimmed) localStorage.setItem(TECH_NAME_KEY, trimmed);
+  if (trimmed) safeSet(TECH_NAME_KEY, trimmed);
   return trimmed;
 }
 
 export function useBook() {
-  const [book, setBook] = useState(loadBook);
+  const [book, setBook] = useState(() => migrateBook(null));
+  const [loaded, setLoaded] = useState(false);
+  const [unreadable, setUnreadable] = useState(false);
+  const [saveState, setSaveState] = useState({ ok: true });
+  const [saveAttempt, setSaveAttempt] = useState(0);
   const bookRef = useRef(book);
   const askedPersist = useRef(false);
+  const skipSave = useRef(true);
+  const saveSeq = useRef(0);
+  const channel = useRef(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadStoredBook().then(result => {
+      if (!alive) return;
+      skipSave.current = result.unreadable;
+      bookRef.current = result.book;
+      setBook(result.book);
+      setUnreadable(result.unreadable);
+      setLoaded(true);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return undefined;
+    const link = openChannel(async (key) => {
+      if (key !== BOOK_KEY) return;
+      const value = await readValue(BOOK_KEY);
+      if (value === undefined) return;
+      try {
+        const next = refreshSamples(migrateBook(value));
+        skipSave.current = true;
+        bookRef.current = next;
+        setBook(next);
+      } catch {
+        /* keep this tab's copy */
+      }
+    });
+    channel.current = link;
+    return () => { link.close(); channel.current = null; };
+  }, [loaded]);
 
   useEffect(() => {
     bookRef.current = book;
-    localStorage.setItem(BOOK_KEY, JSON.stringify(book));
+    if (!loaded) return;
+    if (skipSave.current) {
+      skipSave.current = false;
+      return;
+    }
+    const seq = ++saveSeq.current;
+    writeValue(BOOK_KEY, book).then(result => {
+      if (seq !== saveSeq.current) return;
+      if (result.ok) {
+        safeRemove(LEGACY_STORAGE_KEY);
+        channel.current?.post(BOOK_KEY);
+        setSaveState(prev => (prev.ok ? prev : { ok: true }));
+      } else {
+        setSaveState({ ok: false, reason: result.reason });
+      }
+    });
     if (!askedPersist.current && book.surgeons.some(s => !s.demo)) {
       askedPersist.current = true;
       requestPersistentStorage();
     }
-  }, [book]);
+  }, [book, loaded, saveAttempt]);
+
+  const retrySave = useCallback(() => setSaveAttempt(n => n + 1), []);
 
   const addSurgeon = useCallback((partial) => {
     const surgeon = emptySurgeon({
@@ -210,6 +290,10 @@ export function useBook() {
 
   return {
     book,
+    loaded,
+    unreadable,
+    saveState,
+    retrySave,
     addSurgeon,
     deleteSurgeon,
     saveProcedure,

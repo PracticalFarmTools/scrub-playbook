@@ -1,5 +1,6 @@
 import { BOOK_VERSION, PUBLISHED_KEY, normalizeBlocks, uid } from './schema';
 import { inPlaceGroup } from './places';
+import { safeSet } from './storage';
 import { applySave, sameContent, stripConfirmation } from './trust';
 
 export function readPublished() {
@@ -11,12 +12,7 @@ export function readPublished() {
 }
 
 export function savePublished(published) {
-  try {
-    localStorage.setItem(PUBLISHED_KEY, JSON.stringify(published || {}));
-    return true;
-  } catch {
-    return false;
-  }
+  return safeSet(PUBLISHED_KEY, JSON.stringify(published || {}));
 }
 
 export function unitRevision(book, unitBookId) {

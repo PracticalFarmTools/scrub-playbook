@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, ShieldCheck, AlertCircle } from 'lucide-react';
 
 import { TECH_NAME_KEY as NAME_KEY } from '../data/schema';
+import { safeGet, safeSet } from '../data/storage';
 
 /**
  * Replaces the native prompt() for capturing the confirming tech's name —
@@ -9,13 +10,13 @@ import { TECH_NAME_KEY as NAME_KEY } from '../data/schema';
  * installed PWA / standalone display mode where prompt() can look out of place.
  */
 export default function ConfirmNameModal({ title, subtitle, onClose, onSubmit }) {
-  const [name, setName] = useState(localStorage.getItem(NAME_KEY) || '');
+  const [name, setName] = useState(() => safeGet(NAME_KEY, '') || '');
   const [error, setError] = useState('');
 
   const submit = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    localStorage.setItem(NAME_KEY, trimmed);
+    safeSet(NAME_KEY, trimmed);
     const result = onSubmit(trimmed);
     if (result?.error) {
       setError(result.error);

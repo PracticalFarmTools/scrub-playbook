@@ -15,6 +15,9 @@ import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
 import { VendorLibrary, VendorResults } from './components/VendorPanels';
 import ConfirmNameModal from './components/ConfirmNameModal';
+import { safeGet, safeSet } from './data/storage';
+import { downloadText } from './utils/download';
+import { UNREADABLE_KEY } from './hooks/useBook';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
 const CaseView = lazy(() => import('./components/CaseView'));
@@ -45,11 +48,11 @@ export default function App() {
   const [editor, setEditor] = useState(null);
   const [share, setShare] = useState(null);
   const [confirmTarget, setConfirmTarget] = useState(null);
-  const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('scrubplaybook_disclaimer_seen'));
+  const [showDisclaimer, setShowDisclaimer] = useState(() => !safeGet('scrubplaybook_disclaimer_seen'));
   const [caseView, setCaseView] = useState(null);
   const [showPlaces, setShowPlaces] = useState(false);
   const [notice, setNotice] = useState('');
-  const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
+  const [lastExportAt, setLastExportAt] = useState(() => safeGet(LAST_EXPORT_KEY));
 
   const labels = facilityLabels(book);
   const placeFilter = activeFacility && labels.includes(activeFacility) ? activeFacility : null;
@@ -91,15 +94,9 @@ export default function App() {
       setNotice('Samples stay on this device. Add your own surgeon before you export a backup.');
       return;
     }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `scrubplaybook-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(`scrubplaybook-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
     const now = new Date().toISOString();
-    localStorage.setItem(LAST_EXPORT_KEY, now);
+    safeSet(LAST_EXPORT_KEY, now);
     setLastExportAt(now);
   };
 
@@ -114,12 +111,7 @@ export default function App() {
         if (err?.name === 'AbortError') return 'cancelled';
       }
     }
-    const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(filename, body);
     return 'saved';
   };
 
@@ -182,6 +174,18 @@ export default function App() {
     addAudit({ action: 'Procedure saved', surgeonName: surgeon?.name || '', note: procedure.name });
   };
 
+  const downloadUnreadable = () => {
+    downloadText(`scrubplaybook-unreadable-${new Date().toISOString().slice(0, 10)}.json`, safeGet(UNREADABLE_KEY, ''));
+  };
+
+  if (!bookApi.loaded) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50" role="status">
+        <p className="text-sm font-semibold text-slate-600">Opening your book…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-slate-100">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
@@ -239,6 +243,27 @@ export default function App() {
       {showVendors && !q && <VendorLibrary onClose={() => setShowVendors(false)} />}
 
       <main className="max-w-5xl mx-auto px-4 py-6">
+        {!bookApi.saveState.ok && (
+          <div role="alert" className="bg-rose-50 border border-rose-300 rounded-2xl px-4 py-3 mb-4 space-y-2">
+            <p className="text-sm font-bold text-rose-900">
+              {bookApi.saveState.reason === 'full'
+                ? 'This phone is out of room for your book. Your last change is still on screen but is not saved yet.'
+                : 'This browser is not letting the app save. Your last change is still on screen but is not saved yet.'}
+            </p>
+            <p className="text-xs text-rose-800">Export a backup now. Then free space or leave private browsing, and try again.</p>
+            <div className="flex gap-2">
+              <button onClick={exportPlaybook} className="min-h-11 px-4 rounded-xl bg-rose-700 text-white text-sm font-bold cursor-pointer">Export backup</button>
+              <button onClick={bookApi.retrySave} className="min-h-11 px-4 rounded-xl border border-rose-300 text-rose-800 text-sm font-bold cursor-pointer">Try again</button>
+            </div>
+          </div>
+        )}
+        {bookApi.unreadable && (
+          <div role="alert" className="bg-amber-50 border border-amber-300 rounded-2xl px-4 py-3 mb-4 space-y-2">
+            <p className="text-sm font-bold text-amber-900">Your saved book could not be opened. A copy of it is kept on this phone.</p>
+            <p className="text-xs text-amber-800">Download that copy and keep it. You can restore from your last backup with Import.</p>
+            <button onClick={downloadUnreadable} className="min-h-11 px-4 rounded-xl bg-amber-700 text-white text-sm font-bold cursor-pointer">Download the copy</button>
+          </div>
+        )}
         {notice && (
           <div className="bg-medical-50 border border-medical-200 rounded-2xl px-4 py-3 mb-4 flex items-start justify-between gap-3">
             <p className="text-xs text-medical-900">{notice}</p>
@@ -412,7 +437,7 @@ export default function App() {
               <p>Write what you observed. Do not copy or photograph the facility’s official card.</p>
               <p>When a note and the official preference card disagree, the official card and the surgeon win. These notes stay on this device unless you export or share them yourself.</p>
               <button
-                onClick={() => { localStorage.setItem('scrubplaybook_disclaimer_seen', 'true'); setShowDisclaimer(false); }}
+                onClick={() => { safeSet('scrubplaybook_disclaimer_seen', 'true'); setShowDisclaimer(false); }}
                 className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold cursor-pointer"
               >
                 I understand

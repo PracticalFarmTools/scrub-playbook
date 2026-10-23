@@ -1,29 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TECH_NAME_KEY, uid } from '../data/schema';
+import { safeGet, safeJson, safeSet } from '../data/storage';
 
 function currentUser() {
-  try { return localStorage.getItem(TECH_NAME_KEY) || 'Unknown'; }
-  catch { return 'Unknown'; }
+  return safeGet(TECH_NAME_KEY, '') || 'Unknown';
 }
 
 const AUDIT_KEY = 'scrubplaybook_audit';
 const MAX_ENTRIES = 100;
 
 function loadLog() {
-  try {
-    return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
-  } catch { return []; }
+  const log = safeJson(AUDIT_KEY, []);
+  return Array.isArray(log) ? log : [];
 }
 
 /**
  * Hook for the audit trail.
- * Stores up to 100 entries in localStorage, newest first.
+ * Stores up to 100 entries on this phone, newest first.
  */
 export function useAuditLog() {
   const [log, setLog] = useState(loadLog);
 
   useEffect(() => {
-    localStorage.setItem(AUDIT_KEY, JSON.stringify(log));
+    safeSet(AUDIT_KEY, JSON.stringify(log));
   }, [log]);
 
   const addEntry = useCallback(({ action, surgeonName, user, note }) => {

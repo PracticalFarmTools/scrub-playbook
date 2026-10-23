@@ -1,4 +1,5 @@
 import { TODAY_KEY, uid } from './schema';
+import { safeSet } from './storage';
 
 export function localDay(offsetDays = 0, date = new Date()) {
   const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offsetDays);
@@ -64,7 +65,7 @@ export function visibleDay(stored, day) {
 }
 
 export function saveToday(state) {
-  localStorage.setItem(TODAY_KEY, JSON.stringify(state));
+  return safeSet(TODAY_KEY, JSON.stringify(state));
 }
 
 export function todayItem({ day = localDay(), startsAt = '', room = '', surgeonName = '', procedureName = '' } = {}) {
