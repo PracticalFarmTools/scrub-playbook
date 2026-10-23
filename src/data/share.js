@@ -349,9 +349,16 @@ function mergeById(current, incoming, order) {
 }
 
 /** Merges the extras of a restored backup into what this phone already has. */
-export function restoreExtras(current = {}, incoming = {}, { today: day, maxLog = 100 } = {}) {
+/**
+ * `handedOver` lists the places this phone handed to the next publisher; a backup from before
+ * the hand-over does not make this phone a publisher again. A place whose key is still locked is skipped.
+ */
+export function restoreExtras(current = {}, incoming = {}, { today: day, maxLog = 100, handedOver = {} } = {}) {
   const published = { ...(current.published || {}) };
   for (const [place, entry] of Object.entries(incoming.published || {})) {
+    if (entry?.lockedKey && !entry.privateKey) continue;
+    const gone = handedOver[place];
+    if (gone && gone.unitBookId === entry?.unitBookId && (Number(entry?.revision) || 0) <= (Number(gone.revision) || 0)) continue;
     if (!published[place] || (Number(entry?.revision) || 0) > (Number(published[place]?.revision) || 0)) {
       published[place] = entry;
     }

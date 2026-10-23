@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { BookOpen, Download, MapPin, Menu, Plus, Upload, WifiOff } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
-import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, duplicateProcedure, emptyProcedure } from './data/schema';
+import { CARD_STATUS, CHANGES_KEY, HANDED_OVER_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, duplicateProcedure, emptyProcedure } from './data/schema';
 import { personId, rowTrust, trustState, withConfirmation } from './data/trust';
 import { SORT_CHOICES, facilityLabels, filterBook, sortSurgeons } from './data/searchBook';
 import { parseImport, restoreExtras, toBackup, toPlacePack } from './data/share';
@@ -24,7 +24,8 @@ import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
 import { VendorLibrary, VendorResults } from './components/VendorPanels';
 import ConfirmNameModal from './components/ConfirmNameModal';
-import { needsHomeScreen, safeGet, safeSet } from './data/storage';
+import { needsHomeScreen, safeGet, safeJson, safeSet } from './data/storage';
+import { keyPlaces, leaveKeysOut, lockPublished } from './data/keyLock';
 import { downloadText } from './utils/download';
 import { applyUpdate, onUpdateReady } from './pwa';
 import { UNREADABLE_KEY } from './hooks/useBook';
@@ -37,6 +38,7 @@ const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
 const ProcedureEditor = lazy(() => import('./components/ProcedureEditor'));
 const ShareCardModal = lazy(() => import('./components/ShareCardModal'));
 const PrintDay = lazy(() => import('./components/PrintDay'));
+const BackupKeyPrompt = lazy(() => import('./components/BackupKeyPrompt'));
 
 const WEEK_DAYS = 7;
 const CHANGES_BEFORE_REMINDER = 20;
@@ -68,6 +70,7 @@ export default function App() {
   const [highlight, setHighlight] = useState(null);
   const flashProcedure = (id) => setHighlight({ id });
   const [showImport, setShowImport] = useState(false);
+  const [backupKey, setBackupKey] = useState(false);
   const [showVendors, setShowVendors] = useState(false);
   const [editor, setEditor] = useState(null);
   const [share, setShare] = useState(null);
@@ -193,7 +196,14 @@ export default function App() {
   const publishPlace = async (place) => {
     const found = placePhi(place, false);
     if (found.length) return { message: `${place} was not published. ${phiFoundText(found)}` };
-    const { file, published: next } = await publishUnitBook(book, place, readTechName() || 'A tech', { published });
+    let signed;
+    try {
+      signed = await publishUnitBook(book, place, readTechName() || 'A tech', { published });
+    } catch (err) {
+      if (err?.message === 'no-key') return { message: `This phone does not hold the publishing key for ${place}. Restore your locked backup with its passphrase, or ask the unit who publishes ${place} now.` };
+      throw err;
+    }
+    const { file, published: next } = signed;
     const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
     const outcome = await shareFile(`scrubplaybook-unit-${slug}-r${file.revision}.json`, file);
     if (outcome === 'cancelled') return { message: `${place} was not published. The next file is still revision ${file.revision}.` };
@@ -212,6 +222,11 @@ export default function App() {
     const outcome = await shareFile(`scrubplaybook-publisher-${slug}-r${result.revision}.json`, result.file);
     if (outcome === 'cancelled') return { message: `Publishing for ${place} was not handed over. This phone still publishes it.` };
     storePublished(result.published);
+    const handedOver = safeJson(HANDED_OVER_KEY, {});
+    safeSet(HANDED_OVER_KEY, JSON.stringify({
+      ...(handedOver && typeof handedOver === 'object' ? handedOver : {}),
+      [place]: { unitBookId: result.file.unitFile.unitBookId, revision: result.revision, at: new Date().toISOString() },
+    }));
     addAudit({ action: 'Publishing handed over', surgeonName: place, note: `Revision ${result.revision}` });
     return {
       message: `Hand-over file for ${place} is ready with revision ${result.revision}. Send it only to the next publisher. This phone no longer publishes ${place}; your cards stay as your notes.`,
@@ -222,17 +237,13 @@ export default function App() {
     storePublished(withUnitSettings(published, place, settings));
   };
 
-  const exportPlaybook = () => {
+  const saveBackup = (publishedInBackup) => {
     const data = toBackup(book, {
       today: loadToday(),
       log: auditLog,
-      published,
+      published: publishedInBackup,
       suggestions,
     });
-    if (!data.book.surgeons.length) {
-      setNotice('Samples stay on this device. Add your own surgeon before you export a backup.');
-      return;
-    }
     downloadText(`scrubplaybook-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
     const now = new Date().toISOString();
     safeSet(LAST_EXPORT_KEY, now);
@@ -240,6 +251,18 @@ export default function App() {
     setLastExportAt(now);
     const found = findPhiInBook(book);
     if (found.length) setNotice(`Backup saved. Keep the file on your own phone. ${phiFoundText(found)}`);
+  };
+
+  const exportPlaybook = () => {
+    if (!book.surgeons.some(surgeon => !surgeon.demo)) {
+      setNotice('Samples stay on this device. Add your own surgeon before you export a backup.');
+      return;
+    }
+    if (keyPlaces(published).length) {
+      setBackupKey(true);
+      return;
+    }
+    saveBackup(published);
   };
 
   const shareFile = async (filename, data) => {
@@ -279,10 +302,11 @@ export default function App() {
       if (options.restore) {
         const backup = options.restore;
         const result = bookApi.restoreOwnBackup(backup.full);
+        const handedOver = safeJson(HANDED_OVER_KEY, {});
         const merged = restoreExtras(
           { published, today: loadToday(), log: auditLog, suggestions },
           backup.extras || {},
-          { today: localDay() },
+          { today: localDay(), handedOver: handedOver && typeof handedOver === 'object' ? handedOver : {} },
         );
         storePublished(merged.published);
         saveToday(merged.today);
@@ -296,7 +320,8 @@ export default function App() {
           setLastExportAt(backup.exportedAt);
         }
         addAudit({ action: 'Backup restored', surgeonName: `${result.added} added`, note: `${result.updated} updated, ${result.kept} kept` });
-        setNotice(`Backup restored: ${result.added} added, ${result.updated} updated from the backup, ${result.kept} already current. Confirmations, the board, activity, and unit books you publish came back with it.`);
+        const publishing = keyPlaces(merged.published).filter(place => !published[place]?.privateKey);
+        setNotice(`Backup restored: ${result.added} added, ${result.updated} updated from the backup, ${result.kept} already current. Confirmations, the board, and activity came back with it.${publishing.length ? ` This phone publishes ${publishing.join(', ')} again.` : ''}`);
         return { success: true, imported: result.added, skipped: result.kept };
       }
       const parsed = incoming?.surgeons ? { book: incoming } : parseImport(incoming);
@@ -670,6 +695,25 @@ export default function App() {
               offerUndo(`Deleted ${removed.surgeons.length} ${removed.surgeons.length === 1 ? 'surgeon' : 'surgeons'} at ${place}.`, removed);
             }}
             onPublish={publishPlace}
+          />
+        </Suspense>
+      )}
+      {backupKey && (
+        <Suspense fallback={null}>
+          <BackupKeyPrompt
+            places={keyPlaces(published)}
+            onClose={() => setBackupKey(false)}
+            onWithout={() => {
+              saveBackup(leaveKeysOut(published));
+              setBackupKey(false);
+              addAudit({ action: 'Backup saved without publishing key', surgeonName: keyPlaces(published).join(', ') });
+            }}
+            onLock={async (passphrase) => {
+              const locked = await lockPublished(published, passphrase);
+              saveBackup(locked);
+              setBackupKey(false);
+              addAudit({ action: 'Backup saved with locked publishing key', surgeonName: keyPlaces(published).join(', ') });
+            }}
           />
         </Suspense>
       )}

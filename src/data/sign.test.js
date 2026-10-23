@@ -152,6 +152,13 @@ describe('publisher hand-over', () => {
     expect((await handOverPublishing(source(), 'Main', 'Alex', { published: {} })).error).toBe('not-publisher');
   });
 
+  it('will not publish under a new key when the place already has a key this phone lacks', async () => {
+    const first = await publishUnitBook(source(), 'Main', 'Alex', { published: {} });
+    const keyless = { ...first.published.Main };
+    delete keyless.privateKey;
+    await expect(publishUnitBook(source(), 'Main', 'Alex', { published: { Main: keyless } })).rejects.toThrow('no-key');
+  });
+
   it('refuses a hand-over for a unit book this phone trusts under another key', async () => {
     const real = await publishUnitBook(source(), 'Main', 'Alex', { published: {} });
     const phone = (await subscribe(empty(), real.file)).book;

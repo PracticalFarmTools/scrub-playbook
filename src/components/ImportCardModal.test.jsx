@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { applyUnitBook, checkUnitFile, handOverPublishing, publishUnitBook } from '../data/unitBook';
 import { PUBLISHED_KEY, emptyBlocks, emptyProcedure } from '../data/schema';
 import { shareMessage, toBackup } from '../data/share';
+import { lockPublished } from '../data/keyLock';
 import ImportCardModal from './ImportCardModal';
 
 const camera = vi.hoisted(() => ({ read: null, fail: false }));
@@ -183,5 +184,35 @@ describe('ImportCardModal', () => {
     fireEvent.click(screen.getByText('Scan a code'));
     expect(await screen.findByText(/This phone could not start the scanner/)).toBeTruthy();
     expect(stop).toHaveBeenCalled();
+  });
+
+  it('restores a locked publishing key only with its passphrase, or restores without publishing', async () => {
+    const { published } = await signedUnit();
+    const locked = await lockPublished(published, 'blue heron 42', { iterations: 1000 });
+    const backup = toBackup({ version: 2, surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false }], procedures: [] }, { published: locked });
+    expect(JSON.stringify(backup)).not.toContain(published.Main.privateKey.d);
+    const onImport = vi.fn(() => ({ success: true }));
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={onImport} />);
+    paste(JSON.stringify(backup));
+    expect(screen.getByText(/holds the locked publishing key for Main/)).toBeTruthy();
+    expect(screen.getAllByText('Restore my backup')).toHaveLength(1);
+
+    fireEvent.change(screen.getByLabelText('Backup passphrase'), { target: { value: 'wrong words' } });
+    fireEvent.click(screen.getByText('Restore my backup'));
+    expect((await screen.findByRole('alert')).textContent).toContain('does not unlock the publishing key for Main');
+    expect(onImport).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Backup passphrase'), { target: { value: 'blue heron 42' } });
+    fireEvent.click(screen.getByText('Restore my backup'));
+    await vi.waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+    const restored = onImport.mock.calls[0][1].restore.extras.published.Main;
+    expect(restored.privateKey).toEqual(published.Main.privateKey);
+    expect(restored.lockedKey).toBeUndefined();
+    cleanup();
+
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={onImport} />);
+    paste(JSON.stringify(backup));
+    fireEvent.click(screen.getByText('Restore without publishing'));
+    expect(onImport.mock.calls[1][1].restore.extras.published).toEqual({});
   });
 });

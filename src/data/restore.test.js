@@ -124,6 +124,23 @@ describe('restoreExtras', () => {
     expect(merged.log.map(entry => entry.id)).toEqual(['l3', 'l2']);
     expect(merged.suggestions.map(item => item.id).sort()).toEqual(['g1', 'g2']);
   });
+
+  it('skips a place whose key is still locked and a place this phone handed over', () => {
+    const merged = restoreExtras(
+      { published: {} },
+      {
+        published: {
+          Main: { unitBookId: 'u1', revision: 3, publicKey: { x: 'a' }, lockedKey: { v: 1 } },
+          West: { unitBookId: 'u2', revision: 5, publicKey: { x: 'b' }, privateKey: { d: 'b' } },
+          East: { unitBookId: 'u3', revision: 7, publicKey: { x: 'c' }, privateKey: { d: 'c' } },
+        },
+      },
+      { handedOver: { West: { unitBookId: 'u2', revision: 6 }, East: { unitBookId: 'u3', revision: 6 } } },
+    );
+    expect(merged.published.Main).toBeUndefined();
+    expect(merged.published.West).toBeUndefined();
+    expect(merged.published.East.revision).toBe(7);
+  });
 });
 
 describe('pull checklist', () => {

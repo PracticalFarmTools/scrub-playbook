@@ -130,6 +130,7 @@ function publishableBook(book, place) {
  */
 export async function publishUnitBook(book, place, fromName, { now = new Date().toISOString(), published = readPublished(), keys } = {}) {
   const current = published[place] || {};
+  if (current.publicKey && !current.privateKey) throw new Error('no-key');
   const unitBookId = current.unitBookId || uid();
   const revision = (Number(current.revision) || 0) + 1;
   const pair = current.privateKey && current.publicKey

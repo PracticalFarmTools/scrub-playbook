@@ -9,6 +9,7 @@ import {
 import PhiPause from './PhiPause';
 import { useDialog } from '../hooks/useDialog';
 import { canUseCamera, createQrReader } from '../utils/qrReader';
+import { leaveKeysOut, lockedPlaces, unlockPublished } from '../data/keyLock';
 import ProcedureGlance from './ProcedureGlance';
 
 function unitState(book, file, phi, check) {
@@ -59,6 +60,8 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [passphrase, setPassphrase] = useState('');
+  const [unlocking, setUnlocking] = useState(false);
   const checkRef = useRef(0);
   const canScan = canUseCamera();
   const videoRef = useRef(null);
@@ -100,6 +103,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
         for (const surgeon of parsed.book.surgeons || []) signals.push(...findPhiInSurgeon(surgeon));
       }
       setPreview({ parsed, classification, phi: uniqueSignals(signals), check: null });
+      setPassphrase('');
       setError('');
       stopScan();
       const signed = parsed.type === 'unitbook' ? parsed.file : parsed.type === 'publisher' ? parsed.handover : null;
@@ -135,6 +139,29 @@ export default function ImportCardModal({ book, onClose, onImport }) {
       return;
     }
     onClose();
+  };
+
+  const restoreWith = (published) => commit(undefined, {
+    restore: { ...preview.parsed, extras: { ...(preview.parsed.extras || {}), published } },
+  });
+
+  const restoreUnlocked = async (event) => {
+    event.preventDefault();
+    if (!passphrase || unlocking) return;
+    setUnlocking(true);
+    setError('');
+    try {
+      const result = await unlockPublished(preview.parsed.extras?.published, passphrase);
+      if (result.error) {
+        setError(`That passphrase does not unlock the publishing key for ${result.place}. Try again, or restore without publishing.`);
+        return;
+      }
+      restoreWith(result.published);
+    } catch {
+      setError('This phone could not unlock the key. Restore without publishing, or try again.');
+    } finally {
+      setUnlocking(false);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -192,6 +219,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
     }, 300);
   };
 
+  const locked = preview?.parsed?.restorable ? lockedPlaces(preview.parsed.extras?.published) : [];
   const unit = preview?.parsed?.type === 'unitbook' ? unitState(book, preview.parsed.file, preview.phi, preview.check) : null;
   const handover = preview?.parsed?.type === 'publisher' ? preview.parsed.handover : null;
   const card = preview?.parsed?.type === 'card' ? preview.parsed.book : null;
@@ -220,7 +248,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                 </div>
               )}
               <textarea value={raw} onChange={(e) => { setRaw(e.target.value); setError(''); }} rows={4} aria-label="Shared text" placeholder="Paste the shared text here" className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-3 py-2" />
-              {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
+              {error && <p role="alert" className="text-xs text-rose-700 flex items-center gap-1.5"><AlertCircle size={13} aria-hidden="true" /> {error}</p>}
               <button type="button" onClick={() => review(raw)} disabled={!raw.trim()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm disabled:opacity-40 cursor-pointer">Review</button>
               <label htmlFor="import-file" className="block text-xs font-bold text-slate-600 uppercase tracking-widest">Or a backup file</label>
               <input id="import-file" type="file" accept=".json,application/json" onChange={handleFileChange} className="w-full text-xs text-slate-500" />
@@ -326,7 +354,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                   {unit.conflicts.length ? 'Keep my notes and add the rest' : 'Add unit book'}
                 </button>
               )}
-              {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
+              {error && <p role="alert" className="text-xs text-rose-700 flex items-center gap-1.5"><AlertCircle size={13} aria-hidden="true" /> {error}</p>}
               <button type="button" onClick={() => setPreview(null)} className="w-full min-h-11 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
@@ -343,16 +371,31 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               {preview.check?.ok && preview.phi.length === 0 && (
                 <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Take over publishing</button>
               )}
-              {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
+              {error && <p role="alert" className="text-xs text-rose-700 flex items-center gap-1.5"><AlertCircle size={13} aria-hidden="true" /> {error}</p>}
               <button type="button" onClick={() => setPreview(null)} className="w-full min-h-11 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
           {preview && !card && !['unitbook', 'publisher'].includes(preview.parsed.type) && (
             <>
               <p className="text-sm text-slate-700">{importPreviewText(preview.parsed)}</p>
+              {preview.phi.length === 0 && preview.parsed.restorable && locked.length > 0 && (
+                <form onSubmit={restoreUnlocked} className="space-y-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-3">
+                  <p className="text-sm text-slate-700">This backup holds the locked publishing key for {locked.join(', ')}. Enter its passphrase to keep publishing from this phone.</p>
+                  <label className="block text-xs font-bold text-slate-600">
+                    Backup passphrase
+                    <input type="password" autoComplete="current-password" value={passphrase} onChange={e => { setPassphrase(e.target.value); setError(''); }} className="mt-1 w-full min-h-11 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm px-3" />
+                  </label>
+                  <button type="submit" disabled={!passphrase || unlocking} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm disabled:opacity-40 cursor-pointer">
+                    {unlocking ? 'Unlocking…' : 'Restore my backup'}
+                  </button>
+                  <button type="button" onClick={() => restoreWith(leaveKeysOut(preview.parsed.extras?.published))} disabled={unlocking} className="w-full min-h-11 rounded-xl bg-white border border-slate-200 text-slate-800 font-bold text-sm disabled:opacity-40 cursor-pointer">Restore without publishing</button>
+                </form>
+              )}
               {preview.phi.length === 0 && preview.parsed.restorable && (
                 <>
-                  <button type="button" onClick={() => commit(undefined, { restore: preview.parsed })} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Restore my backup</button>
+                  {locked.length === 0 && (
+                    <button type="button" onClick={() => commit(undefined, { restore: preview.parsed })} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Restore my backup</button>
+                  )}
                   <p className="text-xs text-slate-600">For your own backup. Your confirmations, the board, recent activity, and unit books you publish come back. A card on this phone that is newer than the backup stays as it is.</p>
                   <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-slate-100 text-slate-800 font-bold text-sm cursor-pointer">Add as someone else’s notes</button>
                   <p className="text-xs text-slate-600">For a backup from another tech. Only cards you do not have are added, and they arrive unconfirmed.</p>
@@ -361,6 +404,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               {preview.phi.length === 0 && !preview.parsed.restorable && (
                 <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unconfirmed</button>
               )}
+              {error && <p role="alert" className="text-xs text-rose-700 flex items-center gap-1.5"><AlertCircle size={13} aria-hidden="true" /> {error}</p>}
               <button type="button" onClick={() => setPreview(null)} className="w-full min-h-11 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}

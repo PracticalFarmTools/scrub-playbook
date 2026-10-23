@@ -46,7 +46,7 @@ export default function ConfirmNameModal({ title, subtitle, onClose, onSubmit })
             className="w-full rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-medical-400/50 transition-all"
           />
           {error && (
-            <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>
+            <p role="alert" className="text-xs text-rose-700 flex items-center gap-1.5"><AlertCircle size={13} aria-hidden="true" /> {error}</p>
           )}
           <button
             type="button"
