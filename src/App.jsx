@@ -9,6 +9,8 @@ import { loadToday, localDay, saveToday } from './data/today';
 import { readTechName, useBook } from './hooks/useBook';
 import { publishUnitBook, readPublished, savePublished, unitResultText } from './data/unitBook';
 import { useAuditLog } from './hooks/useAuditLog';
+import { findPhiInBook, phiFoundText } from './data/phi';
+import { inPlaceGroup } from './data/places';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import SurgeonCard from './components/SurgeonCard';
 import TodayList from './components/TodayList';
@@ -89,22 +91,33 @@ export default function App() {
       : `Your last backup is ${Math.floor(daysSince(lastExportAt))} days old. Export a fresh one.`;
   const showHomeScreen = !homeScreenHidden && needsHomeScreen();
 
+  const placePhi = (place, archived) => findPhiInBook(
+    book,
+    book.surgeons.filter(surgeon => inPlaceGroup(surgeon, place, archived)).map(surgeon => surgeon.id),
+  );
+
   const handOffPlace = async (place, { archived = false } = {}) => {
+    const found = placePhi(place, archived);
+    if (found.length) return { message: `${place} was not handed off. ${phiFoundText(found)}` };
     const pack = toPlacePack(book, place, readTechName() || 'A tech', new Date().toISOString(), { archived });
     const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
-    await shareFile(`scrubplaybook-${slug}-${new Date().toISOString().slice(0, 10)}.json`, pack);
+    const outcome = await shareFile(`scrubplaybook-${slug}-${new Date().toISOString().slice(0, 10)}.json`, pack);
+    if (outcome === 'cancelled') return { message: `${place} was not handed off.` };
+    addAudit({ action: 'Place handed off', surgeonName: place, note: `${pack.book.surgeons.length} surgeons, ${pack.book.procedures.length} procedures` });
+    return { message: `Hand-off file for ${place} is ready. The cards arrive unconfirmed for the next tech.` };
   };
 
   const publishPlace = async (place) => {
+    const found = placePhi(place, false);
+    if (found.length) return { message: `${place} was not published. ${phiFoundText(found)}` };
     const { file, published } = publishUnitBook(book, place, readTechName() || 'A tech');
     const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
     const outcome = await shareFile(`scrubplaybook-unit-${slug}-r${file.revision}.json`, file);
-    if (outcome === 'cancelled') {
-      setNotice(`${place} was not published. The next file is still revision ${file.revision}.`);
-      return;
-    }
+    if (outcome === 'cancelled') return { message: `${place} was not published. The next file is still revision ${file.revision}.` };
     savePublished(published);
+    addAudit({ action: 'Unit book published', surgeonName: place, note: `Revision ${file.revision}` });
     setNotice(`Published ${place} as unit book revision ${file.revision}.`);
+    return { message: `Published ${place} as unit book revision ${file.revision}.` };
   };
 
   const exportPlaybook = () => {

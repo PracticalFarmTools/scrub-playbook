@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Check, Copy, Share2, X } from 'lucide-react';
 import { shareMessage } from '../data/share';
+import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
 
 export default function ShareCardModal({ surgeon, procedure, onClose }) {
   const [copied, setCopied] = useState(false);
   const [showData, setShowData] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
-  const share = shareMessage(surgeon, procedure);
+  const phi = [...findPhiInProcedure(procedure), ...findPhiInSurgeon(surgeon)]
+    .filter((signal, index, list) => list.findIndex(other => other.id === signal.id) === index);
+  const share = phi.length ? {} : shareMessage(surgeon, procedure);
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   const copyText = async () => {
@@ -45,8 +48,13 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
           <button type="button" onClick={onClose} className="text-medical-200 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
         <div className="p-5 flex flex-col gap-4 overflow-y-auto min-h-0">
+          {phi.length > 0 && (
+            <div role="alert" className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-3 text-sm text-rose-900">
+              This card may include {phi.map(signal => signal.label).join(', ')}. Scrub Playbook does not send patient information. Edit the card to take it out, then share it.
+            </div>
+          )}
           {share.error && <p className="text-sm text-slate-600 text-center">{share.error}</p>}
-          {!share.error && (
+          {!share.error && !phi.length && (
             <>
               <div className="max-h-64 overflow-y-auto rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{share.glance}</div>
               <p className="text-xs text-slate-500 text-center">

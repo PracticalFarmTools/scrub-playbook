@@ -39,4 +39,11 @@ describe('PlacesSheet', () => {
     fireEvent.click(within(active).getByText('Hand off'));
     expect(onHandOff).toHaveBeenLastCalledWith('Main', { archived: false });
   });
+
+  it('shows why a hand-off did not leave the phone', async () => {
+    const onHandOff = vi.fn(async () => ({ message: 'Main was not handed off. Dr. Chen · Knee may include a phone number.' }));
+    render(<PlacesSheet book={book} onClose={() => {}} onHandOff={onHandOff} onArchive={() => {}} onDelete={() => {}} onPublish={() => {}} />);
+    fireEvent.click(within(sections()[0]).getByText('Hand off'));
+    expect((await screen.findByRole('status')).textContent).toMatch(/may include a phone number/);
+  });
 });

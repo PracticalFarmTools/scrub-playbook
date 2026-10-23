@@ -34,6 +34,12 @@ export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDel
   const groups = groupsFor(book, false);
   const archived = groupsFor(book, true);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [message, setMessage] = useState('');
+  const run = async (action) => {
+    setMessage('');
+    const result = await action();
+    if (result?.message) setMessage(result.message);
+  };
 
   const renderGroup = (group) => {
     const pending = pendingDelete && pendingDelete.place === group.place && pendingDelete.archived === group.archived;
@@ -49,10 +55,10 @@ export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDel
         </div>
         <div className="flex flex-wrap gap-2">
           {group.place && (
-            <button type="button" onClick={() => onHandOff(group.place, { archived: group.archived })} className={group.archived ? secondary : primary}>Hand off</button>
+            <button type="button" onClick={() => run(() => onHandOff(group.place, { archived: group.archived }))} className={group.archived ? secondary : primary}>Hand off</button>
           )}
           {group.place && !group.archived && (
-            <button type="button" onClick={() => onPublish(group.place)} className={secondary}>Publish as unit book</button>
+            <button type="button" onClick={() => run(() => onPublish(group.place))} className={secondary}>Publish as unit book</button>
           )}
           {group.archived ? (
             <button type="button" onClick={() => onArchive(group.place, false)} className={plain}>Restore</button>
@@ -82,6 +88,7 @@ export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDel
           <button type="button" onClick={onClose} className="text-medical-200 hover:text-white cursor-pointer" aria-label="Close places"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-3 overflow-y-auto">
+          {message && <p role="status" className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-800">{message}</p>}
           {groups.length === 0 && archived.length === 0 && <p className="text-sm text-slate-500">No places yet. Add a place when you edit a surgeon.</p>}
           {groups.map(renderGroup)}
           {archived.length > 0 && <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 pt-2">Archived</h2>}
