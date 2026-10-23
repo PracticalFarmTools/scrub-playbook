@@ -7,6 +7,7 @@ import {
   unitChangeList, unitCheckText, unitConflicts, unitPreviewText, unitRevision,
 } from '../data/unitBook';
 import PhiPause from './PhiPause';
+import { useDialog } from '../hooks/useDialog';
 import ProcedureGlance from './ProcedureGlance';
 
 function unitState(book, file, phi, check) {
@@ -72,6 +73,8 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   };
 
   useEffect(() => () => stopScan(), []);
+  const close = () => { stopScan(); onClose(); };
+  const dialogRef = useDialog({ onClose: close });
 
   const review = (text) => {
     const source = (text ?? raw).trim();
@@ -184,10 +187,10 @@ export default function ImportCardModal({ book, onClose, onImport }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 max-h-[90dvh] flex flex-col">
-        <div className="shrink-0 flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
-          <p className="text-white font-bold text-sm flex items-center gap-2"><Download size={16} /> Import</p>
-          <button type="button" onClick={() => { stopScan(); onClose(); }} className="text-medical-200 hover:text-white cursor-pointer"><X size={18} /></button>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="import-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 max-h-[90dvh] flex flex-col focus:outline-none">
+        <div className="shrink-0 flex items-center justify-between px-5 py-2 bg-gradient-to-r from-medical-700 to-medical-800">
+          <p id="import-title" className="text-white font-bold text-sm flex items-center gap-2"><Download size={16} /> Import</p>
+          <button type="button" onClick={close} aria-label="Close" className="tap-icon text-medical-100 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto min-h-0">
           {!preview && (
@@ -202,11 +205,11 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                   <button type="button" onClick={stopScan} className="w-full py-2 rounded-xl bg-slate-100 font-bold text-sm cursor-pointer">Stop scanning</button>
                 </div>
               )}
-              <textarea value={raw} onChange={(e) => { setRaw(e.target.value); setError(''); }} rows={4} placeholder="Paste the shared text here" className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-3 py-2" />
+              <textarea value={raw} onChange={(e) => { setRaw(e.target.value); setError(''); }} rows={4} aria-label="Shared text" placeholder="Paste the shared text here" className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-3 py-2" />
               {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
               <button type="button" onClick={() => review(raw)} disabled={!raw.trim()} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm disabled:opacity-40 cursor-pointer">Review</button>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest">Or a backup file</label>
-              <input type="file" accept=".json,application/json" onChange={handleFileChange} className="w-full text-xs text-slate-500" />
+              <label htmlFor="import-file" className="block text-xs font-bold text-slate-600 uppercase tracking-widest">Or a backup file</label>
+              <input id="import-file" type="file" accept=".json,application/json" onChange={handleFileChange} className="w-full text-xs text-slate-500" />
             </>
           )}
           {preview && card && (
@@ -226,15 +229,15 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               )}
               {incomingLines.length > 0 && (
                 <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New to {incomingSurgeon?.name}</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">New to {incomingSurgeon?.name}</p>
                   <ul className="mt-1.5 space-y-1">
                     {incomingLines.map((line, index) => <li key={index} className="text-sm text-slate-700">• {line}</li>)}
                   </ul>
                   {['attach', 'duplicate'].includes(preview.classification?.kind) && (
-                    <p className="text-[11px] text-slate-500 mt-1.5">{preview.classification.surgeon.name} keeps the first-case lines already in your book. These lines are not added.</p>
+                    <p className="text-xs text-slate-500 mt-1.5">{preview.classification.surgeon.name} keeps the first-case lines already in your book. These lines are not added.</p>
                   )}
                   {preview.classification?.kind === 'ambiguous' && (
-                    <p className="text-[11px] text-slate-500 mt-1.5">These lines are added only with a new surgeon. A surgeon already in your book keeps their own lines.</p>
+                    <p className="text-xs text-slate-500 mt-1.5">These lines are added only with a new surgeon. A surgeon already in your book keeps their own lines.</p>
                   )}
                 </div>
               )}
@@ -269,7 +272,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               )}
               {unit.changes?.status === 'updated' && (
                 <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">What changes from revision {unit.had}</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">What changes from revision {unit.had}</p>
                   {unit.changes.cards.length === 0 && unit.changes.removed === 0 && (
                     <p className="text-sm text-slate-700 mt-1">No card changes. Only the revision number moves forward.</p>
                   )}

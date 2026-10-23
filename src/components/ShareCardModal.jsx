@@ -3,11 +3,13 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Check, Copy, Share2, X } from 'lucide-react';
 import { shareMessage } from '../data/share';
 import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
+import { useDialog } from '../hooks/useDialog';
 
 export default function ShareCardModal({ surgeon, procedure, onClose }) {
   const [copied, setCopied] = useState(false);
   const [showData, setShowData] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const dialogRef = useDialog({ onClose });
   const phi = [...findPhiInProcedure(procedure), ...findPhiInSurgeon(surgeon)]
     .filter((signal, index, list) => list.findIndex(other => other.id === signal.id) === index);
   const share = phi.length ? {} : shareMessage(surgeon, procedure);
@@ -42,10 +44,10 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden max-h-[90dvh] flex flex-col">
-        <div className="shrink-0 flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
-          <p className="text-white font-bold text-sm flex items-center gap-2"><Share2 size={16} /> Share procedure</p>
-          <button type="button" onClick={onClose} className="text-medical-200 hover:text-white cursor-pointer"><X size={18} /></button>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="share-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden max-h-[90dvh] flex flex-col focus:outline-none">
+        <div className="shrink-0 flex items-center justify-between px-5 py-2 bg-gradient-to-r from-medical-700 to-medical-800">
+          <p id="share-title" className="text-white font-bold text-sm flex items-center gap-2"><Share2 size={16} /> Share procedure</p>
+          <button type="button" onClick={onClose} aria-label="Close" className="tap-icon text-medical-100 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
         <div className="p-5 flex flex-col gap-4 overflow-y-auto min-h-0">
           {phi.length > 0 && (
@@ -76,13 +78,13 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
                 {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
                 {copied ? 'Copied' : 'Copy'}
               </button>
-              {copyFailed && <p className="text-[11px] text-slate-500 text-center">Select the message below and copy it.</p>}
+              {copyFailed && <p className="text-xs text-slate-500 text-center">Select the message below and copy it.</p>}
               {copyFailed && (
-                <textarea readOnly value={share.message} rows={6} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono px-2 py-2" />
+                <textarea readOnly value={share.message} rows={6} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-2 py-2" />
               )}
-              <button type="button" onClick={() => setShowData(v => !v)} className="text-[11px] font-bold text-medical-700 cursor-pointer">{showData ? 'Hide card data' : 'Show card data'}</button>
+              <button type="button" onClick={() => setShowData(v => !v)} className="text-xs font-bold text-medical-700 cursor-pointer">{showData ? 'Hide card data' : 'Show card data'}</button>
               {showData && (
-                <textarea readOnly value={share.payloadText} rows={5} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono px-2 py-2" />
+                <textarea readOnly value={share.payloadText} rows={5} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-2 py-2" />
               )}
             </>
           )}

@@ -54,6 +54,31 @@
   #root {
     min-height: 100dvh;
   }
+
+  :focus-visible {
+    outline: 3px solid var(--color-medical-500);
+    outline-offset: 2px;
+  }
+}
+
+/* A 44 by 44 point target for icon and header buttons. */
+@utility tap-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Custom scrollbar */
@@ -116,6 +141,10 @@
 }
 
 @media print {
+  body {
+    overflow: visible !important;
+  }
+
   #root {
     display: none !important;
   }

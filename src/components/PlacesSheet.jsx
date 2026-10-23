@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { countLine, placeKey } from '../data/places';
 import { STALE_DAY_CHOICES, cleanSettings } from '../data/unitBook';
+import { useDialog } from '../hooks/useDialog';
 
 function groupsFor(book, archived) {
   const surgeons = (book?.surgeons || []).filter(surgeon => !surgeon.demo && Boolean(surgeon.archived) === archived);
@@ -26,10 +27,10 @@ function groupsFor(book, archived) {
     });
 }
 
-const primary = 'text-xs font-bold text-white bg-medical-600 rounded-lg px-3 py-2 cursor-pointer';
-const secondary = 'text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 py-2 cursor-pointer';
-const plain = 'text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-3 py-2 cursor-pointer';
-const danger = 'text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 py-2 cursor-pointer';
+const primary = 'text-xs font-bold text-white bg-medical-600 rounded-lg px-3 min-h-11 cursor-pointer';
+const secondary = 'text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer';
+const plain = 'text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer';
+const danger = 'text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 min-h-11 cursor-pointer';
 
 function UnitRules({ place, entry, onSettings, onHandOverPublishing, run }) {
   const settings = cleanSettings(entry?.settings);
@@ -60,12 +61,12 @@ function UnitRules({ place, entry, onSettings, onHandOverPublishing, run }) {
           <input type="checkbox" checked={settings.twoPerson} onChange={e => change({ twoPerson: e.target.checked })} className="w-5 h-5 shrink-0" />
           Two different people confirm a card before it shows as matched
         </label>
-        <p className="text-[11px] text-slate-500">These rules apply on this phone now and go out with the next revision you publish.</p>
-        {entry?.fingerprint && <p className="text-[11px] text-slate-500">Publisher key {entry.fingerprint}</p>}
+        <p className="text-xs text-slate-600">These rules apply on this phone now and go out with the next revision you publish.</p>
+        {entry?.fingerprint && <p className="text-xs text-slate-600">Publisher key {entry.fingerprint}</p>}
         {entry?.privateKey && (
           <>
             <button type="button" onClick={() => run(() => onHandOverPublishing(place))} className={plain}>Hand over publishing</button>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-600">
               Makes one file for the person who publishes {place} next. It publishes a final revision from this phone, then this phone stops publishing. Send it only to that person.
             </p>
           </>
@@ -80,6 +81,7 @@ export default function PlacesSheet({ book, published = {}, onClose, onHandOff, 
   const archived = groupsFor(book, true);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [message, setMessage] = useState('');
+  const dialogRef = useDialog({ onClose });
   const run = async (action) => {
     setMessage('');
     const result = await action();
@@ -119,8 +121,8 @@ export default function PlacesSheet({ book, published = {}, onClose, onHandOff, 
           <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 space-y-2">
             <p>Delete {countLine(group.surgeons.length, group.procedures.length, ' and ')}{group.archived ? ' archived' : ''} at {group.label}? Hand them off first if someone needs them.</p>
             <div className="flex gap-3 font-bold">
-              <button type="button" onClick={() => { onDelete(group.place, { archived: group.archived }); setPendingDelete(null); }} className="cursor-pointer">Delete</button>
-              <button type="button" onClick={() => setPendingDelete(null)} className="cursor-pointer">Cancel</button>
+              <button type="button" onClick={() => { onDelete(group.place, { archived: group.archived }); setPendingDelete(null); }} className="min-h-11 px-2 cursor-pointer">Delete</button>
+              <button type="button" onClick={() => setPendingDelete(null)} className="min-h-11 px-2 cursor-pointer">Cancel</button>
             </div>
           </div>
         )}
@@ -130,16 +132,16 @@ export default function PlacesSheet({ book, published = {}, onClose, onHandOff, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
-      <div role="dialog" aria-modal="true" aria-label="Places" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Places" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-hidden flex flex-col focus:outline-none">
+        <div className="flex items-center justify-between px-5 py-2 bg-gradient-to-r from-medical-700 to-medical-800">
           <p className="text-white font-bold text-sm">Places</p>
-          <button type="button" onClick={onClose} className="text-medical-200 hover:text-white cursor-pointer" aria-label="Close places"><X size={18} /></button>
+          <button type="button" onClick={onClose} className="tap-icon text-medical-100 hover:text-white cursor-pointer" aria-label="Close places"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-3 overflow-y-auto">
           {message && <p role="status" className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-800">{message}</p>}
           {groups.length === 0 && archived.length === 0 && <p className="text-sm text-slate-500">No places yet. Add a place when you edit a surgeon.</p>}
           {groups.map(renderGroup)}
-          {archived.length > 0 && <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 pt-2">Archived</h2>}
+          {archived.length > 0 && <h2 className="text-xs font-bold uppercase tracking-widest text-slate-600 pt-2">Archived</h2>}
           {archived.map(renderGroup)}
         </div>
       </div>

@@ -6,7 +6,7 @@ import { loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleDay 
 import { sourceLabel } from '../data/unitBook';
 import PhiPause from './PhiPause';
 
-const field = 'w-full rounded-lg bg-slate-50 border border-slate-200 text-sm px-2 py-2';
+const field = 'w-full min-h-11 rounded-lg bg-slate-50 border border-slate-200 text-sm px-2 py-2';
 
 export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStartProcedure, onStartSurgeon }) {
   const [stored, setStored] = useState(loadToday);
@@ -119,9 +119,9 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-4 overflow-hidden">
       <div className="px-4 py-3">
         <div className="flex gap-2">
-          <button type="button" onClick={() => setOffset(0)} className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer ${offset === 0 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Today</button>
-          <button type="button" onClick={() => setOffset(1)} className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer ${offset === 1 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Tomorrow</button>
-          <button type="button" aria-expanded={pasting} onClick={() => (pasting ? closePaste() : setPasting(true))} className="ml-auto px-3 py-1 rounded-full text-xs font-bold cursor-pointer bg-medical-50 text-medical-700">Paste the board</button>
+          <button type="button" onClick={() => setOffset(0)} aria-pressed={offset === 0} className={`px-3 min-h-11 rounded-full text-xs font-bold cursor-pointer ${offset === 0 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>Today</button>
+          <button type="button" onClick={() => setOffset(1)} aria-pressed={offset === 1} className={`px-3 min-h-11 rounded-full text-xs font-bold cursor-pointer ${offset === 1 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>Tomorrow</button>
+          <button type="button" aria-expanded={pasting} onClick={() => (pasting ? closePaste() : setPasting(true))} className="ml-auto px-3 min-h-11 rounded-full text-xs font-bold cursor-pointer bg-medical-50 text-medical-700">Paste the board</button>
         </div>
         {pasting && (
           <div className="mt-3 space-y-2">
@@ -183,17 +183,17 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
                   <input required value={editing.surgeonName} onChange={e => setEditing({ ...editing, surgeonName: e.target.value })} className={field} aria-label="Surgeon" />
                   <input required value={editing.procedureName} onChange={e => setEditing({ ...editing, procedureName: e.target.value })} className={field} aria-label="Procedure" />
                   <span className="flex gap-2">
-                    <button type="submit" className="flex-1 rounded-lg bg-medical-600 text-white text-xs font-bold cursor-pointer">Save</button>
-                    <button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-lg bg-slate-100 text-xs font-bold cursor-pointer">Cancel</button>
+                    <button type="submit" className="flex-1 min-h-11 rounded-lg bg-medical-600 text-white text-xs font-bold cursor-pointer">Save</button>
+                    <button type="button" onClick={() => setEditing(null)} className="flex-1 min-h-11 rounded-lg bg-slate-100 text-xs font-bold cursor-pointer">Cancel</button>
                   </span>
                 </form>
               ) : (
                 <div className="flex items-center gap-1 px-3 py-2">
-                  <button type="button" onClick={() => tap(item)} className="flex-1 text-left text-sm font-semibold text-slate-800 cursor-pointer py-1">
+                  <button type="button" onClick={() => tap(item)} className="flex-1 min-h-11 text-left text-base font-semibold text-slate-800 cursor-pointer py-1">
                     {[item.startsAt, item.room && `Rm ${item.room}`, item.surgeonName, item.procedureName].filter(Boolean).join(' · ')}
                   </button>
-                  <button type="button" aria-label={`Edit ${item.surgeonName}`} onClick={() => setEditing({ ...item })} className="p-2 text-slate-400 cursor-pointer"><Pencil size={14} /></button>
-                  <button type="button" aria-label={`Remove ${item.surgeonName}`} onClick={() => removeItem(item.id)} className="p-2 text-slate-400 cursor-pointer"><X size={14} /></button>
+                  <button type="button" aria-label={`Edit ${item.surgeonName}`} onClick={() => setEditing({ ...item })} className="tap-icon text-slate-500 cursor-pointer"><Pencil size={14} /></button>
+                  <button type="button" aria-label={`Remove ${item.surgeonName}`} onClick={() => removeItem(item.id)} className="tap-icon text-slate-500 cursor-pointer"><X size={14} /></button>
                 </div>
               )}
             </li>
@@ -215,31 +215,31 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
       )}
       {choice?.surgeons && !choice.procedures && (
         <div className="px-4 py-3 border-t border-slate-100 space-y-2">
-          <p className="text-xs font-bold text-slate-500">Which surgeon?</p>
+          <p className="text-xs font-bold text-slate-600">Which surgeon?</p>
           {choice.surgeons.map(surgeon => (
-            <button type="button" key={surgeon.id} onClick={() => pickSurgeon(surgeon)} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 cursor-pointer">
+            <button type="button" key={surgeon.id} onClick={() => pickSurgeon(surgeon)} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 min-h-11 cursor-pointer">
               {[surgeon.name, surgeon.specialty, surgeon.facility, surgeon.unitBook?.id ? 'Unit book' : ''].filter(Boolean).join(' · ')}
             </button>
           ))}
-          <button type="button" onClick={() => setChoice(null)} className="text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>
+          <button type="button" onClick={() => setChoice(null)} className="min-h-11 px-2 -ml-2 text-xs font-bold text-slate-600 cursor-pointer">Cancel</button>
         </div>
       )}
       {choice?.procedures && (
         <div className="px-4 py-3 border-t border-slate-100 space-y-2">
-          <p className="text-xs font-bold text-slate-500">
+          <p className="text-xs font-bold text-slate-600">
             {choice.closest ? 'Closest cards. Check the side and the procedure before you open one.' : 'Which procedure?'}
           </p>
           {choice.procedures.map(procedure => (
-            <button type="button" key={procedure.id} onClick={() => { setChoice(null); onOpen(procedure); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 cursor-pointer">
+            <button type="button" key={procedure.id} onClick={() => { setChoice(null); onOpen(procedure); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 min-h-11 cursor-pointer">
               {[procedure.name, procedure.approach, sourceLabel(procedure)].filter(Boolean).join(' · ')}
             </button>
           ))}
           {choice.closest && choice.item && (
-            <button type="button" onClick={() => { const { item } = choice; setChoice(null); onStartProcedure(choice.surgeons[0], item.procedureName); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-white border border-slate-200 px-3 py-2 cursor-pointer">
+            <button type="button" onClick={() => { const { item } = choice; setChoice(null); onStartProcedure(choice.surgeons[0], item.procedureName); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-white border border-slate-200 px-3 py-2 min-h-11 cursor-pointer">
               None of these. Start a card for {choice.item.procedureName}
             </button>
           )}
-          <button type="button" onClick={() => setChoice(null)} className="text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>
+          <button type="button" onClick={() => setChoice(null)} className="min-h-11 px-2 -ml-2 text-xs font-bold text-slate-600 cursor-pointer">Cancel</button>
         </div>
       )}
       <form onSubmit={addItem} className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3 border-t border-slate-100">
@@ -247,7 +247,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
         <input required value={draft.room} onChange={e => setDraft({ ...draft, room: e.target.value })} placeholder="Room" className={field} aria-label="Room" />
         <input required value={draft.surgeonName} onChange={e => setDraft({ ...draft, surgeonName: e.target.value })} placeholder="Surgeon" className={field} aria-label="Surgeon" />
         <input required value={draft.procedureName} onChange={e => setDraft({ ...draft, procedureName: e.target.value })} placeholder="Procedure" className={field} aria-label="Procedure" />
-        <button type="submit" className="col-span-2 sm:col-span-1 rounded-lg bg-slate-900 text-white text-sm font-bold cursor-pointer">Add</button>
+        <button type="submit" className="col-span-2 sm:col-span-1 min-h-11 rounded-lg bg-slate-900 text-white text-sm font-bold cursor-pointer">Add</button>
       </form>
       {phi.length > 0 && <PhiPause signals={phi} next="Take that detail out, then add the line." onEdit={() => setPhi([])} />}
     </section>

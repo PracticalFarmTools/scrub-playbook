@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldAlert } from 'lucide-react';
+import { useDialog } from '../hooks/useDialog';
 
 export default function PhiPause({ signals, onEdit, next = 'Take that detail out, then save.', action = 'Go back and edit' }) {
   const buttonRef = useRef(null);
-  useEffect(() => { buttonRef.current?.focus(); }, []);
-  return (
+  const dialogRef = useDialog({ onClose: onEdit, initialFocus: buttonRef });
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
-      <div role="alertdialog" aria-modal="true" aria-labelledby="phi-pause-title" aria-describedby="phi-pause-body" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby="phi-pause-title" aria-describedby="phi-pause-body" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden focus:outline-none">
         <div className="px-5 py-4 bg-rose-700 text-white">
           <p id="phi-pause-title" className="font-bold text-sm flex items-center gap-2"><ShieldAlert size={16} /> Hold on</p>
         </div>
@@ -19,6 +21,7 @@ export default function PhiPause({ signals, onEdit, next = 'Take that detail out
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

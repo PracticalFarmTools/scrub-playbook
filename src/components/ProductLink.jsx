@@ -21,10 +21,10 @@ export default function ProductLink({ productId, catalogNumber, overrideUrl, ven
         <span>{children}</span>
       )}
       {link?.kind === 'hospital' && (
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Hospital link</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hospital link</span>
       )}
       {showCompany && link?.kind === 'company' && (
-        <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-[10px] font-semibold text-medical-600 hover:text-medical-800">
+        <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-medical-600 hover:text-medical-800">
           {link.label}
         </a>
       )}

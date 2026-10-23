@@ -98,47 +98,49 @@ export default function SurgeonCard({
               onUpdateSurgeon?.(surgeon.id, { name, facility: place });
               setEditingDetails(false);
             }} className="space-y-2">
-              <input value={name} onChange={e => setName(e.target.value)} aria-label="Name" className="w-full min-w-0 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
-              <input value={place} onChange={e => setPlace(e.target.value)} aria-label="Place" placeholder="Place" className="w-full min-w-0 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
+              <input value={name} onChange={e => setName(e.target.value)} aria-label="Name" className="w-full min-w-0 min-h-11 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
+              <input value={place} onChange={e => setPlace(e.target.value)} aria-label="Place" placeholder="Place" className="w-full min-w-0 min-h-11 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20 placeholder:text-medical-200" />
               {detailsError && <p role="alert" className="text-xs font-semibold text-rose-200">{detailsError}</p>}
-              <div className="flex gap-3">
-                <button type="submit" className="text-xs font-bold text-white cursor-pointer">Save</button>
-                <button type="button" onClick={() => { setDetailsError(''); setEditingDetails(false); }} className="text-xs font-bold text-medical-200 cursor-pointer">Cancel</button>
+              <div className="flex gap-1">
+                <button type="submit" className="min-h-11 px-2 text-xs font-bold text-white cursor-pointer">Save</button>
+                <button type="button" onClick={() => { setDetailsError(''); setEditingDetails(false); }} className="min-h-11 px-2 text-xs font-bold text-medical-100 cursor-pointer">Cancel</button>
               </div>
             </form>
           ) : (
             <h3 className="text-lg font-bold tracking-tight">{surgeon.name}</h3>
           )}
           <p className="text-medical-200 text-sm flex items-center gap-1.5 mt-0.5"><Stethoscope size={14} /> {surgeon.specialty}</p>
-          {surgeon.demo && <p className="text-[10px] uppercase tracking-widest text-medical-300 mt-1">Sample · not your hospital</p>}
+          {surgeon.demo && <p className="text-xs uppercase tracking-widest text-medical-300 mt-1">Sample · not your hospital</p>}
           {unitOwned && (
-            <p className="text-[10px] uppercase tracking-widest text-medical-300 mt-1">Unit book · revision {surgeon.unitBook.revision}</p>
+            <p className="text-xs uppercase tracking-widest text-medical-300 mt-1">Unit book · revision {surgeon.unitBook.revision}</p>
           )}
           {editable && !editingDetails && (
-            <button type="button" onClick={() => { setName(surgeon.name); setPlace(surgeon.facility || ''); setEditingDetails(true); }} className="text-[10px] font-bold text-medical-200 mt-1 cursor-pointer">Edit details</button>
+            <button type="button" onClick={() => { setName(surgeon.name); setPlace(surgeon.facility || ''); setEditingDetails(true); }} className="min-h-11 -ml-1 px-1 text-xs font-bold text-medical-100 cursor-pointer">Edit details</button>
           )}
         </div>
         <button
+          type="button"
+          aria-expanded={confirming === 'surgeon'}
           onClick={() => setConfirming(confirming === 'surgeon' ? null : 'surgeon')}
-          className="text-medical-300 hover:text-rose-300 p-1 cursor-pointer"
+          className="tap-icon -mr-2 -mt-2 shrink-0 text-medical-200 hover:text-rose-200 cursor-pointer"
           aria-label={`Delete ${surgeon.name}`}
         >
           <Trash2 size={16} />
         </button>
       </header>
       {confirming === 'surgeon' && (
-        <div className="px-5 py-3 bg-rose-50 text-sm text-rose-800 flex items-center justify-between gap-3">
+        <div role="alert" className="px-5 py-2 bg-rose-50 text-sm text-rose-800 flex items-center justify-between gap-3">
           <span>Delete {surgeon.name} and every procedure?</span>
-          <span className="flex gap-2">
-            <button onClick={() => setConfirming(null)} className="font-semibold cursor-pointer">Cancel</button>
-            <button onClick={() => onDeleteSurgeon(surgeon.id)} className="font-bold cursor-pointer">Delete</button>
+          <span className="flex gap-1">
+            <button type="button" onClick={() => setConfirming(null)} className="min-h-11 px-3 font-semibold cursor-pointer">Cancel</button>
+            <button type="button" onClick={() => onDeleteSurgeon(surgeon.id)} className="min-h-11 px-3 font-bold cursor-pointer">Delete</button>
           </span>
         </div>
       )}
 
       {row && (
         <div className="px-5 pt-3">
-          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${STATUS_CLASS[row.status]}`}>
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${STATUS_CLASS[row.status]}`}>
             {rowLabel}
           </span>
         </div>
@@ -148,12 +150,12 @@ export default function SurgeonCard({
         <div className="px-5 pt-3">
           <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New to {surgeon.name}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">New to {surgeon.name}</p>
               {editable && !editingFirst && (
                 <button type="button" onClick={() => {
                   setFirstDraft([firstLines[0] || '', firstLines[1] || '', firstLines[2] || '']);
                   setEditingFirst(true);
-                }} className="text-[10px] font-bold text-medical-700 cursor-pointer">Edit</button>
+                }} aria-label={`Edit first-case notes for ${surgeon.name}`} className="min-h-11 min-w-11 px-2 -mr-2 text-xs font-bold text-medical-700 cursor-pointer">Edit</button>
               )}
             </div>
             {editingFirst ? (
@@ -166,11 +168,11 @@ export default function SurgeonCard({
                 setEditingFirst(false);
               }}>
                 {firstDraft.map((line, index) => (
-                  <input key={index} value={line} maxLength={140} placeholder={`Line ${index + 1}`} onChange={e => setFirstDraft(firstDraft.map((item, i) => i === index ? e.target.value : item))} className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" />
+                  <input key={index} value={line} maxLength={140} placeholder={`Line ${index + 1}`} aria-label={`First-case line ${index + 1}`} onChange={e => setFirstDraft(firstDraft.map((item, i) => i === index ? e.target.value : item))} className="w-full min-h-11 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" />
                 ))}
-                <div className="flex gap-3 text-xs font-bold">
-                  <button type="submit" className="text-medical-700 cursor-pointer">Save</button>
-                  <button type="button" onClick={() => setEditingFirst(false)} className="text-slate-500 cursor-pointer">Cancel</button>
+                <div className="flex gap-1 text-xs font-bold">
+                  <button type="submit" className="min-h-11 px-2 text-medical-700 cursor-pointer">Save</button>
+                  <button type="button" onClick={() => setEditingFirst(false)} className="min-h-11 px-2 text-slate-600 cursor-pointer">Cancel</button>
                 </div>
               </form>
             ) : (
@@ -178,24 +180,24 @@ export default function SurgeonCard({
                 <ul className="mt-1.5 space-y-1">
                   {firstLines.map((line, index) => <li key={index} className="text-sm text-slate-700">• {line}</li>)}
                 </ul>
-                {updatedLine && <p className="text-[11px] text-slate-400 mt-1.5">{updatedLine}</p>}
+                {updatedLine && <p className="text-xs text-slate-500 mt-1.5">{updatedLine}</p>}
               </>
             )}
           </div>
         </div>
       )}
       {unitOwned && (
-        <p className="px-5 pt-3 text-[11px] text-slate-500">The unit book keeps this surgeon’s name, place, and first-case lines. Use Copy to my notes for a card you can edit.</p>
+        <p className="px-5 pt-3 text-xs text-slate-500">The unit book keeps this surgeon’s name, place, and first-case lines. Use Copy to my notes for a card you can edit.</p>
       )}
       {editable && firstLines.length === 0 && !editingFirst && (
         <div className="px-5 pt-3">
-          <button type="button" onClick={() => { setFirstDraft(['', '', '']); setEditingFirst(true); }} className="text-[11px] font-bold text-medical-700 cursor-pointer">Add first-case notes</button>
+          <button type="button" onClick={() => { setFirstDraft(['', '', '']); setEditingFirst(true); }} className="min-h-11 text-xs font-bold text-medical-700 cursor-pointer">Add first-case notes</button>
         </div>
       )}
       {phi.length > 0 && <PhiPause signals={phi} next={phiNext} onEdit={() => setPhi([])} />}
 
       {procedures.length === 0 && (
-        <p className="px-5 py-6 text-sm text-slate-400">No procedure yet. Add the case the way the board writes it.</p>
+        <p className="px-5 py-6 text-sm text-slate-500">No procedure yet. Add the case the way the board writes it.</p>
       )}
 
       {procedures.map(procedure => {
@@ -217,39 +219,39 @@ export default function SurgeonCard({
             >
               <span className="min-w-0">
                 <span className="block text-base font-bold text-slate-900 truncate">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</span>
-                {sourceLabel(procedure) && <span className="block text-[11px] font-semibold text-medical-700">{sourceLabel(procedure)}</span>}
+                {sourceLabel(procedure) && <span className="block text-xs font-semibold text-medical-700">{sourceLabel(procedure)}</span>}
               </span>
               <span className="flex items-center gap-2 shrink-0">
                 {!surgeon.demo && (
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_CLASS[state.status]}`}>{SHORT_STATUS[state.status]}</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${STATUS_CLASS[state.status]}`}>{SHORT_STATUS[state.status]}</span>
                 )}
-                <ChevronDown size={18} aria-hidden="true" className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown size={18} aria-hidden="true" className={`text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
               </span>
             </button>
             {open && (
               <div id={`procedure-body-${procedure.id}`}>
                 <ProcedureGlance procedure={procedure} surgeon={surgeon} {...options} showTitle={false} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
                 <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
-                  <button type="button" onClick={() => onCaseView?.(surgeon, procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Case view</button>
+                  <button type="button" onClick={() => onCaseView?.(surgeon, procedure)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">Case view</button>
                   {surgeon.demo ? (
-                    <button type="button" onClick={() => onCopySample(surgeon.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy into my book</button>
+                    <button type="button" onClick={() => onCopySample(surgeon.id)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">Copy into my book</button>
                   ) : (
                     <>
                       {procedure.unitBook?.id ? (
-                        <button type="button" onClick={() => onCopyToNotes(procedure.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">
+                        <button type="button" onClick={() => onCopyToNotes(procedure.id)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">
                           {(trustProcedures || procedures).some(item => item.copiedFrom === procedure.id && !item.unitBook) ? 'Go to my copy' : 'Copy to my notes'}
                         </button>
                       ) : (
-                        <button type="button" onClick={() => onEdit(procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Edit</button>
+                        <button type="button" onClick={() => onEdit(procedure)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">Edit</button>
                       )}
-                      <button type="button" onClick={() => onConfirm(procedure)} className="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1 cursor-pointer">I was in this case</button>
+                      <button type="button" onClick={() => onConfirm(procedure)} className="text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg px-3 min-h-11 cursor-pointer">I was in this case</button>
                       {procedure.disputed ? (
-                        <button type="button" onClick={() => onClearDispute(procedure.id)} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Clear flag</button>
+                        <button type="button" onClick={() => onClearDispute(procedure.id)} className="text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 min-h-11 cursor-pointer">Clear flag</button>
                       ) : (
-                        <button type="button" onClick={() => { setFlagReason(''); setFlagging(procedure.id); }} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Flag</button>
+                        <button type="button" onClick={() => { setFlagReason(''); setFlagging(procedure.id); }} className="text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 min-h-11 cursor-pointer">Flag</button>
                       )}
-                      <button type="button" onClick={() => onShare(surgeon, procedure)} className="text-[11px] font-bold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1 cursor-pointer inline-flex items-center gap-1"><Share2 size={11} /> Share</button>
-                      <button type="button" onClick={() => setConfirming(procedure.id)} className="text-[11px] font-bold text-slate-500 cursor-pointer">Delete case</button>
+                      <button type="button" onClick={() => onShare(surgeon, procedure)} className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer inline-flex items-center gap-1"><Share2 size={12} /> Share</button>
+                      <button type="button" aria-expanded={confirming === procedure.id} onClick={() => setConfirming(procedure.id)} className="min-h-11 px-2 text-xs font-bold text-slate-600 cursor-pointer">Delete case</button>
                     </>
                   )}
                 </div>
@@ -281,10 +283,10 @@ export default function SurgeonCard({
                   </form>
                 )}
                 {confirming === procedure.id && (
-                  <div className="px-5 py-2 text-xs text-rose-700 flex gap-3">
-                    <span>Delete this procedure?</span>
-                    <button onClick={() => { setConfirming(null); onDeleteProcedure(procedure.id); }} className="font-bold cursor-pointer">Delete</button>
-                    <button onClick={() => setConfirming(null)} className="cursor-pointer">Cancel</button>
+                  <div role="alert" className="px-5 py-1 text-sm text-rose-800 flex items-center gap-1">
+                    <span className="mr-2">Delete this procedure?</span>
+                    <button type="button" onClick={() => { setConfirming(null); onDeleteProcedure(procedure.id); }} className="min-h-11 px-3 font-bold cursor-pointer">Delete</button>
+                    <button type="button" onClick={() => setConfirming(null)} className="min-h-11 px-3 cursor-pointer">Cancel</button>
                   </div>
                 )}
               </div>
@@ -294,7 +296,7 @@ export default function SurgeonCard({
       })}
 
       {!surgeon.demo && (
-        <button type="button" onClick={onAddProcedure} className="w-full px-5 py-3 text-xs font-bold text-medical-700 hover:bg-medical-50 cursor-pointer inline-flex items-center justify-center gap-1 border-t border-slate-100">
+        <button type="button" onClick={onAddProcedure} className="w-full min-h-12 px-5 py-3 text-sm font-bold text-medical-700 hover:bg-medical-50 cursor-pointer inline-flex items-center justify-center gap-1 border-t border-slate-100">
           <Plus size={14} /> Add procedure
         </button>
       )}

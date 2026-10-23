@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Download, Menu, Plus, Upload, Wifi, WifiOff } from 'lucide-react';
+import { BookOpen, Download, MapPin, Menu, Plus, Upload, WifiOff } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
 import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, emptyProcedure } from './data/schema';
@@ -27,6 +27,7 @@ import { needsHomeScreen, safeGet, safeJson, safeSet } from './data/storage';
 import { downloadText } from './utils/download';
 import { applyUpdate, onUpdateReady } from './pwa';
 import { UNREADABLE_KEY } from './hooks/useBook';
+import { useDialog } from './hooks/useDialog';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
 const CaseView = lazy(() => import('./components/CaseView'));
@@ -380,45 +381,50 @@ export default function App() {
     <div className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-slate-100">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
         <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3 gap-3">
+          <div className="flex items-center justify-between mb-3 gap-2">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-medical-600 to-medical-800 flex items-center justify-center shadow-lg shadow-medical-600/20">
+              <div className="hidden max-[379px]:flex sm:flex shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-medical-600 to-medical-800 items-center justify-center shadow-lg shadow-medical-600/20">
                 <BookOpen size={18} className="text-white" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">ScrubPlaybook</h1>
-                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>
-                    {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
-                    {isOnline ? '' : 'Offline'}
-                  </span>
+                  <h1 className="max-[379px]:sr-only text-base sm:text-lg font-extrabold text-slate-800 tracking-tight leading-none truncate">ScrubPlaybook</h1>
+                  {!isOnline && <span className={`hidden sm:inline-flex ${offlineBadge}`}><WifiOff size={12} aria-hidden="true" /> Offline</span>}
                 </div>
-                <p className="text-[11px] text-slate-400 tracking-wide truncate">Your notes. The official card still wins.</p>
+                <p className="hidden sm:block text-xs text-slate-600 tracking-wide truncate">Your notes. The official card still wins.</p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={exportPlaybook} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Export backup">
+            <div className="flex shrink-0 items-center">
+              <button type="button" onClick={exportPlaybook} className={headerButton} title="Export backup" aria-label="Export backup">
                 <Download size={20} />
               </button>
-              <button onClick={() => setShowPlaces(true)} className="px-2.5 py-2 rounded-xl text-slate-500 hover:text-medical-600 hover:bg-medical-50 cursor-pointer text-xs font-bold" title="Places">Places</button>
-              <button onClick={() => setShowImport(true)} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Import">
+              <button type="button" onClick={() => setShowPlaces(true)} className={`${headerButton} gap-1 sm:px-2.5 text-xs font-bold`} title="Places" aria-label="Places">
+                <MapPin size={20} className="sm:hidden" />
+                <span className="hidden sm:inline">Places</span>
+              </button>
+              <button type="button" onClick={() => setShowImport(true)} className={headerButton} title="Import" aria-label="Import">
                 <Upload size={20} />
               </button>
-              <button onClick={() => setShowVendors(v => !v)} className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 cursor-pointer" title="Company pages">
+              <button type="button" onClick={() => setShowVendors(v => !v)} className={headerButton} title="Company pages" aria-label="Company pages" aria-expanded={showVendors}>
                 <Menu size={20} />
               </button>
-              <button onClick={() => setAddDraft({})} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-medical-600 text-white font-semibold text-sm cursor-pointer">
+              <button type="button" onClick={() => setAddDraft({})} aria-label="Add surgeon" className="sm:ml-1 min-h-11 min-w-11 flex items-center justify-center gap-1.5 px-3 sm:px-4 rounded-xl bg-medical-600 text-white font-semibold text-sm cursor-pointer">
                 <Plus size={16} />
                 <span className="hidden sm:inline">Add surgeon</span>
               </button>
             </div>
           </div>
+          <p className="sm:hidden -mt-2 mb-2 flex items-center gap-2 text-xs text-slate-600">
+            {!isOnline && <span className={offlineBadge}><WifiOff size={12} aria-hidden="true" /> Offline</span>}
+            Your notes. The official card still wins.
+          </p>
+          <p role="status" className="sr-only">{isOnline ? '' : 'Offline. Your book still works on this phone.'}</p>
           <SearchBox key={searchKey} initialValue={search} onChange={setSearch} />
           {labels.length > 1 && (
             <div className="flex gap-1.5 mt-2.5 overflow-x-auto">
-              <button onClick={() => setActiveFacility(null)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${!placeFilter ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>All places</button>
+              <button onClick={() => setActiveFacility(null)} aria-pressed={!placeFilter} className={`shrink-0 min-h-11 px-3 rounded-full text-xs font-bold cursor-pointer ${!placeFilter ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-700'}`}>All places</button>
               {labels.map(label => (
-                <button key={label} onClick={() => setActiveFacility(placeFilter === label ? null : label)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${placeFilter === label ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{label}</button>
+                <button key={label} onClick={() => setActiveFacility(placeFilter === label ? null : label)} aria-pressed={placeFilter === label} className={`shrink-0 min-h-11 px-3 rounded-full text-xs font-bold cursor-pointer ${placeFilter === label ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-700'}`}>{label}</button>
               ))}
             </div>
           )}
@@ -458,8 +464,8 @@ export default function App() {
         )}
         {notice && (
           <div className="bg-medical-50 border border-medical-200 rounded-2xl px-4 py-3 mb-4 flex items-start justify-between gap-3">
-            <p className="text-xs text-medical-900">{notice}</p>
-            <button onClick={() => setNotice('')} className="text-[11px] font-bold text-medical-700 cursor-pointer">Dismiss</button>
+            <p role="status" className="text-sm text-medical-900">{notice}</p>
+            <button type="button" onClick={() => setNotice('')} className="shrink-0 min-h-11 px-2 text-xs font-bold text-medical-700 cursor-pointer">Dismiss</button>
           </div>
         )}
         {showBackupReminder && (
@@ -584,7 +590,7 @@ export default function App() {
 
       <footer className="border-t border-slate-200/60 mt-4">
         <div className="max-w-5xl mx-auto px-4 py-6 text-center">
-          <p className="text-[10px] text-slate-400 leading-relaxed max-w-xl mx-auto">
+          <p className="text-xs text-slate-600 leading-relaxed max-w-xl mx-auto">
             Scrub Playbook is staff memory, not the medical record, not an order, and not an Instructions for Use.
             The surgeon and the hospital’s official preference card win when they disagree.
             Product names such as DePuy, Cardinal Health, Stryker, Ethicon, and Mölnlycke belong to their owners.
@@ -699,24 +705,31 @@ export default function App() {
         </div>
       )}
       {showDisclaimer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white font-extrabold">Before you write anything down</div>
-            <div className="p-6 space-y-3 text-sm text-slate-600">
-              <p>These are staff notes about how a room runs. They are not the chart, not a medication order, and not the manufacturer’s instructions.</p>
-              <p>Do not enter a patient name, medical record number, date of birth, implant lot, or serial number.</p>
-              <p>Write what you observed. Do not copy or photograph the facility’s official card.</p>
-              <p>When a note and the official preference card disagree, the official card and the surgeon win. These notes stay on this device unless you export or share them yourself.</p>
-              <button
-                onClick={() => { safeSet('scrubplaybook_disclaimer_seen', 'true'); setShowDisclaimer(false); }}
-                className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold cursor-pointer"
-              >
-                I understand
-              </button>
-            </div>
-          </div>
-        </div>
+        <Disclaimer onAccept={() => { safeSet('scrubplaybook_disclaimer_seen', 'true'); setShowDisclaimer(false); }} />
       )}
+    </div>
+  );
+}
+
+const offlineBadge = 'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-50';
+const headerButton = 'tap-icon rounded-xl text-slate-600 hover:text-medical-600 hover:bg-medical-50 cursor-pointer';
+
+function Disclaimer({ onAccept }) {
+  const dialogRef = useDialog();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)' }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="disclaimer-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto focus:outline-none">
+        <h2 id="disclaimer-title" className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white font-extrabold">Before you write anything down</h2>
+        <div className="p-6 space-y-3 text-sm text-slate-700">
+          <p>These are staff notes about how a room runs. They are not the chart, not a medication order, and not the manufacturer’s instructions.</p>
+          <p>Do not enter a patient name, medical record number, date of birth, implant lot, or serial number.</p>
+          <p>Write what you observed. Do not copy or photograph the facility’s official card.</p>
+          <p>When a note and the official preference card disagree, the official card and the surgeon win. These notes stay on this device unless you export or share them yourself.</p>
+          <button type="button" onClick={onAccept} className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold cursor-pointer">
+            I understand
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { suggestionText } from '../data/share';
 import { pullTargets } from '../data/caseView';
 import { loadPull, savePull } from '../data/pull';
 import { readTechName } from '../hooks/useBook';
+import { useDialog } from '../hooks/useDialog';
 import CaseBody from './CaseBody';
 import PhiPause from './PhiPause';
 
@@ -64,13 +65,14 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
     if (procedureId) savePull(procedureId, checks);
   }, [procedureId, checks]);
 
-  useEffect(() => {
-    const previous = document.activeElement;
-    closeRef.current?.focus();
-    return () => {
-      if (previous && typeof previous.focus === 'function' && document.contains(previous)) previous.focus();
-    };
-  }, []);
+  const dialogRef = useDialog({
+    initialFocus: closeRef,
+    onClose: () => {
+      if (suggesting) setSuggesting(false);
+      else if (flagging) setFlagging(false);
+      else onClose?.();
+    },
+  });
 
   useEffect(() => {
     if (!wakeSupported()) return undefined;
@@ -102,19 +104,6 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
       current?.release?.().catch(() => {});
     };
   }, []);
-
-  useEffect(() => {
-    const onKey = (event) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      if (phi.length) setPhi([]);
-      else if (suggesting) setSuggesting(false);
-      else if (flagging) setFlagging(false);
-      else onClose?.();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [phi.length, suggesting, flagging, onClose]);
 
   if (!surgeon || !procedure) return null;
 
@@ -210,10 +199,11 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
   return createPortal(
     <div
       id="case-view-root"
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="case-view-surgeon case-view-procedure"
-      className={`fixed inset-0 z-[55] overflow-y-auto ${page}`}
+      className={`fixed inset-0 z-[55] overflow-y-auto focus:outline-none ${page}`}
     >
       <div className={`case-topbar sticky top-0 z-10 border-b px-4 py-3 flex flex-wrap items-center gap-2 ${bar}`}>
         <button ref={closeRef} type="button" onClick={onClose} className={button}>Close</button>

@@ -25,7 +25,7 @@ export default function RecentActivity({ log, maxItems = 8 }) {
       <div className="flex items-center gap-2 mb-4">
         <Clock size={14} className="text-medical-600" />
         <p className="text-sm font-bold text-slate-700">Recent Activity</p>
-        <span className="text-[10px] text-slate-400 font-medium ml-auto">{log.length} total</span>
+        <span className="text-xs text-slate-500 font-medium ml-auto">{log.length} total</span>
       </div>
       <div className="space-y-1">
         {items.map((entry) => (
@@ -37,10 +37,10 @@ export default function RecentActivity({ log, maxItems = 8 }) {
                 <p className="text-sm text-slate-700 font-medium truncate">
                   <span className="font-semibold">{entry.action}</span>
                   {entry.surgeonName && (
-                    <span className="text-slate-400"> · {entry.surgeonName}</span>
+                    <span className="text-slate-500"> · {entry.surgeonName}</span>
                   )}
                 </p>
-                <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">{timeAgo(entry.timestamp)}</span>
+                <span className="text-xs text-slate-500 whitespace-nowrap shrink-0">{timeAgo(entry.timestamp)}</span>
               </div>
               {/* Note quote block */}
               {entry.note && (
@@ -51,7 +51,7 @@ export default function RecentActivity({ log, maxItems = 8 }) {
                   </p>
                 </div>
               )}
-              <p className="text-[10px] text-slate-300 mt-0.5">by {entry.user}</p>
+              <p className="text-xs text-slate-500 mt-0.5">by {entry.user}</p>
             </div>
           </div>
         ))}
