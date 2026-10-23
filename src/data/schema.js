@@ -6,6 +6,10 @@ export const LEGACY_STORAGE_KEY = 'scrubplaybook_surgeons';
 export const TECH_NAME_KEY = 'scrubplaybook_tech_name';
 export const TODAY_KEY = 'scrubplaybook_today';
 export const PUBLISHED_KEY = 'scrubplaybook_published';
+export const SUGGESTIONS_KEY = 'scrubplaybook_suggestions';
+export const CHANGES_KEY = 'scrubplaybook_changes_since_export';
+export const LAST_EXPORT_KEY = 'scrubplaybook_last_export';
+export const HOME_SCREEN_KEY = 'scrubplaybook_home_screen_dismissed';
 
 export const STALE_AFTER_DAYS = 90;
 export const LINK_FRESH_DAYS = 180;

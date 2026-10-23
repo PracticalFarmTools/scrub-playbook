@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PUBLISHED_KEY, emptyBlocks, emptyProcedure } from '../data/schema';
-import { shareMessage } from '../data/share';
+import { shareMessage, toBackup } from '../data/share';
 import ImportCardModal from './ImportCardModal';
 
 afterEach(() => {
@@ -59,6 +59,20 @@ describe('ImportCardModal', () => {
     paste(message);
     expect(screen.getByText('• Bovie 35/35')).toBeTruthy();
     expect(screen.getByText(/Dr. Chen keeps the first-case lines already in your book/)).toBeTruthy();
+  });
+
+  it('offers to restore a full backup or add it as someone else’s notes', () => {
+    const onImport = vi.fn(() => ({ success: true }));
+    const backup = toBackup({ version: 2, surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false }], procedures: [] });
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={onImport} />);
+    paste(JSON.stringify(backup));
+    fireEvent.click(screen.getByText('Restore my backup'));
+    expect(onImport.mock.calls[0][1].restore.restorable).toBe(true);
+    cleanup();
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={onImport} />);
+    paste(JSON.stringify(backup));
+    fireEvent.click(screen.getByText('Add as someone else’s notes'));
+    expect(onImport.mock.calls[1][1].restore).toBeUndefined();
   });
 
   it('pauses an imported card that carries a patient field', () => {

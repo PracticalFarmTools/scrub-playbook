@@ -37,5 +37,15 @@ export function useAuditLog() {
     setLog(prev => [entry, ...prev].slice(0, MAX_ENTRIES));
   }, []);
 
-  return { log, addEntry };
+  const mergeLog = useCallback((incoming) => {
+    setLog(prev => {
+      const byId = new Map();
+      for (const entry of [...(incoming || []), ...prev]) if (entry?.id) byId.set(entry.id, entry);
+      return [...byId.values()]
+        .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))
+        .slice(0, MAX_ENTRIES);
+    });
+  }, []);
+
+  return { log, addEntry, mergeLog };
 }

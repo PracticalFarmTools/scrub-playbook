@@ -237,8 +237,16 @@ export default function ImportCardModal({ book, onClose, onImport }) {
           {preview && !card && preview.parsed.type !== 'unitbook' && (
             <>
               <p className="text-sm text-slate-700">{importPreviewText(preview.parsed)}</p>
-              {preview.phi.length === 0 && (
-                <button type="button" onClick={() => commit()} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unconfirmed</button>
+              {preview.phi.length === 0 && preview.parsed.restorable && (
+                <>
+                  <button type="button" onClick={() => commit(undefined, { restore: preview.parsed })} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Restore my backup</button>
+                  <p className="text-xs text-slate-600">For your own backup. Your confirmations, the board, recent activity, and unit books you publish come back. A card on this phone that is newer than the backup stays as it is.</p>
+                  <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-slate-100 text-slate-800 font-bold text-sm cursor-pointer">Add as someone else’s notes</button>
+                  <p className="text-xs text-slate-600">For a backup from another tech. Only cards you do not have are added, and they arrive unconfirmed.</p>
+                </>
+              )}
+              {preview.phi.length === 0 && !preview.parsed.restorable && (
+                <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unconfirmed</button>
               )}
               <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>

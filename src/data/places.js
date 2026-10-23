@@ -11,7 +11,7 @@ export function archivePlace(book, place, archived = true) {
   return {
     ...book,
     surgeons: (book?.surgeons || []).map(surgeon => (
-      inPlaceGroup(surgeon, place, !archived) ? { ...surgeon, archived } : surgeon
+      inPlaceGroup(surgeon, place, !archived) ? { ...surgeon, archived, updatedAt: new Date().toISOString() } : surgeon
     )),
   };
 }

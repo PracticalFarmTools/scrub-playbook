@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
+import { BOOK_KEY, BOOK_VERSION, CHANGES_KEY, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { refreshSamples } from '../data/defaults';
 import { requestPersistentStorage, safeGet, safeRemove, safeSet } from '../data/storage';
 import { openChannel, readValue, writeValue } from '../data/store';
-import { mergeBackup, placeIncomingCard } from '../data/share';
+import { mergeBackup, placeIncomingCard, restoreBackup } from '../data/share';
 import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
@@ -34,14 +34,14 @@ export async function loadStoredBook() {
   }
   if (unreadable) {
     safeSet(UNREADABLE_KEY, localRaw ?? safeGet(LEGACY_STORAGE_KEY) ?? '');
-    return { book: migrateBook(null), unreadable, legacy };
+    return { book: migrateBook(null), unreadable, legacy, needsWrite: false };
   }
   try {
     const book = refreshSamples(migrateBook(source ?? null));
-    return { book, unreadable: false, legacy };
+    return { book, unreadable: false, legacy, needsWrite: legacy || localRaw !== null };
   } catch {
     if (source !== undefined) safeSet(UNREADABLE_KEY, JSON.stringify(source));
-    return { book: migrateBook(null), unreadable: source !== undefined, legacy };
+    return { book: migrateBook(null), unreadable: source !== undefined, legacy, needsWrite: false };
   }
 }
 
@@ -64,6 +64,7 @@ export function useBook() {
   const bookRef = useRef(book);
   const askedPersist = useRef(false);
   const skipSave = useRef(true);
+  const quietWrite = useRef(false);
   const saveSeq = useRef(0);
   const channel = useRef(null);
 
@@ -71,7 +72,8 @@ export function useBook() {
     let alive = true;
     loadStoredBook().then(result => {
       if (!alive) return;
-      skipSave.current = result.unreadable;
+      skipSave.current = result.unreadable || !result.needsWrite;
+      quietWrite.current = result.needsWrite;
       bookRef.current = result.book;
       setBook(result.book);
       setUnreadable(result.unreadable);
@@ -106,11 +108,14 @@ export function useBook() {
       skipSave.current = false;
       return;
     }
+    const counted = !quietWrite.current;
+    quietWrite.current = false;
     const seq = ++saveSeq.current;
     writeValue(BOOK_KEY, book).then(result => {
       if (seq !== saveSeq.current) return;
       if (result.ok) {
         safeRemove(LEGACY_STORAGE_KEY);
+        if (counted && book.surgeons.some(s => !s.demo)) safeSet(CHANGES_KEY, String((Number(safeGet(CHANGES_KEY, '0')) || 0) + 1));
         channel.current?.post(BOOK_KEY);
         setSaveState(prev => (prev.ok ? prev : { ok: true }));
       } else {
@@ -194,6 +199,7 @@ export function useBook() {
         ...s,
         firstCase,
         firstCaseAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         firstCaseBy: readTechName(),
       } : s),
     }));
@@ -212,7 +218,7 @@ export function useBook() {
     if (!trimmed) return;
     setBook(prev => ({
       ...prev,
-      surgeons: prev.surgeons.map(s => s.id === id && !s.unitBook ? { ...s, name: trimmed, facility: (facility || '').trim() } : s),
+      surgeons: prev.surgeons.map(s => s.id === id && !s.unitBook ? { ...s, name: trimmed, facility: (facility || '').trim(), updatedAt: new Date().toISOString() } : s),
     }));
   }, []);
 
@@ -281,6 +287,13 @@ export function useBook() {
     return result;
   }, []);
 
+  const restoreOwnBackup = useCallback((incoming) => {
+    const result = restoreBackup(bookRef.current, incoming);
+    bookRef.current = result.book;
+    setBook(result.book);
+    return result;
+  }, []);
+
   const replaceProcedure = useCallback((procedure) => {
     setBook(prev => ({
       ...prev,
@@ -310,6 +323,7 @@ export function useBook() {
     importUnitBook,
     copyToNotes,
     importIncoming,
+    restoreOwnBackup,
     replaceProcedure,
     newProcedure: emptyProcedure,
   };

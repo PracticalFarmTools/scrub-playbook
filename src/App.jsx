@@ -2,11 +2,12 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { BookOpen, Download, Menu, Plus, Search, Upload, Wifi, WifiOff, X } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
-import { STALE_AFTER_DAYS, emptyProcedure } from './data/schema';
+import { CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, emptyProcedure } from './data/schema';
 import { facilityLabels, filterBook } from './data/searchBook';
-import { parseImport, toBackup, toPlacePack } from './data/share';
+import { parseImport, restoreExtras, toBackup, toPlacePack } from './data/share';
+import { loadToday, localDay, saveToday } from './data/today';
 import { readTechName, useBook } from './hooks/useBook';
-import { publishUnitBook, savePublished, unitResultText } from './data/unitBook';
+import { publishUnitBook, readPublished, savePublished, unitResultText } from './data/unitBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import SurgeonCard from './components/SurgeonCard';
@@ -15,7 +16,7 @@ import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
 import { VendorLibrary, VendorResults } from './components/VendorPanels';
 import ConfirmNameModal from './components/ConfirmNameModal';
-import { safeGet, safeSet } from './data/storage';
+import { needsHomeScreen, safeGet, safeJson, safeSet } from './data/storage';
 import { downloadText } from './utils/download';
 import { UNREADABLE_KEY } from './hooks/useBook';
 
@@ -26,7 +27,8 @@ const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
 const ProcedureEditor = lazy(() => import('./components/ProcedureEditor'));
 const ShareCardModal = lazy(() => import('./components/ShareCardModal'));
 
-const LAST_EXPORT_KEY = 'scrubplaybook_last_export';
+const WEEK_DAYS = 7;
+const CHANGES_BEFORE_REMINDER = 20;
 
 function daysSince(iso) {
   return (Date.now() - new Date(iso).getTime()) / 86400000;
@@ -35,7 +37,7 @@ function daysSince(iso) {
 export default function App() {
   const bookApi = useBook();
   const { book } = bookApi;
-  const { log: auditLog, addEntry: addAudit } = useAuditLog();
+  const { log: auditLog, addEntry: addAudit, mergeLog } = useAuditLog();
   const { isOnline } = useNetworkStatus();
 
   const [search, setSearch] = useState('');
@@ -53,6 +55,11 @@ export default function App() {
   const [showPlaces, setShowPlaces] = useState(false);
   const [notice, setNotice] = useState('');
   const [lastExportAt, setLastExportAt] = useState(() => safeGet(LAST_EXPORT_KEY));
+  const [todayVersion, setTodayVersion] = useState(0);
+  const [homeScreenHidden, setHomeScreenHidden] = useState(() => {
+    const at = safeGet(HOME_SCREEN_KEY);
+    return Boolean(at) && daysSince(at) < WEEK_DAYS;
+  });
 
   const labels = facilityLabels(book);
   const placeFilter = activeFacility && labels.includes(activeFacility) ? activeFacility : null;
@@ -67,8 +74,16 @@ export default function App() {
     : [];
   const showVendorHits = q && vendorHits.length > 0 && vendorHits.length < SURGICAL_VENDORS.length;
 
-  const showBackupReminder = book.surgeons.some(s => !s.demo)
-    && (!lastExportAt || daysSince(lastExportAt) > 30);
+  const hasOwnCards = book.surgeons.some(s => !s.demo);
+  const changesSinceExport = Number(safeGet(CHANGES_KEY, '0')) || 0;
+  const showBackupReminder = hasOwnCards
+    && (!lastExportAt || daysSince(lastExportAt) > WEEK_DAYS || changesSinceExport >= CHANGES_BEFORE_REMINDER);
+  const backupReminderText = !lastExportAt
+    ? 'Your book lives only on this phone. Export a backup and keep the file somewhere safe.'
+    : changesSinceExport >= CHANGES_BEFORE_REMINDER
+      ? `${changesSinceExport} changes since your last backup. Export a fresh one.`
+      : `Your last backup is ${Math.floor(daysSince(lastExportAt))} days old. Export a fresh one.`;
+  const showHomeScreen = !homeScreenHidden && needsHomeScreen();
 
   const handOffPlace = async (place, { archived = false } = {}) => {
     const pack = toPlacePack(book, place, readTechName() || 'A tech', new Date().toISOString(), { archived });
@@ -89,7 +104,12 @@ export default function App() {
   };
 
   const exportPlaybook = () => {
-    const data = toBackup(book);
+    const data = toBackup(book, {
+      today: loadToday(),
+      log: auditLog,
+      published: readPublished(),
+      suggestions: safeJson(SUGGESTIONS_KEY, []),
+    });
     if (!data.book.surgeons.length) {
       setNotice('Samples stay on this device. Add your own surgeon before you export a backup.');
       return;
@@ -97,6 +117,7 @@ export default function App() {
     downloadText(`scrubplaybook-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
     const now = new Date().toISOString();
     safeSet(LAST_EXPORT_KEY, now);
+    safeSet(CHANGES_KEY, '0');
     setLastExportAt(now);
   };
 
@@ -124,6 +145,28 @@ export default function App() {
         addAudit({ action: 'Unit book updated', surgeonName: options.unitFile.place, note: `Revision ${result.revision}` });
         setNotice(text);
         return { success: true, imported: result.counts.added, skipped: 0 };
+      }
+      if (options.restore) {
+        const backup = options.restore;
+        const result = bookApi.restoreOwnBackup(backup.full);
+        const merged = restoreExtras(
+          { published: readPublished(), today: loadToday(), log: auditLog, suggestions: safeJson(SUGGESTIONS_KEY, []) },
+          backup.extras || {},
+          { today: localDay() },
+        );
+        savePublished(merged.published);
+        saveToday(merged.today);
+        safeSet(SUGGESTIONS_KEY, JSON.stringify(merged.suggestions));
+        mergeLog(backup.extras?.log || []);
+        setTodayVersion(v => v + 1);
+        if (backup.exportedAt && (!lastExportAt || backup.exportedAt > lastExportAt)) {
+          safeSet(LAST_EXPORT_KEY, backup.exportedAt);
+          safeSet(CHANGES_KEY, '0');
+          setLastExportAt(backup.exportedAt);
+        }
+        addAudit({ action: 'Backup restored', surgeonName: `${result.added} added`, note: `${result.updated} updated, ${result.kept} kept` });
+        setNotice(`Backup restored: ${result.added} added, ${result.updated} updated from the backup, ${result.kept} already current. Confirmations, the board, activity, and unit books you publish came back with it.`);
+        return { success: true, imported: result.added, skipped: result.kept };
       }
       const parsed = incoming?.surgeons ? { book: incoming } : parseImport(incoming);
       const result = bookApi.importIncoming(parsed.book, options);
@@ -272,12 +315,25 @@ export default function App() {
         )}
         {showBackupReminder && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4 flex items-center justify-between gap-3">
-            <p className="text-xs text-amber-800">Your book lives on this device. Export a backup before you lose the phone.</p>
-            <button onClick={exportPlaybook} className="text-[11px] font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 cursor-pointer">Back up</button>
+            <p className="text-sm text-amber-900">{backupReminderText}</p>
+            <button onClick={exportPlaybook} className="shrink-0 min-h-11 text-sm font-bold text-white bg-amber-700 rounded-xl px-4 cursor-pointer">Back up</button>
+          </div>
+        )}
+        {showHomeScreen && (
+          <div className="bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3 mb-4 space-y-2">
+            <p className="text-sm font-bold text-sky-900">Add Scrub Playbook to your Home Screen</p>
+            <p className="text-sm text-sky-900">Safari can clear a website’s saved data after 7 days without a visit. The Home Screen app keeps your book. Tap Share, then Add to Home Screen, and open it from there.</p>
+            <button
+              onClick={() => { safeSet(HOME_SCREEN_KEY, new Date().toISOString()); setHomeScreenHidden(true); }}
+              className="min-h-11 px-4 rounded-xl border border-sky-300 text-sky-900 text-sm font-bold cursor-pointer"
+            >
+              Remind me next week
+            </button>
           </div>
         )}
 
         <TodayList
+          key={todayVersion}
           book={book}
           onOpen={openTodayCase}
           onStartProcedure={(surgeon, procedureName) => setEditor({
