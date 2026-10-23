@@ -19,10 +19,10 @@ export function timeAgo(iso, now = Date.now()) {
  * One signal for the surgeon row. A worse state wins, so a flagged
  * procedure is never hidden behind a match.
  */
-export function rowTrust(procedures, options = {}) {
+export function rowTrust(procedures, options = {}, optionsFor = null) {
   const list = procedures || [];
   if (!list.length) return null;
-  const states = list.map(procedure => trustState(procedure, options));
+  const states = list.map(procedure => trustState(procedure, optionsFor ? { ...options, ...optionsFor(procedure) } : options));
   if (states.some(state => state.status === CARD_STATUS.DISPUTED)) {
     return { status: CARD_STATUS.DISPUTED, label: 'Flagged' };
   }
@@ -58,13 +58,19 @@ export function trustState(procedure, { mode = 'personal', staleDays = STALE_AFT
     return { status: CARD_STATUS.STALE, names, at: procedure.lastConfirmedAt };
   }
   if (mode === 'facility') {
-    const ids = [...new Set(confs.map(c => c.userId).filter(Boolean))];
+    const recent = confs.filter(c => c.userId && daysSince(c.at, now) <= staleDays);
+    const ids = [...new Set(recent.map(c => c.userId))];
     if (ids.length >= 2) {
       return { status: CARD_STATUS.CONFIRMED, names, at: procedure.lastConfirmedAt, people: ids.length };
     }
     return { status: CARD_STATUS.NOTED, names, at: procedure.lastConfirmedAt, people: ids.length };
   }
   return { status: CARD_STATUS.CONFIRMED, names, at: procedure.lastConfirmedAt };
+}
+
+/** One person, however their name was typed. */
+export function personId(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ') || null;
 }
 
 export function withConfirmation(procedure, { name, userId = null, at = new Date().toISOString(), mode = 'personal' } = {}) {

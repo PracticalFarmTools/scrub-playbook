@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { applyUnitBook, checkUnitFile, handOverPublishing, publishUnitBook } from '../data/unitBook';
 import { PUBLISHED_KEY, emptyBlocks, emptyProcedure } from '../data/schema';
 import { shareMessage, toBackup } from '../data/share';
 import ImportCardModal from './ImportCardModal';
@@ -15,40 +16,86 @@ function paste(text) {
   fireEvent.click(screen.getByText('Review'));
 }
 
-const unitFile = {
-  kind: 'scrubplaybook-unitbook',
-  v: 1,
-  unitBookId: 'unit-1',
-  place: 'Main',
-  revision: 2,
-  publishedBy: 'Alex',
-  book: {
-    version: 2,
-    surgeons: [
-      { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false },
-      { id: 's2', name: 'Dr. Patel', specialty: 'General Surgery', facility: 'Main', demo: false },
-    ],
-    procedures: [emptyProcedure('s1', { id: 'p1', name: 'Knee', blocks: emptyBlocks() })],
-  },
-};
+const unitSource = () => ({
+  version: 2,
+  surgeons: [
+    { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false },
+    { id: 's2', name: 'Dr. Patel', specialty: 'General Surgery', facility: 'Main', demo: false },
+  ],
+  procedures: [emptyProcedure('s1', { id: 'p1', name: 'Knee', blocks: emptyBlocks() })],
+});
+
+async function signedUnit(book = unitSource(), published = {}) {
+  return publishUnitBook(book, 'Main', 'Alex', { published });
+}
 
 describe('ImportCardModal', () => {
-  it('offers to switch a hand-off copy to the unit book', () => {
+  it('offers to switch a hand-off copy to the unit book once the signature checks out', async () => {
+    const { file, fingerprint } = await signedUnit();
     const onImport = vi.fn(() => ({ success: true }));
     const book = { surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false }], procedures: [] };
     render(<ImportCardModal book={book} onClose={() => {}} onImport={onImport} />);
-    paste(JSON.stringify(unitFile));
+    paste(JSON.stringify(file));
+    expect(screen.getByText(/Checking the publisher’s signature/)).toBeTruthy();
+    expect(screen.queryByText('Use the unit book for Dr. Chen')).toBeNull();
+    expect(await screen.findByText(`Signed by publisher key ${fingerprint}.`)).toBeTruthy();
     expect(screen.getByText(/You already keep Dr. Chen as your own notes/)).toBeTruthy();
     fireEvent.click(screen.getByText('Use the unit book for Dr. Chen'));
-    expect(onImport.mock.calls[0][1]).toMatchObject({ unitFile: { unitBookId: 'unit-1' }, adopt: true });
+    expect(onImport.mock.calls[0][1]).toMatchObject({ unitFile: { unitBookId: file.unitBookId }, adopt: true, fingerprint });
   });
 
-  it('tells the publisher the unit book is their own', () => {
-    localStorage.setItem(PUBLISHED_KEY, JSON.stringify({ Main: { unitBookId: 'unit-1', revision: 2 } }));
+  it('tells the publisher the unit book is their own', async () => {
+    const { file, published } = await signedUnit();
+    localStorage.setItem(PUBLISHED_KEY, JSON.stringify(published));
     render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={() => ({ success: true })} />);
-    paste(JSON.stringify(unitFile));
+    paste(JSON.stringify(file));
+    await screen.findByText(/Signed by publisher key/);
     expect(screen.getByText(/the unit book you published from this phone/)).toBeTruthy();
     expect(screen.queryByText('Add unit book')).toBeNull();
+  });
+
+  it('refuses an unsigned old file and a file changed after publishing', async () => {
+    const { file } = await signedUnit();
+    const old = { ...file, v: 1 };
+    delete old.signature;
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={() => ({ success: true })} />);
+    paste(JSON.stringify(old));
+    expect((await screen.findByRole('alert')).textContent).toContain('from an earlier version and is not signed');
+    expect(screen.queryByText('Add unit book')).toBeNull();
+    cleanup();
+
+    const tampered = structuredClone(file);
+    tampered.book.procedures[0].name = 'Knee, edited in transit';
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={() => ({ success: true })} />);
+    paste(JSON.stringify(tampered));
+    expect((await screen.findByRole('alert')).textContent).toContain('changed after it was published');
+    expect(screen.queryByText('Add unit book')).toBeNull();
+  });
+
+  it('lists what each card changes and warns about an old revision', async () => {
+    const first = await signedUnit();
+    const phone = applyUnitBook({ version: 2, surgeons: [], procedures: [] }, first.file, {
+      published: {}, fingerprint: (await checkUnitFile(first.file)).fingerprint,
+    }).book;
+    const edited = unitSource();
+    edited.procedures[0].blocks.trays = [{ id: 't1', commonName: 'Major ortho', spdName: '', vendorName: '', openOrHold: 'open' }];
+    const second = await publishUnitBook(edited, 'Main', 'Alex', { published: first.published, now: '2026-01-02T00:00:00.000Z' });
+    render(<ImportCardModal book={phone} onClose={() => {}} onImport={() => ({ success: true })} />);
+    paste(JSON.stringify(second.file));
+    expect(await screen.findByText('What changes from revision 1')).toBeTruthy();
+    expect(screen.getByText('Dr. Chen · Knee').parentElement.textContent).toBe('Dr. Chen · Knee: Trays');
+    expect(screen.getByText(/days ago. Ask your unit whether there is a newer one/)).toBeTruthy();
+  });
+
+  it('takes over publishing from a signed hand-over file', async () => {
+    const first = await signedUnit();
+    const handover = await handOverPublishing(unitSource(), 'Main', 'Alex', { published: first.published });
+    const onImport = vi.fn(() => ({ success: true }));
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={onImport} />);
+    paste(JSON.stringify(handover.file));
+    expect(screen.getByText(/Alex is handing you publishing for the unit book for Main, revision 2/)).toBeTruthy();
+    fireEvent.click(await screen.findByText('Take over publishing'));
+    expect(onImport.mock.calls[0][1]).toMatchObject({ handover: { kind: 'scrubplaybook-publisher' }, fingerprint: first.fingerprint });
   });
 
   it('shows the incoming first-case lines and says an existing surgeon keeps theirs', () => {

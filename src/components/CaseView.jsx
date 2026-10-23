@@ -190,7 +190,7 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
     if (!name) return;
     const result = onConfirm?.(name);
     if (result?.error) return;
-    setConfirmedAs(name);
+    setConfirmedAs(result?.message || `Confirmed by ${name} just now.`);
   };
   const flagCase = (event) => {
     event.preventDefault();
@@ -247,7 +247,7 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
           <section className="case-noprint py-6 border-b border-current/10 space-y-3" aria-labelledby="after-case-title">
             <h2 id="after-case-title" className="text-xl font-bold">After the case</h2>
             {onConfirm && (confirmedAs ? (
-              <p className="text-lg font-semibold" role="status">Confirmed by {confirmedAs} just now.</p>
+              <p className="text-lg font-semibold" role="status">{confirmedAs}</p>
             ) : (
               <form onSubmit={confirmCase} className="flex flex-wrap items-end gap-2">
                 <label className="block text-lg grow">

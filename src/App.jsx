@@ -2,12 +2,16 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { BookOpen, Download, Menu, Plus, Search, Upload, Wifi, WifiOff, X } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
-import { CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, emptyProcedure } from './data/schema';
+import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, emptyProcedure } from './data/schema';
+import { personId, trustState, withConfirmation } from './data/trust';
 import { facilityLabels, filterBook } from './data/searchBook';
 import { parseImport, restoreExtras, toBackup, toPlacePack } from './data/share';
 import { loadToday, localDay, saveToday } from './data/today';
 import { readTechName, useBook } from './hooks/useBook';
-import { publishUnitBook, readPublished, savePublished, unitResultText } from './data/unitBook';
+import {
+  dictationOff, handOverPublishing, publishUnitBook, readPublished, savePublished, takeOverPublishing,
+  trustOptionsFor, unitResultText, withUnitSettings,
+} from './data/unitBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { findPhiInBook, phiFoundText } from './data/phi';
 import { inPlaceGroup } from './data/places';
@@ -62,6 +66,11 @@ export default function App() {
   const [todayVersion, setTodayVersion] = useState(0);
   const [printCases, setPrintCases] = useState(null);
   const [updateReady, setUpdateReady] = useState(false);
+  const [published, setPublished] = useState(readPublished);
+  const storePublished = (next) => {
+    savePublished(next);
+    setPublished(next);
+  };
   const [homeScreenHidden, setHomeScreenHidden] = useState(() => {
     const at = safeGet(HOME_SCREEN_KEY);
     return Boolean(at) && daysSince(at) < WEEK_DAYS;
@@ -91,6 +100,24 @@ export default function App() {
       : `Your last backup is ${Math.floor(daysSince(lastExportAt))} days old. Export a fresh one.`;
   const showHomeScreen = !homeScreenHidden && needsHomeScreen();
 
+  const trustFor = useCallback(
+    (procedure) => trustOptionsFor(procedure, book.surgeons.find(surgeon => surgeon.id === procedure.surgeonId), published),
+    [book.surgeons, published],
+  );
+
+  const confirmCard = (procedure, name, surgeonName) => {
+    const options = trustFor(procedure);
+    const tech = bookApi.confirmProcedure(procedure.id, name, { mode: options.mode });
+    addAudit({ action: 'Case confirmed', surgeonName, user: name, note: procedure.name });
+    if (options.mode !== 'facility') return {};
+    const after = trustState(withConfirmation(procedure, { name: tech, userId: personId(tech), mode: 'facility' }), options);
+    const message = after.status === CARD_STATUS.CONFIRMED
+      ? `Confirmed by ${tech}. Two people have now matched this card.`
+      : `Confirmed by ${tech}. This unit asks a second person to confirm before it shows as matched.`;
+    setNotice(message);
+    return { message };
+  };
+
   const placePhi = (place, archived) => findPhiInBook(
     book,
     book.surgeons.filter(surgeon => inPlaceGroup(surgeon, place, archived)).map(surgeon => surgeon.id),
@@ -110,21 +137,40 @@ export default function App() {
   const publishPlace = async (place) => {
     const found = placePhi(place, false);
     if (found.length) return { message: `${place} was not published. ${phiFoundText(found)}` };
-    const { file, published } = publishUnitBook(book, place, readTechName() || 'A tech');
+    const { file, published: next } = await publishUnitBook(book, place, readTechName() || 'A tech', { published });
     const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
     const outcome = await shareFile(`scrubplaybook-unit-${slug}-r${file.revision}.json`, file);
     if (outcome === 'cancelled') return { message: `${place} was not published. The next file is still revision ${file.revision}.` };
-    savePublished(published);
+    storePublished(next);
     addAudit({ action: 'Unit book published', surgeonName: place, note: `Revision ${file.revision}` });
     setNotice(`Published ${place} as unit book revision ${file.revision}.`);
     return { message: `Published ${place} as unit book revision ${file.revision}.` };
+  };
+
+  const handOverPlace = async (place) => {
+    const found = placePhi(place, false);
+    if (found.length) return { message: `Publishing for ${place} was not handed over. ${phiFoundText(found)}` };
+    const result = await handOverPublishing(book, place, readTechName() || 'A tech', { published });
+    if (result.error) return { message: `This phone does not publish ${place}.` };
+    const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
+    const outcome = await shareFile(`scrubplaybook-publisher-${slug}-r${result.revision}.json`, result.file);
+    if (outcome === 'cancelled') return { message: `Publishing for ${place} was not handed over. This phone still publishes it.` };
+    storePublished(result.published);
+    addAudit({ action: 'Publishing handed over', surgeonName: place, note: `Revision ${result.revision}` });
+    return {
+      message: `Hand-over file for ${place} is ready with revision ${result.revision}. Send it only to the next publisher. This phone no longer publishes ${place}; your cards stay as your notes.`,
+    };
+  };
+
+  const saveUnitSettings = (place, settings) => {
+    storePublished(withUnitSettings(published, place, settings));
   };
 
   const exportPlaybook = () => {
     const data = toBackup(book, {
       today: loadToday(),
       log: auditLog,
-      published: readPublished(),
+      published,
       suggestions: safeJson(SUGGESTIONS_KEY, []),
     });
     if (!data.book.surgeons.length) {
@@ -155,8 +201,17 @@ export default function App() {
 
   const onImport = (incoming, options = {}) => {
     try {
+      if (options.handover) {
+        const result = takeOverPublishing(book, options.handover, { fingerprint: options.fingerprint });
+        if (!result.entry) return { success: false, error: unitResultText(result.place, result) };
+        bookApi.replaceBook(result.book);
+        storePublished({ ...published, [result.place]: result.entry });
+        addAudit({ action: 'Publishing taken over', surgeonName: result.place, note: `Revision ${result.entry.revision}` });
+        setNotice(`You now publish the unit book for ${result.place}. Its cards are your notes. Delete the hand-over file.`);
+        return { success: true, imported: 0, skipped: 0 };
+      }
       if (options.unitFile) {
-        const result = bookApi.importUnitBook(options.unitFile, { adopt: Boolean(options.adopt) });
+        const result = bookApi.importUnitBook(options.unitFile, { adopt: Boolean(options.adopt), published, fingerprint: options.fingerprint });
         const text = unitResultText(options.unitFile.place, result);
         if (result.status !== 'updated') return { success: false, error: text };
         addAudit({ action: 'Unit book updated', surgeonName: options.unitFile.place, note: `Revision ${result.revision}` });
@@ -167,11 +222,11 @@ export default function App() {
         const backup = options.restore;
         const result = bookApi.restoreOwnBackup(backup.full);
         const merged = restoreExtras(
-          { published: readPublished(), today: loadToday(), log: auditLog, suggestions: safeJson(SUGGESTIONS_KEY, []) },
+          { published, today: loadToday(), log: auditLog, suggestions: safeJson(SUGGESTIONS_KEY, []) },
           backup.extras || {},
           { today: localDay() },
         );
-        savePublished(merged.published);
+        storePublished(merged.published);
         saveToday(merged.today);
         safeSet(SUGGESTIONS_KEY, JSON.stringify(merged.suggestions));
         mergeLog(backup.extras?.log || []);
@@ -416,6 +471,7 @@ export default function App() {
                 procedures={filtered.procedures.filter(p => p.surgeonId === surgeon.id)}
                 trustProcedures={book.procedures.filter(p => p.surgeonId === surgeon.id)}
                 staleDays={STALE_AFTER_DAYS}
+                trustFor={trustFor}
                 highlightId={highlight?.id}
                 onDeleteSurgeon={(id) => {
                   bookApi.deleteSurgeon(id);
@@ -485,7 +541,7 @@ export default function App() {
           <ProcedureEditor
             surgeon={editor.surgeon}
             procedure={editor.procedure}
-            allowSpeech
+            allowSpeech={!dictationOff(book, published)}
             allowOfficial
             onClose={() => setEditor(null)}
             onSave={saveProcedure}
@@ -501,6 +557,9 @@ export default function App() {
         <Suspense fallback={null}>
           <PlacesSheet
             book={book}
+            published={published}
+            onSettings={saveUnitSettings}
+            onHandOverPublishing={handOverPlace}
             onClose={() => setShowPlaces(false)}
             onHandOff={handOffPlace}
             onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
@@ -519,11 +578,7 @@ export default function App() {
           title="I was in this case"
           subtitle="Your name and the time are the confirmation. It goes stale. It is not an order."
           onClose={() => setConfirmTarget(null)}
-          onSubmit={(name) => {
-            bookApi.confirmProcedure(confirmTarget.id, name);
-            addAudit({ action: 'Case confirmed', surgeonName: book.surgeons.find(s => s.id === confirmTarget.surgeonId)?.name || '', user: name });
-            return {};
-          }}
+          onSubmit={(name) => confirmCard(confirmTarget, name, book.surgeons.find(s => s.id === confirmTarget.surgeonId)?.name || '')}
         />
       )}
       {caseView && (
@@ -533,13 +588,10 @@ export default function App() {
             surgeon={caseSurgeon}
             procedure={caseProcedure}
             staleDays={STALE_AFTER_DAYS}
+            trust={caseProcedure ? trustFor(caseProcedure) : undefined}
             position={{ index: caseView.index, total: caseView.queue.length, onNext: () => stepCase(1), onPrev: () => stepCase(-1) }}
             onClose={closeCase}
-            onConfirm={(name) => {
-              bookApi.confirmProcedure(caseProcedure.id, name);
-              addAudit({ action: 'Case confirmed', surgeonName: caseSurgeon?.name || '', user: name, note: caseProcedure.name });
-              return {};
-            }}
+            onConfirm={(name) => confirmCard(caseProcedure, name, caseSurgeon?.name || '')}
             onFlag={(reason) => {
               bookApi.disputeProcedure(caseProcedure.id, reason);
               addAudit({ action: 'Card flagged', surgeonName: caseSurgeon?.name || '', note: `${caseProcedure.name}: ${reason}` });
@@ -559,6 +611,7 @@ export default function App() {
               .map(procedure => ({ procedure, surgeon: book.surgeons.find(item => item.id === procedure.surgeonId) }))
               .filter(entry => entry.surgeon)}
             staleDays={STALE_AFTER_DAYS}
+            trustFor={trustFor}
             onDone={donePrinting}
           />
         </Suspense>

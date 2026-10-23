@@ -66,6 +66,13 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         {statusLabel(state)}
         {state.names?.length > 0 && <span className="font-medium opacity-80"> · {state.names.join(', ')}</span>}
       </div>
+      {procedure.unitBook?.changes?.length > 0 && (
+        <p className="mx-5 mb-3 rounded-lg bg-medical-50 border border-medical-200 px-3 py-2 text-sm text-medical-900">
+          {procedure.unitBook.changes.includes('New card')
+            ? `New in revision ${procedure.unitBook.revision}.`
+            : `Changed in revision ${procedure.unitBook.revision}: ${procedure.unitBook.changes.join(', ')}.`}
+        </p>
+      )}
       {procedure.disputed && procedure.reportNote?.trim() && (
         <p className="mx-5 mb-3 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-900">
           Flag reason: {procedure.reportNote.trim()}

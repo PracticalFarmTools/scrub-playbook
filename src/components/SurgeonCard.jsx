@@ -18,6 +18,7 @@ export default function SurgeonCard({
   procedures,
   trustProcedures,
   staleDays,
+  trustFor,
   highlightId,
   onDeleteSurgeon,
   onDeleteProcedure,
@@ -56,7 +57,7 @@ export default function SurgeonCard({
         : '';
   const unitOwned = Boolean(surgeon.unitBook?.id);
   const editable = !surgeon.demo && !unitOwned;
-  const row = surgeon.demo ? null : rowTrust(trustProcedures || procedures, { staleDays });
+  const row = surgeon.demo ? null : rowTrust(trustProcedures || procedures, { staleDays }, trustFor);
   const rowLabel = row?.status === 'confirmed'
     ? (row.at ? `Matched a case · ${timeAgo(row.at)}` : 'Matched a case')
     : row?.label;
@@ -185,7 +186,7 @@ export default function SurgeonCard({
           id={`procedure-${procedure.id}`}
           className={`scroll-mt-28 transition-colors ${highlightId === procedure.id ? 'ring-4 ring-inset ring-medical-500 bg-medical-50/60' : ''}`}
         >
-          <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
+          <ProcedureGlance procedure={procedure} surgeon={surgeon} staleDays={staleDays} {...(trustFor ? trustFor(procedure) : {})} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
           <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
             <button type="button" onClick={() => onCaseView?.(surgeon, procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Case view</button>
             {surgeon.demo ? (

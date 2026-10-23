@@ -54,6 +54,18 @@ describe('SurgeonCard', () => {
     expect(screen.getAllByText('Edit')).toHaveLength(1);
   });
 
+  it('uses the unit rule for two-person confirmation and shows what the revision changed', () => {
+    const at = new Date(Date.now() - 86400000).toISOString();
+    const stamp = { id: 'unit-1', revision: 4, changes: ['Trays', 'Sutures'], settings: { staleDays: 90, dictation: true, twoPerson: true } };
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [], unitBook: stamp };
+    const procedure = { ...emptyProcedure('s1', { id: 'p1', name: 'Knee' }), unitBook: stamp, confirmations: [{ name: 'Alex', userId: 'alex', at }], lastConfirmedAt: at };
+    const trustFor = () => ({ staleDays: 90, mode: 'facility' });
+    render(<SurgeonCard surgeon={surgeon} procedures={[procedure]} staleDays={90} trustFor={trustFor} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    expect(screen.getByText('Unconfirmed')).toBeTruthy();
+    expect(screen.getByText(/One staff member/)).toBeTruthy();
+    expect(screen.getByText('Changed in revision 4: Trays, Sutures.')).toBeTruthy();
+  });
+
   it('draws the highlight inside the highlighted card only', () => {
     const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
     const cards = [emptyProcedure('s1', { id: 'p1', name: 'Knee' }), emptyProcedure('s1', { id: 'p2', name: 'Hip' })];

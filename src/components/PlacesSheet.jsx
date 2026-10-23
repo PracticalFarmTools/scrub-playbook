@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { countLine, placeKey } from '../data/places';
+import { STALE_DAY_CHOICES, cleanSettings } from '../data/unitBook';
 
 function groupsFor(book, archived) {
   const surgeons = (book?.surgeons || []).filter(surgeon => !surgeon.demo && Boolean(surgeon.archived) === archived);
@@ -30,7 +31,51 @@ const secondary = 'text-xs font-bold text-medical-700 bg-medical-50 rounded-lg p
 const plain = 'text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-3 py-2 cursor-pointer';
 const danger = 'text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 py-2 cursor-pointer';
 
-export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDelete, onPublish }) {
+function UnitRules({ place, entry, onSettings, onHandOverPublishing, run }) {
+  const settings = cleanSettings(entry?.settings);
+  const change = (patch) => onSettings(place, { ...settings, ...patch });
+  const id = `unit-rules-${place.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  return (
+    <details className="rounded-lg bg-slate-50 px-3">
+      <summary className="text-xs font-bold text-slate-700 cursor-pointer min-h-11 flex items-center">
+        Unit rules{entry?.revision ? ` · published revision ${entry.revision}` : ''}
+      </summary>
+      <div className="space-y-3 pb-3">
+        <label htmlFor={`${id}-stale`} className="block text-xs font-semibold text-slate-700">
+          A confirmation goes stale after
+          <select
+            id={`${id}-stale`}
+            value={settings.staleDays}
+            onChange={e => change({ staleDays: Number(e.target.value) })}
+            className="mt-1 block w-full min-h-11 rounded-lg border border-slate-200 bg-white px-2 text-sm"
+          >
+            {STALE_DAY_CHOICES.map(days => <option key={days} value={days}>{days} days</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 min-h-11 text-xs font-semibold text-slate-700">
+          <input type="checkbox" checked={settings.dictation} onChange={e => change({ dictation: e.target.checked })} className="w-5 h-5 shrink-0" />
+          Allow dictation in the editor
+        </label>
+        <label className="flex items-center gap-2 min-h-11 text-xs font-semibold text-slate-700">
+          <input type="checkbox" checked={settings.twoPerson} onChange={e => change({ twoPerson: e.target.checked })} className="w-5 h-5 shrink-0" />
+          Two different people confirm a card before it shows as matched
+        </label>
+        <p className="text-[11px] text-slate-500">These rules apply on this phone now and go out with the next revision you publish.</p>
+        {entry?.fingerprint && <p className="text-[11px] text-slate-500">Publisher key {entry.fingerprint}</p>}
+        {entry?.privateKey && (
+          <>
+            <button type="button" onClick={() => run(() => onHandOverPublishing(place))} className={plain}>Hand over publishing</button>
+            <p className="text-[11px] text-slate-500">
+              Makes one file for the person who publishes {place} next. It publishes a final revision from this phone, then this phone stops publishing. Send it only to that person.
+            </p>
+          </>
+        )}
+      </div>
+    </details>
+  );
+}
+
+export default function PlacesSheet({ book, published = {}, onClose, onHandOff, onArchive, onDelete, onPublish, onSettings, onHandOverPublishing }) {
   const groups = groupsFor(book, false);
   const archived = groupsFor(book, true);
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -67,6 +112,9 @@ export default function PlacesSheet({ book, onClose, onHandOff, onArchive, onDel
           )}
           <button type="button" onClick={() => setPendingDelete({ place: group.place, archived: group.archived })} className={danger}>Delete</button>
         </div>
+        {group.place && !group.archived && onSettings && (
+          <UnitRules place={group.place} entry={published[group.place]} onSettings={onSettings} onHandOverPublishing={onHandOverPublishing} run={run} />
+        )}
         {pending && (
           <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 space-y-2">
             <p>Delete {countLine(group.surgeons.length, group.procedures.length, ' and ')}{group.archived ? ' archived' : ''} at {group.label}? Hand them off first if someone needs them.</p>

@@ -7,7 +7,7 @@ import { openChannel, readValue, writeValue } from '../data/store';
 import { mergeBackup, placeIncomingCard, restoreBackup } from '../data/share';
 import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
-import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
+import { applySave, clearConfirmation, personId, stripConfirmation, withConfirmation } from '../data/trust';
 
 export const UNREADABLE_KEY = 'scrubplaybook_book_unreadable';
 
@@ -166,12 +166,13 @@ export function useBook() {
     setBook(prev => ({ ...prev, procedures: prev.procedures.filter(p => p.id !== id) }));
   }, []);
 
-  const confirmProcedure = useCallback((id, name) => {
+  const confirmProcedure = useCallback((id, name, { mode = 'personal' } = {}) => {
     const tech = writeTechName(name) || name;
+    const userId = personId(tech);
     setBook(prev => ({
       ...prev,
       procedures: prev.procedures.map(p => p.id === id
-        ? withConfirmation(p, { name: tech, mode: 'personal' })
+        ? withConfirmation(p, { name: tech, userId, mode })
         : p),
     }));
     return tech;
@@ -302,6 +303,11 @@ export function useBook() {
     return result;
   }, []);
 
+  const replaceBook = useCallback((next) => {
+    bookRef.current = next;
+    setBook(next);
+  }, []);
+
   const replaceProcedure = useCallback((procedure) => {
     setBook(prev => ({
       ...prev,
@@ -333,6 +339,7 @@ export function useBook() {
     importIncoming,
     restoreOwnBackup,
     replaceProcedure,
+    replaceBook,
     newProcedure: emptyProcedure,
   };
 }

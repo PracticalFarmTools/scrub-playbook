@@ -46,4 +46,31 @@ describe('PlacesSheet', () => {
     fireEvent.click(within(sections()[0]).getByText('Hand off'));
     expect((await screen.findByRole('status')).textContent).toMatch(/may include a phone number/);
   });
+
+  it('edits unit rules and offers hand-over only to the publisher', () => {
+    const onSettings = vi.fn();
+    const onHandOverPublishing = vi.fn(async () => ({ message: 'Hand-over file for Main is ready.' }));
+    const props = { book, onClose: () => {}, onHandOff: () => {}, onArchive: () => {}, onDelete: () => {}, onPublish: () => {}, onSettings, onHandOverPublishing };
+    render(<PlacesSheet {...props} published={{}} />);
+    const active = sections()[0];
+    expect(within(active).queryByText('Hand over publishing')).toBeNull();
+    fireEvent.change(within(active).getByLabelText('A confirmation goes stale after'), { target: { value: '30' } });
+    expect(onSettings).toHaveBeenLastCalledWith('Main', { staleDays: 30, dictation: true, twoPerson: false });
+    fireEvent.click(within(active).getByLabelText('Allow dictation in the editor'));
+    expect(onSettings).toHaveBeenLastCalledWith('Main', { staleDays: 90, dictation: false, twoPerson: false });
+    fireEvent.click(within(active).getByLabelText(/Two different people confirm/));
+    expect(onSettings).toHaveBeenLastCalledWith('Main', { staleDays: 90, dictation: true, twoPerson: true });
+    expect(within(sections()[1]).queryByText(/Unit rules/)).toBeNull();
+    cleanup();
+
+    const published = { Main: { unitBookId: 'u', revision: 3, fingerprint: 'AB12-CD34-EF56-7890', privateKey: { kty: 'EC' }, settings: { staleDays: 60, dictation: false, twoPerson: true } } };
+    render(<PlacesSheet {...props} published={published} />);
+    const mine = sections()[0];
+    expect(within(mine).getByText('Unit rules · published revision 3')).toBeTruthy();
+    expect(within(mine).getByLabelText('A confirmation goes stale after').value).toBe('60');
+    expect(within(mine).getByLabelText('Allow dictation in the editor').checked).toBe(false);
+    expect(within(mine).getByText('Publisher key AB12-CD34-EF56-7890')).toBeTruthy();
+    fireEvent.click(within(mine).getByText('Hand over publishing'));
+    expect(onHandOverPublishing).toHaveBeenCalledWith('Main');
+  });
 });

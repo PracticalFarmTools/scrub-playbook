@@ -2,18 +2,45 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Download, X } from 'lucide-react';
 import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
 import { classifyIncomingCard, importPreviewText, parseImport } from '../data/share';
-import { isOwnUnitBook, namesList, unitConflicts, unitPreviewText, unitRevision } from '../data/unitBook';
+import {
+  UNIT_AGE_WARNING_DAYS, checkHandover, checkUnitFile, isOwnUnitBook, namesList, pinnedKey, unitAgeDays,
+  unitChangeList, unitCheckText, unitConflicts, unitPreviewText, unitRevision,
+} from '../data/unitBook';
 import PhiPause from './PhiPause';
 import ProcedureGlance from './ProcedureGlance';
 
-function unitState(book, file, phi) {
+function unitState(book, file, phi, check) {
   const had = unitRevision(book, file.unitBookId);
   const own = isOwnUnitBook(file);
   const older = had > 0 && Number(file.revision) <= had;
+  const pinned = pinnedKey(book, file.unitBookId);
+  const otherPublisher = Boolean(check?.ok && pinned && pinned !== check.fingerprint);
   const conflicts = unitConflicts(book, file);
   const conflictIds = new Set(conflicts.map(surgeon => surgeon.id));
   const fresh = (file.book?.surgeons || []).filter(surgeon => !surgeon.demo && !conflictIds.has(surgeon.id)).length;
-  return { file, had, own, older, conflicts, fresh, canAdd: !own && !older && phi.length === 0 };
+  const signed = Boolean(check?.ok) && !otherPublisher;
+  const changes = signed && had > 0 && !own && !older
+    ? unitChangeList(book, file, { fingerprint: check.fingerprint })
+    : null;
+  return {
+    file,
+    had,
+    own,
+    older,
+    check,
+    otherPublisher,
+    conflicts,
+    fresh,
+    changes,
+    ageDays: unitAgeDays(file),
+    canAdd: signed && !own && !older && phi.length === 0,
+  };
+}
+
+function SignatureLine({ check }) {
+  if (!check) return <p className="text-sm text-slate-600" role="status">Checking the publisher’s signature…</p>;
+  if (!check.ok) return <p className="text-sm text-rose-700" role="alert">{unitCheckText(check)}</p>;
+  return <p className="text-sm text-slate-600">Signed by publisher key {check.fingerprint}.</p>;
 }
 
 function uniqueSignals(list) {
@@ -30,6 +57,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState(null);
+  const checkRef = useRef(0);
   const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia;
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -61,9 +89,19 @@ export default function ImportCardModal({ book, onClose, onImport }) {
         for (const procedure of parsed.book.procedures || []) signals.push(...findPhiInProcedure(procedure));
         for (const surgeon of parsed.book.surgeons || []) signals.push(...findPhiInSurgeon(surgeon));
       }
-      setPreview({ parsed, classification, phi: uniqueSignals(signals) });
+      setPreview({ parsed, classification, phi: uniqueSignals(signals), check: null });
       setError('');
       stopScan();
+      const signed = parsed.type === 'unitbook' ? parsed.file : parsed.type === 'publisher' ? parsed.handover : null;
+      if (signed) {
+        const seq = ++checkRef.current;
+        const verify = parsed.type === 'unitbook' ? checkUnitFile(signed) : checkHandover(signed);
+        verify
+          .catch(() => ({ ok: false, reason: 'changed' }))
+          .then(check => {
+            if (seq === checkRef.current) setPreview(prev => (prev?.parsed === parsed ? { ...prev, check } : prev));
+          });
+      }
     } catch (err) {
       setPreview(null);
       setError(err?.code === 'no-card'
@@ -74,9 +112,12 @@ export default function ImportCardModal({ book, onClose, onImport }) {
 
   const commit = (surgeonId, extra = {}) => {
     if (!preview || preview.phi.length) return;
+    const signed = ['unitbook', 'publisher'].includes(preview.parsed.type);
+    if (signed && !preview.check?.ok) return;
     const result = onImport(preview.parsed.book, {
       ...(surgeonId ? { surgeonId } : {}),
-      ...(preview.parsed.type === 'unitbook' ? { unitFile: preview.parsed.file } : {}),
+      ...(preview.parsed.type === 'unitbook' ? { unitFile: preview.parsed.file, fingerprint: preview.check.fingerprint } : {}),
+      ...(preview.parsed.type === 'publisher' ? { handover: preview.parsed.handover, fingerprint: preview.check.fingerprint } : {}),
       ...extra,
     });
     if (result && result.success === false) {
@@ -134,7 +175,8 @@ export default function ImportCardModal({ book, onClose, onImport }) {
     }
   };
 
-  const unit = preview?.parsed?.type === 'unitbook' ? unitState(book, preview.parsed.file, preview.phi) : null;
+  const unit = preview?.parsed?.type === 'unitbook' ? unitState(book, preview.parsed.file, preview.phi, preview.check) : null;
+  const handover = preview?.parsed?.type === 'publisher' ? preview.parsed.handover : null;
   const card = preview?.parsed?.type === 'card' ? preview.parsed.book : null;
   const incomingSurgeon = card?.surgeons?.[0];
   const incomingProcedure = card?.procedures?.[0];
@@ -214,6 +256,35 @@ export default function ImportCardModal({ book, onClose, onImport }) {
           {unit && (
             <>
               <p className="text-sm text-slate-700">{unitPreviewText(unit.file)}</p>
+              <SignatureLine check={unit.check} />
+              {unit.otherPublisher && (
+                <p className="text-sm text-rose-700" role="alert">
+                  This file was signed by a different publisher than the unit book for {unit.file.place} on this phone, so it can’t be used. Ask your unit who publishes it now.
+                </p>
+              )}
+              {unit.check?.ok && unit.ageDays > UNIT_AGE_WARNING_DAYS && (
+                <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                  This revision was published {unit.ageDays} days ago. Ask your unit whether there is a newer one.
+                </p>
+              )}
+              {unit.changes?.status === 'updated' && (
+                <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">What changes from revision {unit.had}</p>
+                  {unit.changes.cards.length === 0 && unit.changes.removed === 0 && (
+                    <p className="text-sm text-slate-700 mt-1">No card changes. Only the revision number moves forward.</p>
+                  )}
+                  <ul className="mt-1.5 space-y-1">
+                    {unit.changes.cards.map(item => (
+                      <li key={item.id} className="text-sm text-slate-700">
+                        <span className="font-semibold">{item.title}</span>: {item.changes.join(', ')}
+                      </li>
+                    ))}
+                    {unit.changes.removed > 0 && (
+                      <li className="text-sm text-slate-700">{unit.changes.removed} {unit.changes.removed === 1 ? 'card' : 'cards'} removed</li>
+                    )}
+                  </ul>
+                </div>
+              )}
               {unit.own && <p className="text-sm text-slate-700">This is the unit book you published from this phone. Your notes already have it.</p>}
               {!unit.own && unit.older && <p className="text-sm text-slate-700">You already have revision {unit.had}.</p>}
               {!unit.own && !unit.older && unit.conflicts.length > 0 && (
@@ -234,7 +305,24 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
-          {preview && !card && preview.parsed.type !== 'unitbook' && (
+          {handover && (
+            <>
+              <p className="text-sm text-slate-700">
+                {handover.from || 'A tech'} is handing you publishing for the unit book for {handover.place}, revision {handover.unitFile.revision}.
+              </p>
+              <SignatureLine check={preview.check} />
+              <p className="text-sm text-slate-700">
+                You become the publisher. The unit’s cards become your notes, and the next revision you publish is accepted by every phone that has this unit book. Take this only if your unit asked you to.
+              </p>
+              <p className="text-xs text-slate-600">After you take over, delete this file. Anyone holding it can publish for {handover.place}.</p>
+              {preview.check?.ok && preview.phi.length === 0 && (
+                <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Take over publishing</button>
+              )}
+              {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
+              <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
+            </>
+          )}
+          {preview && !card && !['unitbook', 'publisher'].includes(preview.parsed.type) && (
             <>
               <p className="text-sm text-slate-700">{importPreviewText(preview.parsed)}</p>
               {preview.phi.length === 0 && preview.parsed.restorable && (
