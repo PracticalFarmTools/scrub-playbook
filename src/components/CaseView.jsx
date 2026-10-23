@@ -298,6 +298,9 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
                     <textarea readOnly value={manualText} rows={8} onFocus={e => e.target.select()} className={`mt-1 w-full rounded-xl border px-3 py-2 text-base ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} />
                   </label>
                 )}
+                {manualText && (
+                  <button type="button" onClick={() => { onSuggested?.({ cardSays, seen, change }); setManualText(''); setCopied(true); }} className={button}>I sent it</button>
+                )}
               </form>
             )}
           </div>

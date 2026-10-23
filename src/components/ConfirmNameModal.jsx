@@ -52,7 +52,7 @@ export default function ConfirmNameModal({ title, subtitle, onClose, onSubmit })
             type="button"
             onClick={submit}
             disabled={!name.trim()}
-            className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm hover:bg-medical-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm hover:bg-medical-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             Confirm
           </button>

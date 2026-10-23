@@ -70,11 +70,11 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
                 </div>
               )}
               {canShare && (
-                <button type="button" onClick={send} className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-medical-600 text-white text-sm font-semibold cursor-pointer">
+                <button type="button" onClick={send} className="w-full inline-flex items-center justify-center gap-2 min-h-11 rounded-xl bg-medical-600 text-white text-sm font-semibold cursor-pointer">
                   <Share2 size={16} /> Send
                 </button>
               )}
-              <button type="button" onClick={copyText} className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold cursor-pointer">
+              <button type="button" onClick={copyText} className="w-full inline-flex items-center justify-center gap-2 min-h-11 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold cursor-pointer">
                 {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
                 {copied ? 'Copied' : 'Copy'}
               </button>
@@ -82,7 +82,7 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
               {copyFailed && (
                 <textarea readOnly value={share.message} rows={6} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-2 py-2" />
               )}
-              <button type="button" onClick={() => setShowData(v => !v)} className="text-xs font-bold text-medical-700 cursor-pointer">{showData ? 'Hide card data' : 'Show card data'}</button>
+              <button type="button" onClick={() => setShowData(v => !v)} className="min-h-11 text-xs font-bold text-medical-700 cursor-pointer">{showData ? 'Hide card data' : 'Show card data'}</button>
               {showData && (
                 <textarea readOnly value={share.payloadText} rows={5} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-2 py-2" />
               )}

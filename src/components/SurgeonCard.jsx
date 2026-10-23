@@ -34,6 +34,8 @@ export default function SurgeonCard({
   onDeleteProcedure,
   onEdit,
   onDuplicate,
+  suggestionFor,
+  onCloseSuggestion,
   onAddProcedure,
   onConfirm,
   onDispute,
@@ -205,6 +207,7 @@ export default function SurgeonCard({
         const open = isOpen(procedure.id);
         const options = trustFor ? trustFor(procedure) : { staleDays };
         const state = trustState(procedure, options);
+        const suggestion = suggestionFor?.(procedure.id) || null;
         return (
           <div
             key={procedure.id}
@@ -221,6 +224,7 @@ export default function SurgeonCard({
               <span className="min-w-0">
                 <span className="block text-base font-bold text-slate-900 truncate">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</span>
                 {sourceLabel(procedure) && <span className="block text-xs font-semibold text-medical-700">{sourceLabel(procedure)}</span>}
+                {suggestion && <span className="block text-xs font-semibold text-amber-800">Your suggestion is open</span>}
               </span>
               <span className="flex items-center gap-2 shrink-0">
                 {!surgeon.demo && (
@@ -231,7 +235,7 @@ export default function SurgeonCard({
             </button>
             {open && (
               <div id={`procedure-body-${procedure.id}`}>
-                <ProcedureGlance procedure={procedure} surgeon={surgeon} {...options} showTitle={false} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
+                <ProcedureGlance procedure={procedure} surgeon={surgeon} {...options} showTitle={false} suggestion={suggestion} onCloseSuggestion={onCloseSuggestion} onCaseView={onCaseView ? () => onCaseView(surgeon, procedure) : null} />
                 <div className="px-5 py-3 flex flex-wrap gap-2 border-t border-slate-100">
                   <button type="button" onClick={() => onCaseView?.(surgeon, procedure)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">Case view</button>
                   {surgeon.demo ? (

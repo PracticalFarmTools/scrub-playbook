@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { BookOpen, Download, MapPin, Menu, Plus, Upload, WifiOff } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
-import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, duplicateProcedure, emptyProcedure } from './data/schema';
+import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, duplicateProcedure, emptyProcedure } from './data/schema';
 import { personId, rowTrust, trustState, withConfirmation } from './data/trust';
 import { SORT_CHOICES, facilityLabels, filterBook, sortSurgeons } from './data/searchBook';
 import { parseImport, restoreExtras, toBackup, toPlacePack } from './data/share';
@@ -15,6 +15,7 @@ import {
 import { useAuditLog } from './hooks/useAuditLog';
 import { findPhiInBook, phiFoundText } from './data/phi';
 import { inPlaceGroup } from './data/places';
+import { closeSuggestion, loadSuggestions, openSuggestion, recordSuggestion, saveSuggestions } from './data/suggestions';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import SurgeonCard from './components/SurgeonCard';
 import SearchBox from './components/SearchBox';
@@ -23,7 +24,7 @@ import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
 import { VendorLibrary, VendorResults } from './components/VendorPanels';
 import ConfirmNameModal from './components/ConfirmNameModal';
-import { needsHomeScreen, safeGet, safeJson, safeSet } from './data/storage';
+import { needsHomeScreen, safeGet, safeSet } from './data/storage';
 import { downloadText } from './utils/download';
 import { applyUpdate, onUpdateReady } from './pwa';
 import { UNREADABLE_KEY } from './hooks/useBook';
@@ -61,6 +62,7 @@ export default function App() {
     return SORT_CHOICES.some(([value]) => value === saved) ? saved : 'attention';
   });
   const [undo, setUndo] = useState(null);
+  const [suggestions, setSuggestions] = useState(loadSuggestions);
   const [activeFacility, setActiveFacility] = useState(null);
   const [addDraft, setAddDraft] = useState(null);
   const [highlight, setHighlight] = useState(null);
@@ -140,6 +142,14 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [undo]);
 
+  const updateSuggestions = (change) => {
+    setSuggestions(prev => {
+      const next = change(prev);
+      saveSuggestions(next);
+      return next;
+    });
+  };
+
   const offerUndo = (text, removed) => {
     if (removed?.surgeons?.length || removed?.procedures?.length) setUndo({ text, removed });
   };
@@ -217,7 +227,7 @@ export default function App() {
       today: loadToday(),
       log: auditLog,
       published,
-      suggestions: safeJson(SUGGESTIONS_KEY, []),
+      suggestions,
     });
     if (!data.book.surgeons.length) {
       setNotice('Samples stay on this device. Add your own surgeon before you export a backup.');
@@ -228,6 +238,8 @@ export default function App() {
     safeSet(LAST_EXPORT_KEY, now);
     safeSet(CHANGES_KEY, '0');
     setLastExportAt(now);
+    const found = findPhiInBook(book);
+    if (found.length) setNotice(`Backup saved. Keep the file on your own phone. ${phiFoundText(found)}`);
   };
 
   const shareFile = async (filename, data) => {
@@ -268,13 +280,14 @@ export default function App() {
         const backup = options.restore;
         const result = bookApi.restoreOwnBackup(backup.full);
         const merged = restoreExtras(
-          { published, today: loadToday(), log: auditLog, suggestions: safeJson(SUGGESTIONS_KEY, []) },
+          { published, today: loadToday(), log: auditLog, suggestions },
           backup.extras || {},
           { today: localDay() },
         );
         storePublished(merged.published);
         saveToday(merged.today);
-        safeSet(SUGGESTIONS_KEY, JSON.stringify(merged.suggestions));
+        saveSuggestions(merged.suggestions);
+        setSuggestions(merged.suggestions);
         mergeLog(backup.extras?.log || []);
         setTodayVersion(v => v + 1);
         if (backup.exportedAt && (!lastExportAt || backup.exportedAt > lastExportAt)) {
@@ -556,7 +569,17 @@ export default function App() {
                   bookApi.disputeProcedure(procedure.id, reason);
                   addAudit({ action: 'Card flagged', surgeonName: surgeon.name, note: [procedure.name, reason].filter(Boolean).join(': ') });
                 }}
-                onClearDispute={(id) => bookApi.clearDispute(id)}
+                onClearDispute={(id) => {
+                  const procedure = book.procedures.find(item => item.id === id);
+                  bookApi.clearDispute(id);
+                  addAudit({ action: 'Flag cleared', surgeonName: surgeon.name, note: [procedure?.name, procedure?.reportNote].filter(Boolean).join(': ') });
+                }}
+                suggestionFor={(id) => openSuggestion(suggestions, id)}
+                onCloseSuggestion={(suggestion, status) => {
+                  updateSuggestions(prev => closeSuggestion(prev, suggestion.id, status));
+                  const procedure = book.procedures.find(item => item.id === suggestion.procedureId);
+                  addAudit({ action: status === 'made' ? 'Suggestion made on the card' : 'Suggestion closed', surgeonName: surgeon.name, note: procedure?.name || '' });
+                }}
                 onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
                 onUpdateSurgeon={(id, details) => {
                   bookApi.updateSurgeon(id, details);
@@ -678,7 +701,8 @@ export default function App() {
               bookApi.disputeProcedure(caseProcedure.id, reason);
               addAudit({ action: 'Card flagged', surgeonName: caseSurgeon?.name || '', note: `${caseProcedure.name}: ${reason}` });
             }}
-            onSuggested={() => {
+            onSuggested={(sent) => {
+              updateSuggestions(prev => recordSuggestion(prev, caseProcedure, sent));
               addAudit({ action: 'Card change suggested', surgeonName: caseSurgeon?.name || '', note: caseProcedure?.name || '' });
             }}
           />

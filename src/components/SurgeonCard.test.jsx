@@ -97,6 +97,20 @@ describe('SurgeonCard', () => {
     expect(onDuplicate).toHaveBeenCalledWith(own);
   });
 
+  it('shows an open suggestion on the row and lets you close it', () => {
+    const onCloseSuggestion = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [] };
+    const card = emptyProcedure('s1', { id: 'p1', name: 'Right total knee' });
+    const suggestion = { id: 'g1', procedureId: 'p1', at: new Date().toISOString(), change: 'Add a second lap pack', status: 'open', revision: null };
+    render(<SurgeonCard surgeon={surgeon} procedures={[card]} staleDays={90} suggestionFor={(id) => (id === 'p1' ? suggestion : null)} onCloseSuggestion={onCloseSuggestion} onCopyToNotes={noop} {...handlers} />);
+    expect(screen.getByText('Your suggestion is open')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Right total knee/ }));
+    expect(screen.getByText(/You suggested a change .*: Add a second lap pack/)).toBeTruthy();
+    expect(screen.getByText('Check the official card for it the next time you are in this case.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'The card has it now' }));
+    expect(onCloseSuggestion).toHaveBeenCalledWith(suggestion, 'made');
+  });
+
   it('draws the highlight inside the highlighted card only', () => {
     const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
     const cards = [emptyProcedure('s1', { id: 'p1', name: 'Knee' }), emptyProcedure('s1', { id: 'p2', name: 'Hip' })];

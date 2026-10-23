@@ -71,6 +71,10 @@ describe('CaseView', () => {
     expect(manual.value).toMatch(/^Preference card suggestion\nDr. Chen · Knee/);
     expect(manual.value).toContain('Suggested change: Add a second lap');
     expect(onSuggested).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('I sent it'));
+    expect(onSuggested).toHaveBeenCalledWith({ cardSays: '', seen: 'Two laps on the field', change: 'Add a second lap' });
+    expect(screen.queryByLabelText(/This browser blocked copying/)).toBeNull();
   });
 
   it('pauses a patient detail with wording for the suggestion', () => {

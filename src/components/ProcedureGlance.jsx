@@ -7,6 +7,7 @@ import { resolveProductLink } from '../data/productLink';
 import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
 import { STATUS_CLASS } from './statusStyle';
+import { followUpText, suggestionState } from '../data/suggestions';
 
 function statusLabel(state) {
   if (state.status === CARD_STATUS.CONFIRMED) {
@@ -32,7 +33,7 @@ function GloveLine({ glove, label }) {
   );
 }
 
-export default function ProcedureGlance({ procedure, mode = 'personal', staleDays, surgeon, onCaseView, showTitle = true }) {
+export default function ProcedureGlance({ procedure, mode = 'personal', staleDays, surgeon, onCaseView, showTitle = true, suggestion = null, onCloseSuggestion }) {
   const state = trustState(procedure, { mode, staleDays });
   const blocks = procedure.blocks || {};
   const sutures = blocks.sutures || [];
@@ -79,6 +80,21 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
           {procedure.disputedBy ? ` · ${procedure.disputedBy}` : ''}
           {procedure.disputedAt ? ` · ${timeAgo(procedure.disputedAt)}` : ''}
         </p>
+      )}
+
+      {suggestion && (
+        <div className="mx-5 mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-950 space-y-1">
+          <p className="font-semibold">
+            You suggested a change {new Date(suggestion.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: {suggestion.change}
+          </p>
+          <p>{followUpText(suggestionState(suggestion, procedure))}</p>
+          {onCloseSuggestion && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button type="button" onClick={() => onCloseSuggestion(suggestion, 'made')} className="min-h-11 px-3 rounded-lg bg-white border border-amber-300 text-xs font-bold text-amber-900 cursor-pointer">The card has it now</button>
+              <button type="button" onClick={() => onCloseSuggestion(suggestion, 'closed')} className="min-h-11 px-3 rounded-lg text-xs font-bold text-amber-900 cursor-pointer">Close the suggestion</button>
+            </div>
+          )}
+        </div>
       )}
 
       <p className="px-5 pb-3 text-xs text-slate-500 leading-relaxed">

@@ -16,7 +16,7 @@ export default function PhiPause({ signals, onEdit, next = 'Take that detail out
           <p id="phi-pause-body" className="text-sm text-slate-700 leading-relaxed">
             This looks like it includes {signals.map(s => s.label).join(', ')}. Scrub Playbook does not store patient information. {next}
           </p>
-          <button ref={buttonRef} type="button" onClick={onEdit} className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm cursor-pointer">
+          <button ref={buttonRef} type="button" onClick={onEdit} className="w-full min-h-11 rounded-xl bg-slate-900 text-white font-bold text-sm cursor-pointer">
             {action}
           </button>
         </div>

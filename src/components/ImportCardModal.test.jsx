@@ -6,9 +6,22 @@ import { PUBLISHED_KEY, emptyBlocks, emptyProcedure } from '../data/schema';
 import { shareMessage, toBackup } from '../data/share';
 import ImportCardModal from './ImportCardModal';
 
+const camera = vi.hoisted(() => ({ read: null, fail: false }));
+vi.mock('../utils/qrReader', () => ({
+  canUseCamera: () => true,
+  createQrReader: async () => {
+    if (camera.fail) throw new Error('no-canvas');
+    return camera.read;
+  },
+}));
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  camera.read = null;
+  camera.fail = false;
 });
 
 function paste(text) {
@@ -105,6 +118,7 @@ describe('ImportCardModal', () => {
     render(<ImportCardModal book={book} onClose={() => {}} onImport={() => ({ success: true })} />);
     paste(message);
     expect(screen.getByText('• Bovie 35/35')).toBeTruthy();
+    expect(screen.getByText('Adds to Dr. Chen in your book.')).toBeTruthy();
     expect(screen.getByText(/Dr. Chen keeps the first-case lines already in your book/)).toBeTruthy();
   });
 
@@ -128,5 +142,46 @@ describe('ImportCardModal', () => {
     paste(JSON.stringify(card));
     expect(screen.getByRole('alertdialog').textContent).toContain('a field named “patient”');
     expect(screen.getByRole('alertdialog').textContent).toContain('Nothing was saved.');
+  });
+
+  it('scans a shared code with the camera and stops the camera after reading it', async () => {
+    const surgeon = { name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false };
+    const { message } = shareMessage(surgeon, emptyProcedure('x', { name: 'Knee' }));
+    const stop = vi.fn();
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+    const stream = { getTracks: () => [{ stop }] };
+    const getUserMedia = vi.fn(async () => stream);
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia } });
+    let calls = 0;
+    const shown = [];
+    camera.read = vi.fn(async (video) => {
+      shown.push(video.srcObject === stream);
+      return ++calls < 2 ? '' : message;
+    });
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={() => ({ success: true })} />);
+    fireEvent.click(screen.getByText('Scan a code'));
+    expect(await screen.findByText('Add unconfirmed', {}, { timeout: 2000 })).toBeTruthy();
+    expect(getUserMedia).toHaveBeenCalledWith({ video: { facingMode: 'environment' } });
+    expect(camera.read).toHaveBeenCalledTimes(2);
+    expect(shown).toEqual([true, true]);
+    expect(play).toHaveBeenCalled();
+    expect(screen.getByText('For Dr. Chen · Orthopedics, new to your book.')).toBeTruthy();
+    expect(stop).toHaveBeenCalled();
+  });
+
+  it('falls back to pasting when the camera is refused or the scanner cannot start', async () => {
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(async () => { throw new Error('denied'); }) } });
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={() => ({ success: true })} />);
+    fireEvent.click(screen.getByText('Scan a code'));
+    expect((await screen.findByText(/Camera permission is needed to scan/)).textContent).toContain('Paste the text instead.');
+    cleanup();
+
+    const stop = vi.fn();
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop }] })) } });
+    camera.fail = true;
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={() => ({ success: true })} />);
+    fireEvent.click(screen.getByText('Scan a code'));
+    expect(await screen.findByText(/This phone could not start the scanner/)).toBeTruthy();
+    expect(stop).toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import {
 } from '../data/unitBook';
 import PhiPause from './PhiPause';
 import { useDialog } from '../hooks/useDialog';
+import { canUseCamera, createQrReader } from '../utils/qrReader';
 import ProcedureGlance from './ProcedureGlance';
 
 function unitState(book, file, phi, check) {
@@ -59,7 +60,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState(null);
   const checkRef = useRef(0);
-  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia;
+  const canScan = canUseCamera();
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const timerRef = useRef(null);
@@ -73,6 +74,12 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   };
 
   useEffect(() => () => stopScan(), []);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!scanning || !video || !streamRef.current) return;
+    video.srcObject = streamRef.current;
+    video.play()?.catch?.(() => {});
+  }, [scanning]);
   const close = () => { stopScan(); onClose(); };
   const dialogRef = useDialog({ onClose: close });
 
@@ -144,7 +151,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
 
   const startScan = async () => {
     if (!canScan) {
-      setError('This browser cannot scan. Paste the text instead.');
+      setError('This browser cannot use the camera. Paste the text instead.');
       return;
     }
     try {
@@ -152,30 +159,37 @@ export default function ImportCardModal({ book, onClose, onImport }) {
       streamRef.current = stream;
       setScanning(true);
       setError('');
-      requestAnimationFrame(() => {
-        if (!videoRef.current) return;
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      });
-      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-      timerRef.current = setInterval(async () => {
-        if (!videoRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          const value = codes[0]?.rawValue;
-          if (value) {
-            stopScan();
-            setRaw(value);
-            review(value);
-          }
-        } catch {
-          /* keep looking until the code is steady */
-        }
-      }, 400);
     } catch {
       stopScan();
       setError('Camera permission is needed to scan. Paste the text instead.');
+      return;
     }
+    let read;
+    try {
+      read = await createQrReader();
+    } catch {
+      stopScan();
+      setError('This phone could not start the scanner. Paste the text instead.');
+      return;
+    }
+    if (!streamRef.current) return;
+    let reading = false;
+    timerRef.current = setInterval(async () => {
+      if (!videoRef.current || !streamRef.current || reading) return;
+      reading = true;
+      try {
+        const value = await read(videoRef.current);
+        if (value && streamRef.current) {
+          stopScan();
+          setRaw(value);
+          review(value);
+        }
+      } catch {
+        /* keep looking until the code is steady */
+      } finally {
+        reading = false;
+      }
+    }, 300);
   };
 
   const unit = preview?.parsed?.type === 'unitbook' ? unitState(book, preview.parsed.file, preview.phi, preview.check) : null;
@@ -197,23 +211,31 @@ export default function ImportCardModal({ book, onClose, onImport }) {
             <>
               <p className="text-xs text-slate-500">Paste a procedure or a backup. You will see the card before it is saved. Everything imported is unconfirmed.</p>
               {canScan && !scanning && (
-                <button type="button" onClick={startScan} className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm cursor-pointer">Scan a code</button>
+                <button type="button" onClick={startScan} className="w-full min-h-11 rounded-xl bg-slate-900 text-white font-bold text-sm cursor-pointer">Scan a code</button>
               )}
               {scanning && (
                 <div className="space-y-2">
                   <video ref={videoRef} muted playsInline className="w-full rounded-xl bg-slate-900" />
-                  <button type="button" onClick={stopScan} className="w-full py-2 rounded-xl bg-slate-100 font-bold text-sm cursor-pointer">Stop scanning</button>
+                  <button type="button" onClick={stopScan} className="w-full min-h-11 rounded-xl bg-slate-100 font-bold text-sm cursor-pointer">Stop scanning</button>
                 </div>
               )}
               <textarea value={raw} onChange={(e) => { setRaw(e.target.value); setError(''); }} rows={4} aria-label="Shared text" placeholder="Paste the shared text here" className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-3 py-2" />
               {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
-              <button type="button" onClick={() => review(raw)} disabled={!raw.trim()} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm disabled:opacity-40 cursor-pointer">Review</button>
+              <button type="button" onClick={() => review(raw)} disabled={!raw.trim()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm disabled:opacity-40 cursor-pointer">Review</button>
               <label htmlFor="import-file" className="block text-xs font-bold text-slate-600 uppercase tracking-widest">Or a backup file</label>
               <input id="import-file" type="file" accept=".json,application/json" onChange={handleFileChange} className="w-full text-xs text-slate-500" />
             </>
           )}
           {preview && card && (
             <>
+              {preview.classification?.kind === 'new' && (
+                <p className="text-sm text-slate-700">
+                  For {[incomingSurgeon?.name || 'an unnamed surgeon', incomingSurgeon?.specialty].filter(Boolean).join(' · ')}, new to your book.
+                </p>
+              )}
+              {preview.classification?.kind === 'attach' && (
+                <p className="text-sm text-slate-700">Adds to {preview.classification.surgeon.name} in your book.</p>
+              )}
               {preview.classification?.kind === 'duplicate' && (
                 <p className="text-sm text-slate-700">You already have this procedure for {preview.classification.surgeon.name}. Add another copy?</p>
               )}
@@ -221,7 +243,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                 <div className="space-y-2">
                   <p className="text-sm text-slate-700">More than one {incomingSurgeon?.name} is in your book.</p>
                   {preview.classification.surgeons.map(surgeon => (
-                    <button type="button" key={surgeon.id} onClick={() => commit(surgeon.id)} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 cursor-pointer">
+                    <button type="button" key={surgeon.id} onClick={() => commit(surgeon.id)} className="block w-full min-h-11 text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 cursor-pointer">
                       Add to {surgeon.name} · {surgeon.specialty}
                     </button>
                   ))}
@@ -245,15 +267,15 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                 <ProcedureGlance procedure={incomingProcedure} surgeon={incomingSurgeon} />
               </div>
               {preview.phi.length === 0 && preview.classification?.kind === 'duplicate' && (
-                <button type="button" onClick={() => commit(preview.classification.surgeon.id)} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add a copy</button>
+                <button type="button" onClick={() => commit(preview.classification.surgeon.id)} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add a copy</button>
               )}
               {preview.phi.length === 0 && preview.classification?.kind !== 'duplicate' && preview.classification?.kind !== 'ambiguous' && (
-                <button type="button" onClick={() => commit(preview.classification?.kind === 'attach' ? preview.classification.surgeon.id : undefined)} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unconfirmed</button>
+                <button type="button" onClick={() => commit(preview.classification?.kind === 'attach' ? preview.classification.surgeon.id : undefined)} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unconfirmed</button>
               )}
               {preview.phi.length === 0 && preview.classification?.kind === 'ambiguous' && (
-                <button type="button" onClick={() => commit()} className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm cursor-pointer">Add as a new surgeon</button>
+                <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm cursor-pointer">Add as a new surgeon</button>
               )}
-              <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
+              <button type="button" onClick={() => setPreview(null)} className="w-full min-h-11 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
           {unit && (
@@ -297,15 +319,15 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                 </p>
               )}
               {unit.canAdd && unit.conflicts.length > 0 && (
-                <button type="button" onClick={() => commit(undefined, { adopt: true })} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Use the unit book for {unit.conflicts.length === 1 ? unit.conflicts[0].name : 'them'}</button>
+                <button type="button" onClick={() => commit(undefined, { adopt: true })} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Use the unit book for {unit.conflicts.length === 1 ? unit.conflicts[0].name : 'them'}</button>
               )}
               {unit.canAdd && unit.fresh > 0 && (
-                <button type="button" onClick={() => commit()} className={`w-full py-2.5 rounded-xl font-bold text-sm cursor-pointer ${unit.conflicts.length ? 'bg-slate-100 text-slate-700' : 'bg-medical-600 text-white'}`}>
+                <button type="button" onClick={() => commit()} className={`w-full min-h-11 rounded-xl font-bold text-sm cursor-pointer ${unit.conflicts.length ? 'bg-slate-100 text-slate-700' : 'bg-medical-600 text-white'}`}>
                   {unit.conflicts.length ? 'Keep my notes and add the rest' : 'Add unit book'}
                 </button>
               )}
               {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
-              <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
+              <button type="button" onClick={() => setPreview(null)} className="w-full min-h-11 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
           {handover && (
@@ -322,7 +344,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                 <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Take over publishing</button>
               )}
               {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
-              <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
+              <button type="button" onClick={() => setPreview(null)} className="w-full min-h-11 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
           {preview && !card && !['unitbook', 'publisher'].includes(preview.parsed.type) && (
@@ -339,7 +361,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               {preview.phi.length === 0 && !preview.parsed.restorable && (
                 <button type="button" onClick={() => commit()} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unconfirmed</button>
               )}
-              <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
+              <button type="button" onClick={() => setPreview(null)} className="w-full min-h-11 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
         </div>
