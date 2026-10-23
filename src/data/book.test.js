@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEMO_SURGEONS, buildSampleBook, refreshSamples } from './defaults';
 import { migrateBook } from './migrate';
-import { findPhiInSurgeon, findPhiSignals } from './phi';
+import { findPhiInProcedure, findPhiInSurgeon, findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
 import { archivePlace, countLine, deletePlace } from './places';
 import { facilityLabels, filterBook } from './searchBook';
@@ -10,7 +10,7 @@ import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, clea
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
 import { applyUnitBook, copyUnitProcedure, isOwnUnitBook, sourceLabel, publishUnitBook, unitConflicts, unitPreviewText, unitResultText, unitRevision } from './unitBook';
-import { validateProcedure } from './validate';
+import { forbiddenFields, validateProcedure } from './validate';
 
 describe('migrateBook', () => {
   const book = migrateBook(DEMO_SURGEONS);
@@ -170,6 +170,22 @@ describe('phi', () => {
     expect(findPhiSignals('pt’s name is Ann').some(hit => hit.id === 'patient-name')).toBe(true);
     expect(findPhiSignals('Patient #4471').some(hit => hit.id === 'patient-number')).toBe(true);
     expect(findPhiSignals('patient number 12').some(hit => hit.id === 'patient-number')).toBe(true);
+  });
+
+  it('checks suture, implant, and link fields and an imported patient field', () => {
+    const base = emptyProcedure('s1', { name: 'Knee' });
+    const withBlocks = (blocks) => ({ ...base, blocks: { ...emptyBlocks(), ...blocks } });
+    const ids = (procedure) => findPhiInProcedure(procedure).map(hit => hit.id);
+    expect(ids(withBlocks({ sutures: [{ id: 'a', name: 'Vicryl', open: 'for patient #4471' }] }))).toContain('patient-number');
+    expect(ids(withBlocks({ sutures: [{ id: 'a', name: 'Vicryl', hold: 'MRN 99' }] }))).toContain('mrn');
+    expect(ids(withBlocks({ implants: [{ id: 'b', systemName: 'Triathlon', catalogNumber: 'Lot 4471-22' }] }))).toContain('lot-serial');
+    expect(ids(withBlocks({ implants: [{ id: 'b', systemName: 'Triathlon', overrideUrl: 'https://intranet.example/card?mrn=12345' }] }))).toContain('mrn');
+    expect(ids(withBlocks({ implants: [{ id: 'b', systemName: 'Triathlon', catalogNumber: '71933017' }] }))).toEqual([]);
+    expect(ids(withBlocks({ sutures: [{ id: 'a', name: 'Vicryl', catalogNumber: 'J345H', overrideUrl: 'https://hospital.example/items/12345678' }] }))).toEqual([]);
+    expect(ids(withBlocks({ instruments: [{ id: 'c', name: 'Serial dilators' }], note: { text: 'Uses a lot of irrigation' } }))).toEqual([]);
+    expect(ids({ ...base, patient: { name: 'Smith' } })).toContain('field');
+    expect(findPhiInSurgeon({ name: 'Dr. Chen', patient_name: 'Smith' })[0].label).toBe('a field named “patient_name”');
+    expect(forbiddenFields({ blocks: { implants: [{ lotNumber: 'A1' }] } })).toEqual(['lotNumber']);
   });
 });
 
