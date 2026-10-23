@@ -70,9 +70,7 @@ function pushSection(lines, title, bodyLines) {
 }
 
 function surgeonTitle(name) {
-  const trimmed = (name || '').trim();
-  if (!trimmed) return 'this surgeon';
-  return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
+  return (name || '').trim() || 'this surgeon';
 }
 
 export function toGlanceText(surgeon, procedure) {

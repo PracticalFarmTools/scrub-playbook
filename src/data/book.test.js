@@ -420,6 +420,9 @@ describe('share', () => {
     const message = shareMessage(surgeon, procedure);
     expect(message.glance.indexOf('Arrives unconfirmed')).toBeLessThan(message.glance.indexOf('New to Dr. Chen'));
     expect(message.glance).toContain('Bovie at 35/35.');
+    const anne = toGlanceText({ ...surgeon, name: 'Anne Lee, PA-C' }, procedure).text;
+    expect(anne).toContain('\nNew to Anne Lee, PA-C\n');
+    expect(anne).not.toContain('Dr. Anne');
     const parsed = parseImport(message.message);
     expect(parsed.book.surgeons[0].firstCase).toEqual(['Bovie at 35/35.', 'Jake Rivera usually assists.']);
     expect(parsed.book.surgeons[0].firstCaseBy).toBe('Imported');
