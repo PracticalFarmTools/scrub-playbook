@@ -7,6 +7,7 @@ import { archivePlace, countLine, deletePlace } from './places';
 import { facilityLabels, filterBook } from './searchBook';
 import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, suggestionText, toBackup, toGlanceText, toPlacePack, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
+import { requestPersistentStorage } from './storage';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
 import { applyUnitBook, copyUnitProcedure, isOwnUnitBook, sourceLabel, publishUnitBook, unitConflicts, unitPreviewText, unitResultText, unitRevision } from './unitBook';
@@ -852,6 +853,17 @@ describe('unit book', () => {
     expect(result.book).toBe(book);
     expect(unitResultText('Main', result)).toMatch(/you published from this phone/);
     expect(applyUnitBook(book, file, { published: {} }).status).toBe('skipped');
+  });
+});
+
+describe('storage', () => {
+  it('asks once for persistent storage and copes with a browser that has none', async () => {
+    expect(await requestPersistentStorage(undefined)).toBe('unsupported');
+    expect(await requestPersistentStorage({ persisted: async () => true, persist: async () => false })).toBe('persisted');
+    let asked = 0;
+    expect(await requestPersistentStorage({ persisted: async () => false, persist: async () => { asked += 1; return false; } })).toBe('denied');
+    expect(asked).toBe(1);
+    expect(await requestPersistentStorage({ persist: async () => { throw new Error('no'); } })).toBe('unsupported');
   });
 });
 

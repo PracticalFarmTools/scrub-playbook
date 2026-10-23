@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { TECH_NAME_KEY } from '../data/schema';
+import { TECH_NAME_KEY, uid } from '../data/schema';
 
 function currentUser() {
   try { return localStorage.getItem(TECH_NAME_KEY) || 'Unknown'; }
@@ -28,7 +28,7 @@ export function useAuditLog() {
 
   const addEntry = useCallback(({ action, surgeonName, user, note }) => {
     const entry = {
-      id: crypto.randomUUID(),
+      id: uid(),
       action,
       surgeonName: surgeonName || '',
       user: user || currentUser(),

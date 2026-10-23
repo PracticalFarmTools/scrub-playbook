@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { refreshSamples } from '../data/defaults';
+import { requestPersistentStorage } from '../data/storage';
 import { mergeBackup, placeIncomingCard } from '../data/share';
 import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
@@ -33,10 +34,15 @@ export function writeTechName(name) {
 export function useBook() {
   const [book, setBook] = useState(loadBook);
   const bookRef = useRef(book);
+  const askedPersist = useRef(false);
 
   useEffect(() => {
     bookRef.current = book;
     localStorage.setItem(BOOK_KEY, JSON.stringify(book));
+    if (!askedPersist.current && book.surgeons.some(s => !s.demo)) {
+      askedPersist.current = true;
+      requestPersistentStorage();
+    }
   }, [book]);
 
   const addSurgeon = useCallback((partial) => {

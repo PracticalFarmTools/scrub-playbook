@@ -9,9 +9,7 @@ import { readTechName, useBook } from './hooks/useBook';
 import { publishUnitBook, savePublished, unitResultText } from './data/unitBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
-import CaseView from './components/CaseView';
 import SurgeonCard from './components/SurgeonCard';
-import PlacesSheet from './components/PlacesSheet';
 import TodayList from './components/TodayList';
 import EmptyState from './components/EmptyState';
 import RecentActivity from './components/RecentActivity';
@@ -19,6 +17,8 @@ import { VendorLibrary, VendorResults } from './components/VendorPanels';
 import ConfirmNameModal from './components/ConfirmNameModal';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
+const CaseView = lazy(() => import('./components/CaseView'));
+const PlacesSheet = lazy(() => import('./components/PlacesSheet'));
 const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
 const ProcedureEditor = lazy(() => import('./components/ProcedureEditor'));
 const ShareCardModal = lazy(() => import('./components/ShareCardModal'));
@@ -358,14 +358,16 @@ export default function App() {
         </Suspense>
       )}
       {showPlaces && (
-        <PlacesSheet
-          book={book}
-          onClose={() => setShowPlaces(false)}
-          onHandOff={handOffPlace}
-          onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
-          onDelete={(place, options) => bookApi.removePlace(place, options)}
-          onPublish={publishPlace}
-        />
+        <Suspense fallback={null}>
+          <PlacesSheet
+            book={book}
+            onClose={() => setShowPlaces(false)}
+            onHandOff={handOffPlace}
+            onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
+            onDelete={(place, options) => bookApi.removePlace(place, options)}
+            onPublish={publishPlace}
+          />
+        </Suspense>
       )}
       {showImport && (
         <Suspense fallback={null}>
@@ -385,17 +387,19 @@ export default function App() {
         />
       )}
       {caseView && (
-        <CaseView
-          surgeon={book.surgeons.find(item => item.id === caseView.surgeonId)}
-          procedure={book.procedures.find(item => item.id === caseView.procedureId)}
-          staleDays={STALE_AFTER_DAYS}
-          onClose={closeCase}
-          onSuggested={() => {
-            const surgeon = book.surgeons.find(item => item.id === caseView.surgeonId);
-            const procedure = book.procedures.find(item => item.id === caseView.procedureId);
-            addAudit({ action: 'Card change suggested', surgeonName: surgeon?.name || '', note: procedure?.name || '' });
-          }}
-        />
+        <Suspense fallback={null}>
+          <CaseView
+            surgeon={book.surgeons.find(item => item.id === caseView.surgeonId)}
+            procedure={book.procedures.find(item => item.id === caseView.procedureId)}
+            staleDays={STALE_AFTER_DAYS}
+            onClose={closeCase}
+            onSuggested={() => {
+              const surgeon = book.surgeons.find(item => item.id === caseView.surgeonId);
+              const procedure = book.procedures.find(item => item.id === caseView.procedureId);
+              addAudit({ action: 'Card change suggested', surgeonName: surgeon?.name || '', note: procedure?.name || '' });
+            }}
+          />
+        </Suspense>
       )}
       {showDisclaimer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)' }}>
