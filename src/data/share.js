@@ -5,6 +5,7 @@ import { migrateBook, withoutConfirmation } from './migrate';
 import { stripConfirmation } from './trust';
 import { samePersonName, sameProcedureName } from './today';
 import { inPlaceGroup } from './places';
+import { cleanAliases } from './boardMatch';
 
 export const SHARE_FENCE = '--- scrubplaybook ---';
 const UNCONFIRMED_LINE = 'Arrives unconfirmed. Confirm after you are in the room.';
@@ -36,6 +37,7 @@ function slimProcedure(procedure) {
   return prune({
     name: stripped.name,
     approach: stripped.approach,
+    aliases: cleanAliases(stripped.aliases),
     blocks: stripped.blocks,
     official: stripped.official?.label
       ? { label: stripped.official.label, note: stripped.official.note || '' }
@@ -370,6 +372,7 @@ function cardToBook(data) {
       id: uid(),
       surgeonId,
       approach: data.procedure.approach || '',
+      aliases: cleanAliases(data.procedure.aliases),
       demo: false,
       confirmations: [],
       lastConfirmedAt: null,

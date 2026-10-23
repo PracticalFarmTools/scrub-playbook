@@ -4,6 +4,7 @@ import { SURGICAL_GLOVES, GLOVE_SIZES, GLOVE_COLOR_HEX } from '../data/gloves';
 import { NEEDLE_TYPES, SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
 import { productsByKind, productIdForSuture } from '../data/products';
 import { findPhiInProcedure } from '../data/phi';
+import { cleanAliases } from '../data/boardMatch';
 import { cleanInstruments, cleanSteps, uid } from '../data/schema';
 import SearchableDropdown from './SearchableDropdown';
 import MicButton from './MicButton';
@@ -33,6 +34,7 @@ function gloveFromId(id, size) {
 export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allowOfficial, onClose, onSave }) {
   const [draft, setDraft] = useState(procedure);
   const [phi, setPhi] = useState([]);
+  const [aliasText, setAliasText] = useState(() => cleanAliases(procedure.aliases).join(', '));
   const [sutureName, setSutureName] = useState(SUTURE_LIBRARY[0].name);
   const [sutureSize, setSutureSize] = useState('3-0');
   const [needle, setNeedle] = useState('CT-1');
@@ -43,7 +45,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
   const setBlocks = (next) => setDraft(d => ({ ...d, blocks: { ...d.blocks, ...next } }));
 
   const save = () => {
-    const hits = findPhiInProcedure(draft);
+    const aliases = cleanAliases(aliasText);
+    const hits = findPhiInProcedure({ ...draft, aliases });
     if (hits.length) {
       setPhi(hits);
       return;
@@ -53,6 +56,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
       ...draft,
       name: draft.name.trim() || 'Untitled case',
       approach: (draft.approach || '').trim().slice(0, 60),
+      aliases,
       blocks: { ...draft.blocks, steps, instruments: cleanInstruments(draft.blocks.instruments) },
     });
     onClose();
@@ -86,6 +90,17 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <label className={label}>Approach</label>
             <input list="scrub-approaches" maxLength={60} value={draft.approach || ''} placeholder="Anterior, laparoscopic, open" onChange={e => setDraft(d => ({ ...d, approach: e.target.value.slice(0, 60) }))} className={input} />
             <datalist id="scrub-approaches">{APPROACHES.map(item => <option key={item} value={item} />)}</datalist>
+          </div>
+          <div>
+            <label htmlFor="procedure-aliases" className={label}>Other names on the board</label>
+            <input
+              id="procedure-aliases"
+              value={aliasText}
+              placeholder="R TKA, DAA THA"
+              onChange={e => setAliasText(e.target.value)}
+              className={input}
+            />
+            <p className="text-[11px] text-slate-500 mt-1">Separate with commas. A board line with one of these names opens this card. Sides still have to match.</p>
           </div>
           <div>
             <label className={label}>Position</label>

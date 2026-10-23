@@ -1,5 +1,6 @@
 import { TODAY_KEY, uid } from './schema';
 import { safeSet } from './storage';
+import { matchSurgeons, procedureMatch } from './boardMatch';
 
 export function localDay(offsetDays = 0, date = new Date()) {
   const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offsetDays);
@@ -86,7 +87,7 @@ export function todayItem({ day = localDay(), startsAt = '', room = '', surgeonN
 export function resolveTodayTap(book, item) {
   const surgeonName = (item?.surgeonName || '').trim();
   const procedureName = (item?.procedureName || '').trim();
-  const surgeons = (book?.surgeons || []).filter(surgeon => !surgeon.demo && !surgeon.archived && samePersonName(surgeon.name, surgeonName));
+  const surgeons = matchSurgeons((book?.surgeons || []).filter(surgeon => !surgeon.demo && !surgeon.archived), surgeonName);
   if (surgeons.length === 0) {
     return { action: 'start-surgeon', surgeonName, procedureName };
   }
@@ -94,12 +95,14 @@ export function resolveTodayTap(book, item) {
     return { action: 'choose', surgeons };
   }
   const surgeon = surgeons[0];
-  const procedures = (book?.procedures || []).filter(procedure => (
-    procedure.surgeonId === surgeon.id
-    && !procedure.demo
-    && sameProcedureName(procedure.name, procedureName)
-  ));
-  if (procedures.length === 1) return { action: 'open', surgeon, procedure: procedures[0] };
-  if (procedures.length > 1) return { action: 'choose', surgeons: [surgeon], procedures };
+  const scored = (book?.procedures || [])
+    .filter(procedure => procedure.surgeonId === surgeon.id && !procedure.demo)
+    .map(procedure => ({ procedure, tier: procedureMatch(procedure, procedureName) }))
+    .filter(entry => entry.tier);
+  const exact = scored.filter(entry => entry.tier === 'exact').map(entry => entry.procedure);
+  if (exact.length === 1) return { action: 'open', surgeon, procedure: exact[0] };
+  if (exact.length > 1) return { action: 'choose', surgeons: [surgeon], procedures: exact };
+  const closest = scored.map(entry => entry.procedure);
+  if (closest.length) return { action: 'choose', surgeons: [surgeon], procedures: closest, closest: true };
   return { action: 'start-procedure', surgeon, procedureName };
 }

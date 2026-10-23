@@ -73,6 +73,7 @@ export function findPhiInProcedure(procedure) {
   const chunks = [
     procedure?.name,
     procedure?.approach,
+    ...(Array.isArray(procedure?.aliases) ? procedure.aliases : []),
     procedure?.reportNote,
     procedure?.official?.note,
     procedure?.official?.label,

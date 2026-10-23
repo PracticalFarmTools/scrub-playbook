@@ -275,8 +275,8 @@ export function applyUnitBook(current, file, { adopt = false, published = readPu
     if (incoming && (owned || ownedBy(existing.surgeonId))) {
       const before = { ...existing, blocks: normalizeBlocks(existing.blocks) };
       const same = sameContent(before, incoming);
-      if (!same) counts.changed += 1;
-      const changes = same ? [] : changedSections(before, incoming);
+      const changes = changedSections(before, incoming);
+      if (changes.length) counts.changed += 1;
       const saved = applySave(before, incoming);
       const kept = same ? { ...saved, updatedAt: existing.updatedAt } : saved;
       procedures.push({ ...kept, unitBook: { ...stamp, changes } });
