@@ -3,7 +3,7 @@ import { DEMO_SURGEONS, buildSampleBook } from './defaults';
 import { migrateBook } from './migrate';
 import { findPhiInSurgeon, findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
-import { archivePlace, deletePlace } from './places';
+import { archivePlace, countLine, deletePlace } from './places';
 import { facilityLabels, filterBook } from './searchBook';
 import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, suggestionText, toBackup, toGlanceText, toPlacePack, toShareableCard } from './share';
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
@@ -467,7 +467,8 @@ describe('share', () => {
         emptyProcedure('demo-1', { name: 'Sample setup', demo: true }),
       ],
     };
-    const pack = toPlacePack(book, 'Main Hospital OR', 'Alex', '2026-10-21T00:00:00.000Z');
+    expect(toPlacePack(book, 'Main Hospital OR', 'Alex').book.surgeons).toEqual([]);
+    const pack = toPlacePack(book, 'Main Hospital OR', 'Alex', '2026-10-21T00:00:00.000Z', { archived: true });
     expect(pack.book.surgeons.map(item => item.name)).toEqual(['Dr. Chen']);
     expect(pack.book.surgeons[0].archived).toBe(false);
     expect(pack.book.procedures.map(item => item.name)).toEqual(['Knee']);
@@ -475,7 +476,27 @@ describe('share', () => {
     expect(JSON.stringify(pack)).not.toContain('Sample setup');
     const parsed = parseImport(JSON.stringify(pack));
     expect(parsed.book.surgeons[0].archived).toBe(false);
-    expect(importPreviewText(parsed)).toBe('Hand-off for Main Hospital OR from Alex: 1 surgeons, 1 procedures. They arrive unconfirmed.');
+    expect(importPreviewText(parsed)).toBe('Hand-off for Main Hospital OR from Alex: 1 surgeon, 1 procedure. They arrive unconfirmed.');
+  });
+
+  it('keeps the active and archived groups of one place apart', () => {
+    const book = {
+      surgeons: [
+        { id: 'old', name: 'Dr. Old', facility: 'Main', demo: false, archived: true },
+        { id: 'new', name: 'Dr. New', facility: 'Main', demo: false, archived: false },
+        { id: 'pad', name: 'Dr. Pad', facility: ' Main ', demo: false },
+      ],
+      procedures: [emptyProcedure('old', { name: 'Old case' }), emptyProcedure('new', { name: 'New case' })],
+    };
+    expect(deletePlace(book, 'Main').surgeons.map(item => item.id)).toEqual(['old']);
+    expect(deletePlace(book, 'Main', { archived: true }).surgeons.map(item => item.id)).toEqual(['new', 'pad']);
+    expect(deletePlace(book, 'Main', { archived: true }).procedures.map(item => item.name)).toEqual(['New case']);
+    expect(toPlacePack(book, 'Main', 'Alex').book.surgeons.map(item => item.id)).toEqual(['new', 'pad']);
+    expect(toPlacePack(book, 'Main', 'Alex', undefined, { archived: true }).book.surgeons.map(item => item.id)).toEqual(['old']);
+    const restored = archivePlace(book, 'Main', false);
+    expect(restored.surgeons.every(item => !item.archived)).toBe(true);
+    expect(countLine(1, 1)).toBe('1 surgeon · 1 procedure');
+    expect(countLine(2, 0, ' and ')).toBe('2 surgeons and 0 procedures');
   });
 
   it('leaves the day list out of a book backup', () => {

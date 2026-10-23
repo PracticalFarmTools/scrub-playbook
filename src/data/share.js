@@ -4,6 +4,7 @@ export { normalizeBlocks };
 import { migrateBook, withoutConfirmation } from './migrate';
 import { stripConfirmation } from './trust';
 import { samePersonName, sameProcedureName } from './today';
+import { inPlaceGroup } from './places';
 
 export const SHARE_FENCE = '--- scrubplaybook ---';
 const UNCONFIRMED_LINE = 'Arrives unconfirmed. Confirm after you are in the room.';
@@ -228,9 +229,9 @@ export function suggestionText({ surgeon, procedure, cardSays = '', seen = '', c
   ].join('\n');
 }
 
-export function toPlacePack(book, place, fromName, exportedAt = new Date().toISOString()) {
+export function toPlacePack(book, place, fromName, exportedAt = new Date().toISOString(), { archived = false } = {}) {
   const surgeons = (book?.surgeons || [])
-    .filter(surgeon => !surgeon.demo && (surgeon.facility || '') === place)
+    .filter(surgeon => inPlaceGroup(surgeon, place, archived))
     .map(surgeon => ({ ...surgeon, archived: false }));
   const ids = new Set(surgeons.map(surgeon => surgeon.id));
   const procedures = (book?.procedures || [])
@@ -253,7 +254,7 @@ export function importPreviewText(parsed) {
   const surgeonWord = surgeons.length === 1 ? 'surgeon' : 'surgeons';
   const procedureWord = procedures.length === 1 ? 'procedure' : 'procedures';
   if (parsed?.scope?.place) {
-    return `Hand-off for ${parsed.scope.place} from ${parsed.from}: ${surgeons.length} surgeons, ${procedures.length} procedures. They arrive unconfirmed.`;
+    return `Hand-off for ${parsed.scope.place} from ${parsed.from || 'a tech'}: ${surgeons.length} ${surgeonWord}, ${procedures.length} ${procedureWord}. They arrive unconfirmed.`;
   }
   const samples = (parsed?.book?.surgeons || []).some(surgeon => surgeon.demo) || (parsed?.book?.procedures || []).some(procedure => procedure.demo);
   return `Backup: ${surgeons.length} ${surgeonWord}, ${procedures.length} ${procedureWord}. They arrive unconfirmed.${samples ? ' Samples are skipped.' : ''}`;

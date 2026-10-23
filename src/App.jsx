@@ -64,8 +64,8 @@ export default function App() {
   const showBackupReminder = book.surgeons.some(s => !s.demo)
     && (!lastExportAt || daysSince(lastExportAt) > 30);
 
-  const handOffPlace = async (place) => {
-    const pack = toPlacePack(book, place, readTechName() || 'A tech');
+  const handOffPlace = async (place, { archived = false } = {}) => {
+    const pack = toPlacePack(book, place, readTechName() || 'A tech', new Date().toISOString(), { archived });
     const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
     await shareFile(`scrubplaybook-${slug}-${new Date().toISOString().slice(0, 10)}.json`, pack);
   };
@@ -350,7 +350,7 @@ export default function App() {
           onClose={() => setShowPlaces(false)}
           onHandOff={handOffPlace}
           onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
-          onDelete={(place) => bookApi.removePlace(place)}
+          onDelete={(place, options) => bookApi.removePlace(place, options)}
           onPublish={publishPlace}
         />
       )}

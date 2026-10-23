@@ -114,8 +114,8 @@ export function useBook() {
     setBook(prev => archivePlace(prev, place, archived));
   }, []);
 
-  const removePlace = useCallback((place) => {
-    setBook(prev => deletePlace(prev, place));
+  const removePlace = useCallback((place, options) => {
+    setBook(prev => deletePlace(prev, place, options));
   }, []);
 
   const updateSurgeon = useCallback((id, { name, facility } = {}) => {
