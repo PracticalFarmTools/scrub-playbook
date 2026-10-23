@@ -9,7 +9,7 @@ import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, 
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
-import { applyUnitBook, isOwnUnitBook, publishUnitBook, unitConflicts, unitPreviewText, unitResultText, unitRevision } from './unitBook';
+import { applyUnitBook, copyUnitProcedure, isOwnUnitBook, sourceLabel, publishUnitBook, unitConflicts, unitPreviewText, unitResultText, unitRevision } from './unitBook';
 import { validateProcedure } from './validate';
 
 describe('migrateBook', () => {
@@ -773,6 +773,33 @@ describe('unit book', () => {
     expect(skipped.status).toBe('skipped');
     expect(skipped.book).toBe(book);
     expect(unitResultText('Main', skipped)).toBe('Nothing was added from the unit book for Main. Your own notes for Dr. Chen stay as they are.');
+  });
+
+  it('copies a unit card once, under the same surgeon, and keeps the copy through the next revision', () => {
+    const file = revisionTwo();
+    const start = applyUnitBook({ version: 2, surgeons: [], procedures: [] }, file, { published: {} }).book;
+    const copied = copyUnitProcedure(start, 'proc-1', { now: '2026-10-22T00:00:00.000Z' });
+    expect(copied.status).toBe('copied');
+    expect(copied.book.surgeons).toHaveLength(2);
+    const copy = copied.book.procedures.find(item => item.id === copied.procedureId);
+    expect(copy).toMatchObject({ surgeonId: 'surg-1', copiedFrom: 'proc-1', name: 'Knee revised' });
+    expect(copy.unitBook).toBeUndefined();
+    expect(validateProcedure(copy)).toEqual([]);
+
+    const again = copyUnitProcedure(copied.book, 'proc-1');
+    expect(again.status).toBe('already');
+    expect(again.procedureId).toBe(copied.procedureId);
+    expect(again.book).toBe(copied.book);
+    expect(copyUnitProcedure(copied.book, copied.procedureId).status).toBe('missing');
+
+    const tap = resolveTodayTap(copied.book, { surgeonName: 'Dr. Chen', procedureName: 'Knee revised' });
+    expect(tap.action).toBe('choose');
+    expect(tap.procedures.map(sourceLabel).sort()).toEqual(['My notes', 'Unit book · revision 2']);
+
+    const next = applyUnitBook(copied.book, { ...file, revision: 3, book: { ...file.book, surgeons: [file.book.surgeons[1]], procedures: [file.book.procedures[1]] } }, { published: {} });
+    expect(next.book.procedures.some(item => item.id === copied.procedureId)).toBe(true);
+    expect(next.book.procedures.some(item => item.id === 'proc-1')).toBe(false);
+    expect(next.book.surgeons.some(item => item.id === 'surg-1')).toBe(true);
   });
 
   it('tells the publisher the file is their own', () => {

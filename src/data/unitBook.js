@@ -26,6 +26,12 @@ export function unitRevision(book, unitBookId) {
   return revisions.length ? Math.max(...revisions) : 0;
 }
 
+export function sourceLabel(procedure) {
+  if (procedure?.unitBook?.id) return `Unit book · revision ${procedure.unitBook.revision}`;
+  if (procedure?.copiedFrom) return 'My notes';
+  return '';
+}
+
 export function unitPreviewText(file) {
   return `Unit book for ${file?.place}, revision ${file?.revision} from ${file?.publishedBy || 'a tech'}.`;
 }
@@ -80,6 +86,30 @@ export function publishUnitBook(book, place, fromName, { now = new Date().toISOS
       publishedAt: now,
       book: { version: BOOK_VERSION, surgeons, procedures },
     },
+  };
+}
+
+/** One editable copy per unit card, kept under the same surgeon so a board line still finds one person. */
+export function copyUnitProcedure(book, procedureId, { now = new Date().toISOString() } = {}) {
+  const procedure = (book?.procedures || []).find(item => item.id === procedureId);
+  if (!procedure?.unitBook) return { status: 'missing', book };
+  const existing = book.procedures.find(item => (
+    item.copiedFrom === procedure.id && !item.unitBook && item.surgeonId === procedure.surgeonId
+  ));
+  if (existing) return { status: 'already', book, procedureId: existing.id };
+  const copy = stripConfirmation({
+    ...procedure,
+    id: uid(),
+    copiedFrom: procedure.id,
+    demo: false,
+    updatedAt: now,
+    baseUpdatedAt: now,
+  });
+  delete copy.unitBook;
+  return {
+    status: 'copied',
+    procedureId: copy.id,
+    book: { ...book, procedures: [copy, ...book.procedures] },
   };
 }
 

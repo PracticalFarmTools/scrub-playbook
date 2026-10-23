@@ -291,8 +291,12 @@ export default function App() {
                 onSaveFirstCase={(id, lines) => bookApi.saveFirstCase(id, lines)}
                 onCaseView={openCase}
                 onCopyToNotes={(id) => {
-                  bookApi.copyToNotes(id);
-                  setNotice('Copied into your notes. It is unconfirmed until you were in that case.');
+                  const result = bookApi.copyToNotes(id);
+                  if (result.status === 'missing') return;
+                  setHighlightId(result.procedureId);
+                  setNotice(result.status === 'already'
+                    ? 'This card is already in your notes. Your copy is highlighted.'
+                    : 'Copied into your notes under the same surgeon. It is unconfirmed until you are in that case.');
                 }}
                 onCopySample={(id) => {
                   bookApi.copySample(id);

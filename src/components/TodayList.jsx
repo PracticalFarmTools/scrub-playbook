@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { findPhiSignals } from '../data/phi';
 import { loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleDay } from '../data/today';
+import { sourceLabel } from '../data/unitBook';
 import PhiPause from './PhiPause';
 
 const field = 'w-full rounded-lg bg-slate-50 border border-slate-200 text-sm px-2 py-2';
@@ -129,7 +130,7 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
           <p className="text-xs font-bold text-slate-500">Which surgeon?</p>
           {choice.surgeons.map(surgeon => (
             <button type="button" key={surgeon.id} onClick={() => pickSurgeon(surgeon)} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 cursor-pointer">
-              {surgeon.name} · {surgeon.specialty}
+              {[surgeon.name, surgeon.specialty, surgeon.facility, surgeon.unitBook?.id ? 'Unit book' : ''].filter(Boolean).join(' · ')}
             </button>
           ))}
           <button type="button" onClick={() => setChoice(null)} className="text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>
@@ -140,7 +141,7 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
           <p className="text-xs font-bold text-slate-500">Which procedure?</p>
           {choice.procedures.map(procedure => (
             <button type="button" key={procedure.id} onClick={() => { setChoice(null); onOpen(procedure); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 cursor-pointer">
-              {procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}
+              {[procedure.name, procedure.approach, sourceLabel(procedure)].filter(Boolean).join(' · ')}
             </button>
           ))}
           <button type="button" onClick={() => setChoice(null)} className="text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>

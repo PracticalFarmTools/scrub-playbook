@@ -50,6 +50,8 @@ export default function SurgeonCard({
       : updatedBy
         ? `Updated by ${updatedBy}.`
         : '';
+  const unitOwned = Boolean(surgeon.unitBook?.id);
+  const editable = !surgeon.demo && !unitOwned;
   const row = surgeon.demo ? null : rowTrust(trustProcedures || procedures, { staleDays });
   const rowLabel = row?.status === 'confirmed'
     ? (row.at ? `Matched a case · ${timeAgo(row.at)}` : 'Matched a case')
@@ -77,7 +79,10 @@ export default function SurgeonCard({
           )}
           <p className="text-medical-200 text-sm flex items-center gap-1.5 mt-0.5"><Stethoscope size={14} /> {surgeon.specialty}</p>
           {surgeon.demo && <p className="text-[10px] uppercase tracking-widest text-medical-300 mt-1">Sample · not your hospital</p>}
-          {!surgeon.demo && !editingDetails && (
+          {unitOwned && (
+            <p className="text-[10px] uppercase tracking-widest text-medical-300 mt-1">Unit book · revision {surgeon.unitBook.revision}</p>
+          )}
+          {editable && !editingDetails && (
             <button type="button" onClick={() => { setName(surgeon.name); setPlace(surgeon.facility || ''); setEditingDetails(true); }} className="text-[10px] font-bold text-medical-200 mt-1 cursor-pointer">Edit details</button>
           )}
         </div>
@@ -112,7 +117,7 @@ export default function SurgeonCard({
           <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New to {surgeon.name}</p>
-              {!surgeon.demo && !editingFirst && (
+              {editable && !editingFirst && (
                 <button type="button" onClick={() => {
                   setFirstDraft([firstLines[0] || '', firstLines[1] || '', firstLines[2] || '']);
                   setEditingFirst(true);
@@ -147,7 +152,10 @@ export default function SurgeonCard({
           </div>
         </div>
       )}
-      {!surgeon.demo && firstLines.length === 0 && !editingFirst && (
+      {unitOwned && (
+        <p className="px-5 pt-3 text-[11px] text-slate-500">The unit book keeps this surgeon’s name, place, and first-case lines. Use Copy to my notes for a card you can edit.</p>
+      )}
+      {editable && firstLines.length === 0 && !editingFirst && (
         <div className="px-5 pt-3">
           <button type="button" onClick={() => { setFirstDraft(['', '', '']); setEditingFirst(true); }} className="text-[11px] font-bold text-medical-700 cursor-pointer">Add first-case notes</button>
         </div>
@@ -172,7 +180,9 @@ export default function SurgeonCard({
             ) : (
               <>
                 {procedure.unitBook?.id ? (
-                  <button type="button" onClick={() => onCopyToNotes(procedure.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Copy to my notes</button>
+                  <button type="button" onClick={() => onCopyToNotes(procedure.id)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">
+                    {(trustProcedures || procedures).some(item => item.copiedFrom === procedure.id && !item.unitBook) ? 'Go to my copy' : 'Copy to my notes'}
+                  </button>
                 ) : (
                   <button type="button" onClick={() => onEdit(procedure)} className="text-[11px] font-bold text-medical-700 bg-medical-50 rounded-lg px-2.5 py-1 cursor-pointer">Edit</button>
                 )}

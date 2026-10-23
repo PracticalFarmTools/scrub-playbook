@@ -5,6 +5,7 @@ import { timeAgo, trustState } from '../data/trust';
 import ProductLink from './ProductLink';
 import { resolveProductLink } from '../data/productLink';
 import { instrumentLines } from '../data/share';
+import { sourceLabel } from '../data/unitBook';
 import { STATUS_CLASS } from './statusStyle';
 
 function statusLabel(state) {
@@ -44,6 +45,9 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <div className="flex items-start justify-between gap-3">
           <div>
             <h4 className="text-base font-extrabold text-slate-900 tracking-tight">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h4>
+            {sourceLabel(procedure) && (
+              <p className="text-[10px] font-bold uppercase tracking-widest text-medical-600 mt-0.5">{sourceLabel(procedure)}</p>
+            )}
             {surgeon?.facility && (
               <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin size={11} /> {surgeon.facility}</p>
             )}

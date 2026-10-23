@@ -3,7 +3,7 @@ import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCa
 import { migrateBook } from '../data/migrate';
 import { mergeBackup, placeIncomingCard } from '../data/share';
 import { archivePlace, deletePlace } from '../data/places';
-import { applyUnitBook } from '../data/unitBook';
+import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
 import { applySave, clearConfirmation, stripConfirmation, withConfirmation } from '../data/trust';
 
 function loadBook() {
@@ -103,7 +103,7 @@ export function useBook() {
     const firstCase = cleanFirstCase(lines);
     setBook(prev => ({
       ...prev,
-      surgeons: prev.surgeons.map(s => s.id === id ? {
+      surgeons: prev.surgeons.map(s => s.id === id && !s.unitBook ? {
         ...s,
         firstCase,
         firstCaseAt: new Date().toISOString(),
@@ -125,7 +125,7 @@ export function useBook() {
     if (!trimmed) return;
     setBook(prev => ({
       ...prev,
-      surgeons: prev.surgeons.map(s => s.id === id ? { ...s, name: trimmed, facility: (facility || '').trim() } : s),
+      surgeons: prev.surgeons.map(s => s.id === id && !s.unitBook ? { ...s, name: trimmed, facility: (facility || '').trim() } : s),
     }));
   }, []);
 
@@ -175,29 +175,12 @@ export function useBook() {
   }, []);
 
   const copyToNotes = useCallback((procedureId) => {
-    setBook(prev => {
-      const procedure = prev.procedures.find(item => item.id === procedureId);
-      const surgeon = prev.surgeons.find(item => item.id === procedure?.surgeonId);
-      if (!procedure || !surgeon) return prev;
-      const id = uid();
-      const now = new Date().toISOString();
-      const copySurgeon = { ...surgeon, id, demo: false, archived: false, createdAt: now, addedBy: readTechName() };
-      delete copySurgeon.unitBook;
-      const copyProcedure = stripConfirmation({
-        ...procedure,
-        id: uid(),
-        surgeonId: id,
-        demo: false,
-        updatedAt: now,
-        baseUpdatedAt: now,
-      });
-      delete copyProcedure.unitBook;
-      return {
-        ...prev,
-        surgeons: [copySurgeon, ...prev.surgeons],
-        procedures: [copyProcedure, ...prev.procedures],
-      };
-    });
+    const result = copyUnitProcedure(bookRef.current, procedureId);
+    if (result.status === 'copied') {
+      bookRef.current = result.book;
+      setBook(result.book);
+    }
+    return result;
   }, []);
 
   const importIncoming = useCallback((incoming, options = {}) => {
