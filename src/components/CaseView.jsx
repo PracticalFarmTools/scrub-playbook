@@ -94,6 +94,8 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
   const [change, setChange] = useState('');
   const [phi, setPhi] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [manualText, setManualText] = useState('');
+  const [missing, setMissing] = useState(false);
   const pulled = targets.filter(item => checks[item.id]).length;
 
   useEffect(() => {
@@ -172,39 +174,47 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
     date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
   });
   const pauseOrText = () => {
+    if (!seen.trim() || !change.trim()) {
+      setMissing(true);
+      return null;
+    }
+    setMissing(false);
     const hits = findPhiSignals([cardSays, seen, change].join('\n'));
     if (hits.length) {
       setPhi(hits);
       return null;
     }
-    if (!seen.trim() || !change.trim()) return null;
     return draftSuggestion();
   };
-  const copySuggestion = async () => {
-    const text = pauseOrText();
-    if (!text) return;
+  const copyText = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      setManualText('');
       onSuggested?.();
     } catch {
       setCopied(false);
+      setManualText(text);
     }
+  };
+  const copySuggestion = async () => {
+    const text = pauseOrText();
+    if (text) await copyText(text);
   };
   const sendSuggestion = async () => {
     const text = pauseOrText();
     if (!text) return;
     if (typeof navigator.share !== 'function') {
-      await copySuggestion();
+      await copyText(text);
       return;
     }
     try {
       await navigator.share({ title: 'Preference card suggestion', text });
+      setManualText('');
       onSuggested?.();
     } catch (err) {
       if (err?.name === 'AbortError') return;
-      await navigator.clipboard.writeText(text);
-      onSuggested?.();
+      await copyText(text);
     }
   };
   const setDarkMode = (next) => {
@@ -406,17 +416,24 @@ export default function CaseView({ surgeon, procedure, staleDays, onClose, onSug
                   Suggested change
                   <textarea required value={change} onChange={e => setChange(e.target.value)} rows={3} className={`mt-1 w-full rounded-xl border px-3 py-2 text-lg ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} />
                 </label>
+                {missing && <p role="alert" className="text-lg font-semibold">Write what you saw in the room and the change you suggest.</p>}
                 <div className="flex flex-wrap gap-2">
                   <button type="submit" className={button}>Send</button>
                   <button type="button" onClick={copySuggestion} className={button}>{copied ? 'Copied' : 'Copy'}</button>
                   <button type="button" onClick={() => setSuggesting(false)} className={button}>Cancel</button>
                 </div>
+                {manualText && (
+                  <label className="block text-lg">
+                    This browser blocked copying. Select this text and copy it.
+                    <textarea readOnly value={manualText} rows={8} onFocus={e => e.target.select()} className={`mt-1 w-full rounded-xl border px-3 py-2 text-base ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} />
+                  </label>
+                )}
               </form>
             )}
           </div>
         )}
       </div>
-      {phi.length > 0 && <PhiPause signals={phi} onEdit={() => setPhi([])} />}
+      {phi.length > 0 && <PhiPause signals={phi} next="Take that detail out, then send the suggestion." onEdit={() => setPhi([])} />}
     </div>,
     document.body,
   );

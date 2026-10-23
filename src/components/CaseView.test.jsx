@@ -54,6 +54,39 @@ describe('CaseView', () => {
     expect(screen.queryByText('Suggest a card change')).toBeNull();
   });
 
+  it('asks for both fields on Copy and shows the text when copying is blocked', async () => {
+    const onSuggested = vi.fn();
+    const writeText = vi.fn(() => Promise.reject(new Error('blocked')));
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} onClose={() => {}} onSuggested={onSuggested} />);
+    fireEvent.click(screen.getByText('Suggest a card change'));
+    fireEvent.click(screen.getByText('Copy'));
+    expect(screen.getByRole('alert').textContent).toBe('Write what you saw in the room and the change you suggest.');
+    expect(writeText).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('In the room I saw'), { target: { value: 'Two laps on the field' } });
+    fireEvent.change(screen.getByLabelText('Suggested change'), { target: { value: 'Add a second lap' } });
+    fireEvent.click(screen.getByText('Copy'));
+    const manual = await screen.findByLabelText(/This browser blocked copying/);
+    expect(manual.value).toMatch(/^Preference card suggestion\nDr. Chen · Knee/);
+    expect(manual.value).toContain('Suggested change: Add a second lap');
+    expect(onSuggested).not.toHaveBeenCalled();
+  });
+
+  it('pauses a patient detail with wording for the suggestion', () => {
+    render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} onClose={() => {}} />);
+    fireEvent.click(screen.getByText('Suggest a card change'));
+    fireEvent.change(screen.getByLabelText('In the room I saw'), { target: { value: 'Patient #4471 needed more' } });
+    fireEvent.change(screen.getByLabelText('Suggested change'), { target: { value: 'Add a lap' } });
+    fireEvent.click(screen.getByText('Send'));
+    const pause = screen.getByRole('alertdialog');
+    expect(pause.textContent).toContain('then send the suggestion.');
+    expect(document.activeElement.textContent).toBe('Go back and edit');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByLabelText('In the room I saw')).toBeTruthy();
+  });
+
   it('says it is asking before the screen lock answers', () => {
     vi.stubGlobal('navigator', { ...navigator, wakeLock: { request: () => new Promise(() => {}) } });
     render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} onClose={() => {}} />);

@@ -300,7 +300,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
           <button type="button" onClick={save} className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Save procedure</button>
         </div>
       </div>
-      {phi.length > 0 && <PhiPause signals={phi} onEdit={() => setPhi([])} />}
+      {phi.length > 0 && <PhiPause signals={phi} next="Take that detail out, then save the setup." onEdit={() => setPhi([])} />}
     </div>
   );
 }

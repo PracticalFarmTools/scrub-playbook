@@ -230,7 +230,14 @@ export default function ImportCardModal({ book, onClose, onImport }) {
           )}
         </div>
       </div>
-      {preview?.phi?.length > 0 && <PhiPause signals={preview.phi} onEdit={() => setPreview(null)} />}
+      {preview?.phi?.length > 0 && (
+        <PhiPause
+          signals={preview.phi}
+          next="Nothing was saved. Ask the sender to take that detail out and share it again."
+          action="Go back"
+          onEdit={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }

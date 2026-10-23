@@ -154,7 +154,7 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
         <input required value={draft.procedureName} onChange={e => setDraft({ ...draft, procedureName: e.target.value })} placeholder="Procedure" className={field} aria-label="Procedure" />
         <button type="submit" className="col-span-2 sm:col-span-1 rounded-lg bg-slate-900 text-white text-sm font-bold cursor-pointer">Add</button>
       </form>
-      {phi.length > 0 && <PhiPause signals={phi} onEdit={() => setPhi([])} />}
+      {phi.length > 0 && <PhiPause signals={phi} next="Take that detail out, then add the line." onEdit={() => setPhi([])} />}
     </section>
   );
 }

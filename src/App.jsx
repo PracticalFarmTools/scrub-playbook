@@ -389,7 +389,7 @@ export default function App() {
           onSuggested={() => {
             const surgeon = book.surgeons.find(item => item.id === caseView.surgeonId);
             const procedure = book.procedures.find(item => item.id === caseView.procedureId);
-            addAudit({ action: 'Card change suggested.', surgeonName: surgeon?.name || '', note: procedure?.name || '' });
+            addAudit({ action: 'Card change suggested', surgeonName: surgeon?.name || '', note: procedure?.name || '' });
           }}
         />
       )}
