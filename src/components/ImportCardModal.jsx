@@ -138,6 +138,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   const card = preview?.parsed?.type === 'card' ? preview.parsed.book : null;
   const incomingSurgeon = card?.surgeons?.[0];
   const incomingProcedure = card?.procedures?.[0];
+  const incomingLines = (incomingSurgeon?.firstCase || []).filter(Boolean);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
@@ -179,6 +180,20 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                       Add to {surgeon.name} · {surgeon.specialty}
                     </button>
                   ))}
+                </div>
+              )}
+              {incomingLines.length > 0 && (
+                <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New to {incomingSurgeon?.name}</p>
+                  <ul className="mt-1.5 space-y-1">
+                    {incomingLines.map((line, index) => <li key={index} className="text-sm text-slate-700">• {line}</li>)}
+                  </ul>
+                  {['attach', 'duplicate'].includes(preview.classification?.kind) && (
+                    <p className="text-[11px] text-slate-500 mt-1.5">{preview.classification.surgeon.name} keeps the first-case lines already in your book. These lines are not added.</p>
+                  )}
+                  {preview.classification?.kind === 'ambiguous' && (
+                    <p className="text-[11px] text-slate-500 mt-1.5">These lines are added only with a new surgeon. A surgeon already in your book keeps their own lines.</p>
+                  )}
                 </div>
               )}
               <div className="rounded-xl border border-slate-200 max-h-72 overflow-y-auto">

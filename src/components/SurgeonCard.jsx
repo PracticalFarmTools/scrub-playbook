@@ -37,6 +37,7 @@ export default function SurgeonCard({
   const [editingDetails, setEditingDetails] = useState(false);
   const [name, setName] = useState(surgeon.name);
   const [place, setPlace] = useState(surgeon.facility || '');
+  const [detailsError, setDetailsError] = useState('');
   const [editingFirst, setEditingFirst] = useState(false);
   const [firstDraft, setFirstDraft] = useState(['', '', '']);
   const [phi, setPhi] = useState([]);
@@ -64,6 +65,11 @@ export default function SurgeonCard({
           {editingDetails ? (
             <form onSubmit={(e) => {
               e.preventDefault();
+              if (!name.trim()) {
+                setDetailsError('Add a name to save.');
+                return;
+              }
+              setDetailsError('');
               const next = { ...surgeon, name, facility: place };
               const hits = findPhiInSurgeon(next);
               if (hits.length) { setPhi(hits); return; }
@@ -72,7 +78,11 @@ export default function SurgeonCard({
             }} className="space-y-2">
               <input value={name} onChange={e => setName(e.target.value)} aria-label="Name" className="w-full min-w-0 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
               <input value={place} onChange={e => setPlace(e.target.value)} aria-label="Place" placeholder="Place" className="w-full min-w-0 rounded-lg bg-white/15 text-white text-sm px-2 py-1 border border-white/20" />
-              <button className="text-xs font-bold text-white cursor-pointer">Save</button>
+              {detailsError && <p role="alert" className="text-xs font-semibold text-rose-200">{detailsError}</p>}
+              <div className="flex gap-3">
+                <button type="submit" className="text-xs font-bold text-white cursor-pointer">Save</button>
+                <button type="button" onClick={() => { setDetailsError(''); setEditingDetails(false); }} className="text-xs font-bold text-medical-200 cursor-pointer">Cancel</button>
+              </div>
             </form>
           ) : (
             <h3 className="text-lg font-bold tracking-tight">{surgeon.name}</h3>
@@ -160,7 +170,7 @@ export default function SurgeonCard({
           <button type="button" onClick={() => { setFirstDraft(['', '', '']); setEditingFirst(true); }} className="text-[11px] font-bold text-medical-700 cursor-pointer">Add first-case notes</button>
         </div>
       )}
-      {phi.length > 0 && <PhiPause signals={phi} onEdit={() => setPhi([])} />}
+      {phi.length > 0 && <PhiPause signals={phi} next="Take that detail out, then save." onEdit={() => setPhi([])} />}
 
       {procedures.length === 0 && (
         <p className="px-5 py-6 text-sm text-slate-400">No procedure yet. Add the case the way the board writes it.</p>

@@ -50,11 +50,13 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
 
-  const filtered = useMemo(
-    () => filterBook(book, search, activeFacility),
-    [book, search, activeFacility],
-  );
   const labels = facilityLabels(book);
+  const placeFilter = activeFacility && labels.includes(activeFacility) ? activeFacility : null;
+  const filtered = useMemo(
+    () => filterBook(book, search, placeFilter),
+    [book, search, placeFilter],
+  );
+  const archivedCount = book.surgeons.filter(s => !s.demo && s.archived).length;
   const q = search.trim().toLowerCase();
   const vendorHits = q
     ? SURGICAL_VENDORS.filter(v => v.name.toLowerCase().includes(q) || v.blurb.toLowerCase().includes(q))
@@ -150,19 +152,19 @@ export default function App() {
     });
   };
 
-  const openProcedure = (procedure) => {
-    setSearch('');
-    setActiveFacility(null);
-    setHighlightId(procedure.id);
-  };
-
   const openCase = (surgeon, procedure) => {
     setCaseView({ surgeonId: surgeon.id, procedureId: procedure.id });
   };
 
   const openTodayCase = (procedure) => {
-    openProcedure(procedure);
-    setCaseView({ surgeonId: procedure.surgeonId, procedureId: procedure.id });
+    setSearch('');
+    setActiveFacility(null);
+    setCaseView({ surgeonId: procedure.surgeonId, procedureId: procedure.id, returnTo: procedure.id });
+  };
+
+  const closeCase = () => {
+    if (caseView?.returnTo) setHighlightId(caseView.returnTo);
+    setCaseView(null);
   };
 
   useEffect(() => {
@@ -223,9 +225,9 @@ export default function App() {
           </div>
           {labels.length > 1 && (
             <div className="flex gap-1.5 mt-2.5 overflow-x-auto">
-              <button onClick={() => setActiveFacility(null)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${!activeFacility ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>All places</button>
+              <button onClick={() => setActiveFacility(null)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${!placeFilter ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>All places</button>
               {labels.map(label => (
-                <button key={label} onClick={() => setActiveFacility(cur => cur === label ? null : label)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeFacility === label ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{label}</button>
+                <button key={label} onClick={() => setActiveFacility(placeFilter === label ? null : label)} className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${placeFilter === label ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{label}</button>
               ))}
             </div>
           )}
@@ -263,8 +265,10 @@ export default function App() {
           <EmptyState
             hasQuery={!!q}
             searchTerm={search}
+            archivedCount={book.surgeons.some(s => !s.archived) ? 0 : archivedCount}
             onAddSurgeon={() => setAddDraft({})}
             onPreview={!q ? () => bookApi.loadSamples(buildSampleBook()) : null}
+            onOpenPlaces={() => setShowPlaces(true)}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -385,7 +389,7 @@ export default function App() {
           surgeon={book.surgeons.find(item => item.id === caseView.surgeonId)}
           procedure={book.procedures.find(item => item.id === caseView.procedureId)}
           staleDays={STALE_AFTER_DAYS}
-          onClose={() => setCaseView(null)}
+          onClose={closeCase}
           onSuggested={() => {
             const surgeon = book.surgeons.find(item => item.id === caseView.surgeonId);
             const procedure = book.procedures.find(item => item.id === caseView.procedureId);
