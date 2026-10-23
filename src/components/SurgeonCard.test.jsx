@@ -86,6 +86,17 @@ describe('SurgeonCard', () => {
     expect(screen.queryByText('Supine')).toBeNull();
   });
 
+  it('offers Duplicate on a card from your own notes only', () => {
+    const onDuplicate = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [] };
+    const own = emptyProcedure('s1', { id: 'p1', name: 'Right total knee' });
+    const unit = emptyProcedure('s1', { id: 'p2', name: 'Left total knee', unitBook: { id: 'u1', revision: 2 } });
+    render(<SurgeonCard surgeon={surgeon} procedures={[own, unit]} staleDays={90} autoOpen onDuplicate={onDuplicate} onCopyToNotes={noop} {...handlers} />);
+    expect(screen.queryByRole('button', { name: 'Duplicate Left total knee' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate Right total knee' }));
+    expect(onDuplicate).toHaveBeenCalledWith(own);
+  });
+
   it('draws the highlight inside the highlighted card only', () => {
     const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
     const cards = [emptyProcedure('s1', { id: 'p1', name: 'Knee' }), emptyProcedure('s1', { id: 'p2', name: 'Hip' })];

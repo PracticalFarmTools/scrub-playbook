@@ -1,4 +1,4 @@
-import { CARD_STATUS, STALE_AFTER_DAYS } from './schema';
+import { CARD_STATUS, STALE_AFTER_DAYS, normalizeBlocks } from './schema';
 
 export function daysSince(iso, now = Date.now()) {
   if (!iso) return Infinity;
@@ -100,12 +100,13 @@ export function clearConfirmation(procedure, at = new Date().toISOString()) {
   };
 }
 
+/** What a confirmation vouches for. Checking against the official card is not a change to it. */
 function contentKey(procedure) {
   return JSON.stringify({
     name: procedure?.name || '',
     approach: procedure?.approach || '',
-    blocks: procedure?.blocks || {},
-    official: procedure?.official || {},
+    blocks: normalizeBlocks(procedure?.blocks),
+    official: { label: procedure?.official?.label || '', note: procedure?.official?.note || '' },
   });
 }
 

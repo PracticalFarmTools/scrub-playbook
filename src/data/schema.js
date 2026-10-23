@@ -127,6 +127,32 @@ export function emptyProcedure(surgeonId, partial = {}) {
   };
 }
 
+/**
+ * A new, unsaved card with the same setup, for the other side or a close variant. It starts
+ * unconfirmed, without board names, and not checked against the official card.
+ */
+export function duplicateProcedure(procedure) {
+  const blocks = normalizeBlocks(procedure?.blocks);
+  const fresh = (list) => list.map(item => ({ ...item, id: uid() }));
+  return emptyProcedure(procedure.surgeonId, {
+    name: `${procedure.name || 'Untitled case'} (copy)`,
+    approach: procedure.approach || '',
+    aliases: [],
+    official: { label: procedure.official?.label || '', note: procedure.official?.note || '', reviewedAt: null },
+    blocks: {
+      ...blocks,
+      gloves: { ...blocks.gloves },
+      steps: fresh(blocks.steps),
+      instruments: fresh(blocks.instruments),
+      trays: fresh(blocks.trays),
+      implants: fresh(blocks.implants),
+      sutures: fresh(blocks.sutures),
+      nicknames: blocks.nicknames.map(item => ({ ...item })),
+      people: blocks.people.map(item => ({ ...item })),
+    },
+  });
+}
+
 export function cleanSteps(steps = []) {
   return steps
     .filter(step => step?.title?.trim())

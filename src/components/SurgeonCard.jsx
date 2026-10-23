@@ -33,6 +33,7 @@ export default function SurgeonCard({
   onDeleteSurgeon,
   onDeleteProcedure,
   onEdit,
+  onDuplicate,
   onAddProcedure,
   onConfirm,
   onDispute,
@@ -242,7 +243,12 @@ export default function SurgeonCard({
                           {(trustProcedures || procedures).some(item => item.copiedFrom === procedure.id && !item.unitBook) ? 'Go to my copy' : 'Copy to my notes'}
                         </button>
                       ) : (
-                        <button type="button" onClick={() => onEdit(procedure)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">Edit</button>
+                        <>
+                          <button type="button" onClick={() => onEdit(procedure)} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">Edit</button>
+                          {onDuplicate && (
+                            <button type="button" onClick={() => onDuplicate(procedure)} aria-label={`Duplicate ${procedure.name}`} className="text-xs font-bold text-medical-700 bg-medical-50 rounded-lg px-3 min-h-11 cursor-pointer">Duplicate</button>
+                          )}
+                        </>
                       )}
                       <button type="button" onClick={() => onConfirm(procedure)} className="text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg px-3 min-h-11 cursor-pointer">I was in this case</button>
                       {procedure.disputed ? (

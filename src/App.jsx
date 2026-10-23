@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { BookOpen, Download, MapPin, Menu, Plus, Upload, WifiOff } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
-import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, emptyProcedure } from './data/schema';
+import { CARD_STATUS, CHANGES_KEY, HOME_SCREEN_KEY, LAST_EXPORT_KEY, SORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, duplicateProcedure, emptyProcedure } from './data/schema';
 import { personId, rowTrust, trustState, withConfirmation } from './data/trust';
 import { SORT_CHOICES, facilityLabels, filterBook, sortSurgeons } from './data/searchBook';
 import { parseImport, restoreExtras, toBackup, toPlacePack } from './data/share';
@@ -549,6 +549,7 @@ export default function App() {
                   if (!surgeon.demo) offerUndo(`Deleted ${name || 'the procedure'} for ${surgeon.name}.`, removed);
                 }}
                 onEdit={(procedure) => setEditor({ surgeon, procedure })}
+                onDuplicate={(procedure) => setEditor({ surgeon, procedure: duplicateProcedure(procedure), copyOf: procedure.name })}
                 onAddProcedure={() => setEditor({ surgeon, procedure: emptyProcedure(surgeon.id, { name: '' }) })}
                 onConfirm={(procedure) => setConfirmTarget(procedure)}
                 onDispute={(procedure, reason) => {
@@ -617,6 +618,7 @@ export default function App() {
           <ProcedureEditor
             surgeon={editor.surgeon}
             procedure={editor.procedure}
+            copyOf={editor.copyOf || ''}
             allowSpeech={!dictationOff(book, published)}
             allowOfficial
             onClose={() => setEditor(null)}

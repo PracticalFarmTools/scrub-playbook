@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import { SURGICAL_GLOVES, GLOVE_SIZES, GLOVE_COLOR_HEX } from '../data/gloves';
 import { NEEDLE_TYPES, SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
@@ -32,16 +32,65 @@ function gloveFromId(id, size) {
   return { productId: glove.id, model: glove.model, brand: glove.brand, color: glove.color, size };
 }
 
-export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allowOfficial, onClose, onSave }) {
-  const [draft, setDraft] = useState(() => ({ ...procedure, blocks: normalizeBlocks(procedure.blocks) }));
+const SECTIONS = [
+  ['editor-case', 'Case'],
+  ['editor-room', 'Room'],
+  ['editor-gloves', 'Gloves'],
+  ['editor-flow', 'Flow'],
+  ['editor-instruments', 'Instruments'],
+  ['editor-trays', 'Trays'],
+  ['editor-sutures', 'Sutures'],
+  ['editor-implants', 'Implants'],
+  ['editor-nicknames', 'Nicknames'],
+  ['editor-people', 'People'],
+  ['editor-end', 'End'],
+  ['editor-official', 'Official card'],
+];
+
+function editorKey(draft, aliasText) {
+  return JSON.stringify({ draft, aliasText });
+}
+
+export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allowSpeech, allowOfficial, onClose, onSave }) {
+  const [start] = useState(() => {
+    const first = { ...procedure, blocks: normalizeBlocks(procedure.blocks) };
+    const aliases = cleanAliases(procedure.aliases).join(', ');
+    return { draft: first, aliases, key: editorKey(first, aliases) };
+  });
+  const [draft, setDraft] = useState(start.draft);
   const [phi, setPhi] = useState([]);
-  const [aliasText, setAliasText] = useState(() => cleanAliases(procedure.aliases).join(', '));
+  const [aliasText, setAliasText] = useState(start.aliases);
+  const [leaving, setLeaving] = useState(false);
+  const nameRef = useRef(null);
   const [sutureName, setSutureName] = useState(SUTURE_LIBRARY[0].name);
   const [sutureSize, setSutureSize] = useState('3-0');
   const [needle, setNeedle] = useState('CT-1');
   const [layer, setLayer] = useState('Fascia');
   const implants = useMemo(() => productsByKind('implant'), []);
-  const dialogRef = useDialog({ onClose });
+  const dirty = Boolean(copyOf) || editorKey(draft, aliasText) !== start.key;
+  const requestClose = () => (dirty ? setLeaving(true) : onClose());
+  const unnamed = !procedure.name || procedure.name === 'All cases (imported)';
+  const dialogRef = useDialog({ onClose: requestClose, initialFocus: copyOf || unnamed ? nameRef : undefined });
+
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  const jump = (id) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView?.({ block: 'start' });
+    target.focus({ preventScroll: true });
+  };
+  const sections = SECTIONS.filter(([id]) => id !== 'editor-official' || allowOfficial);
+  const checkedOfficial = () => setDraft(d => ({ ...d, official: { ...d.official, reviewedAt: new Date().toISOString() } }));
+  const reviewedAt = draft.official?.reviewedAt;
 
   const blocks = draft.blocks;
   const setBlocks = (next) => setDraft(d => ({ ...d, blocks: { ...d.blocks, ...next } }));
@@ -67,70 +116,89 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
   const input = 'w-full min-h-11 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-medical-400/50';
   const label = 'block text-xs font-bold text-slate-600 uppercase tracking-widest mb-1.5';
   const small = 'min-h-11 min-w-11 px-2 text-xs font-bold cursor-pointer';
+  const sectionClass = 'space-y-3 scroll-mt-2 focus:outline-none';
+  const heading = 'text-sm font-bold text-medical-700';
   const add = 'min-h-11 text-xs font-bold text-medical-700 disabled:opacity-40 cursor-pointer inline-flex items-center gap-1';
 
   return (
     <div className="fixed inset-0 z-50" style={{ background: 'rgba(15,23,42,0.5)' }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="procedure-editor-title" className="absolute inset-y-0 right-0 w-full sm:max-w-lg bg-white shadow-2xl flex flex-col focus:outline-none">
         <div className="shrink-0 bg-gradient-to-r from-medical-700 to-medical-800 px-3 py-1 flex items-center justify-between">
-          <button type="button" onClick={onClose} className="tap-icon gap-1 px-2 text-medical-100 hover:text-white text-sm font-medium cursor-pointer">
+          <button type="button" onClick={requestClose} className="tap-icon gap-1 px-2 text-medical-100 hover:text-white text-sm font-medium cursor-pointer">
             <ChevronLeft size={18} /> Cancel
           </button>
           <h2 id="procedure-editor-title" className="text-white font-bold text-sm truncate px-2">{surgeon.name}</h2>
           <button type="button" onClick={save} className="min-h-11 px-4 bg-white/15 hover:bg-white/25 text-white text-sm font-bold rounded-lg cursor-pointer">Save</button>
         </div>
+        <nav aria-label="Jump to a section" className="shrink-0 flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-1">
+          {sections.map(([id, name]) => (
+            <button key={id} type="button" onClick={() => jump(id)} className="shrink-0 min-h-11 px-3 rounded-full text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer">{name}</button>
+          ))}
+        </nav>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+          {copyOf && (
+            <p className="text-sm text-medical-900 bg-medical-50 border border-medical-200 rounded-xl px-3 py-2">
+              A copy of {copyOf}. Change the name and the side, then save. It starts unconfirmed.
+            </p>
+          )}
           {(procedure.confirmations?.length > 0 || procedure.lastConfirmedAt) && !procedure.disputed && (
             <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
               A change clears “Matched a case.” Confirm it again after the next case that matches.
             </p>
           )}
-          <div>
-            <label htmlFor="procedure-name" className={label}>Procedure, as the board writes it</label>
-            <input id="procedure-name" value={draft.name === 'All cases (imported)' ? '' : draft.name} placeholder="Right primary total knee" onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} className={input} />
-          </div>
-          <div>
-            <label htmlFor="procedure-approach" className={label}>Approach</label>
-            <input id="procedure-approach" list="scrub-approaches" maxLength={60} value={draft.approach || ''} placeholder="Anterior, laparoscopic, open" onChange={e => setDraft(d => ({ ...d, approach: e.target.value.slice(0, 60) }))} className={input} />
-            <datalist id="scrub-approaches">{APPROACHES.map(item => <option key={item} value={item} />)}</datalist>
-          </div>
-          <div>
-            <label htmlFor="procedure-aliases" className={label}>Other names on the board</label>
-            <input
-              id="procedure-aliases"
-              value={aliasText}
-              placeholder="R TKA, DAA THA"
-              onChange={e => setAliasText(e.target.value)}
-              className={input}
-            />
-            <p className="text-xs text-slate-600 mt-1">Separate with commas. A board line with one of these names opens this card. Sides still have to match.</p>
-          </div>
-          <div>
-            <label htmlFor="procedure-position" className={label}>Position</label>
-            <textarea id="procedure-position" value={blocks.position?.text || ''} rows={2} placeholder="Supine, arms out on boards" onChange={e => setBlocks({ position: { ...blocks.position, text: e.target.value } })} className={input} />
-          </div>
-          <div>
-            <label htmlFor="procedure-prep" className={label}>Prep</label>
-            <textarea id="procedure-prep" value={blocks.prep?.text || ''} rows={2} placeholder="Chlorhexidine, toes to mid-thigh" onChange={e => setBlocks({ prep: { ...blocks.prep, text: e.target.value } })} className={input} />
-          </div>
-          <div>
-            <label htmlFor="procedure-drapes" className={label}>Drapes</label>
-            <textarea id="procedure-drapes" value={blocks.drapes?.text || ''} rows={2} placeholder="Extremity drape, stockinette, Ioban" onChange={e => setBlocks({ drapes: { ...blocks.drapes, text: e.target.value } })} className={input} />
-          </div>
+          <section id="editor-case" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Case</h3>
+            <div>
+              <label htmlFor="procedure-name" className={label}>Procedure, as the board writes it</label>
+              <input ref={nameRef} id="procedure-name" value={draft.name === 'All cases (imported)' ? '' : draft.name} placeholder="Right primary total knee" onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} className={input} />
+            </div>
+            <div>
+              <label htmlFor="procedure-approach" className={label}>Approach</label>
+              <input id="procedure-approach" list="scrub-approaches" maxLength={60} value={draft.approach || ''} placeholder="Anterior, laparoscopic, open" onChange={e => setDraft(d => ({ ...d, approach: e.target.value.slice(0, 60) }))} className={input} />
+              <datalist id="scrub-approaches">{APPROACHES.map(item => <option key={item} value={item} />)}</datalist>
+            </div>
+            <div>
+              <label htmlFor="procedure-aliases" className={label}>Other names on the board</label>
+              <input
+                id="procedure-aliases"
+                value={aliasText}
+                placeholder="R TKA, DAA THA"
+                onChange={e => setAliasText(e.target.value)}
+                className={input}
+              />
+              <p className="text-xs text-slate-600 mt-1">Separate with commas. A board line with one of these names opens this card. Sides still have to match.</p>
+            </div>
+          </section>
 
-          <div>
-            <label htmlFor="procedure-room" className={label}>How the room starts</label>
-            <textarea id="procedure-room" value={blocks.room.text} rows={2} placeholder="Lights down, quiet room" onChange={e => setBlocks({ room: { ...blocks.room, text: e.target.value } })} className={input} />
-          </div>
+          <section id="editor-room" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Room</h3>
+            <div>
+              <label htmlFor="procedure-position" className={label}>Position</label>
+              <textarea id="procedure-position" value={blocks.position?.text || ''} rows={2} placeholder="Supine, arms out on boards" onChange={e => setBlocks({ position: { ...blocks.position, text: e.target.value } })} className={input} />
+            </div>
+            <div>
+              <label htmlFor="procedure-prep" className={label}>Prep</label>
+              <textarea id="procedure-prep" value={blocks.prep?.text || ''} rows={2} placeholder="Chlorhexidine, toes to mid-thigh" onChange={e => setBlocks({ prep: { ...blocks.prep, text: e.target.value } })} className={input} />
+            </div>
+            <div>
+              <label htmlFor="procedure-drapes" className={label}>Drapes</label>
+              <textarea id="procedure-drapes" value={blocks.drapes?.text || ''} rows={2} placeholder="Extremity drape, stockinette, Ioban" onChange={e => setBlocks({ drapes: { ...blocks.drapes, text: e.target.value } })} className={input} />
+            </div>
 
-          <div>
-            <label htmlFor="procedure-equipment" className={label}>Equipment and settings</label>
-            <textarea id="procedure-equipment" value={blocks.equipment.text} rows={2} placeholder="Bovie 35/35. Tourniquet 250." onChange={e => setBlocks({ equipment: { ...blocks.equipment, text: e.target.value } })} className={input} />
-          </div>
+            <div>
+              <label htmlFor="procedure-room" className={label}>How the room starts</label>
+              <textarea id="procedure-room" value={blocks.room.text} rows={2} placeholder="Lights down, quiet room" onChange={e => setBlocks({ room: { ...blocks.room, text: e.target.value } })} className={input} />
+            </div>
 
-          <section className="space-y-3">
-            <p className="text-sm font-bold text-medical-700">Gloves</p>
+            <div>
+              <label htmlFor="procedure-equipment" className={label}>Equipment and settings</label>
+              <textarea id="procedure-equipment" value={blocks.equipment.text} rows={2} placeholder="Bovie 35/35. Tourniquet 250." onChange={e => setBlocks({ equipment: { ...blocks.equipment, text: e.target.value } })} className={input} />
+            </div>
+          </section>
+
+          <section id="editor-gloves" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Gloves</h3>
             {['outer', 'inner'].map(which => (
               <div key={which} className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
@@ -154,8 +222,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             ))}
           </section>
 
-          <section className="space-y-2">
-            <p className="text-sm font-bold text-medical-700">Case flow</p>
+          <section id="editor-flow" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Case flow</h3>
             {(blocks.steps || []).map((step, index) => (
               <div key={step.id} className="space-y-2 border border-slate-100 rounded-xl p-3">
                 <input aria-label={`Step ${index + 1}`} value={step.title} maxLength={80} placeholder="Step" onChange={e => setBlocks({ steps: blocks.steps.map((item, i) => i === index ? { ...item, title: e.target.value } : item) })} className={input} />
@@ -179,8 +247,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <button type="button" disabled={(blocks.steps || []).length >= 30} onClick={() => setBlocks({ steps: [...(blocks.steps || []), { id: uid(), title: '', ready: '', habit: '' }] })} className={add}><Plus size={14} /> Add step</button>
           </section>
 
-          <section className="space-y-2">
-            <p className="text-sm font-bold text-medical-700">Instruments</p>
+          <section id="editor-instruments" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Instruments</h3>
             {(blocks.instruments || []).map((item, index) => (
               <div key={item.id} className="grid grid-cols-2 gap-2">
                 <input aria-label={`Instrument ${index + 1}`} value={item.name} maxLength={80} placeholder="Instrument" onChange={e => setBlocks({ instruments: blocks.instruments.map((row, i) => i === index ? { ...row, name: e.target.value } : row) })} className={input} />
@@ -200,8 +268,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <button type="button" disabled={(blocks.instruments || []).length >= 60} onClick={() => setBlocks({ instruments: [...(blocks.instruments || []), { id: uid(), name: '', from: '', mayo: false }] })} className={add}><Plus size={14} /> Add instrument</button>
           </section>
 
-          <section className="space-y-2">
-            <p className="text-sm font-bold text-medical-700">Trays</p>
+          <section id="editor-trays" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Trays</h3>
             {blocks.trays.map((tray, index) => (
               <div key={tray.id} className="grid grid-cols-2 gap-2">
                 <input aria-label={`Tray ${index + 1}, what the team calls it`} value={tray.commonName} placeholder="What the team calls it" onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, commonName: e.target.value } : t) })} className={input} />
@@ -219,8 +287,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <button type="button" onClick={() => setBlocks({ trays: [...blocks.trays, { id: uid(), commonName: '', spdName: '', vendorName: '', openOrHold: 'open' }] })} className={add}><Plus size={14} /> Add tray</button>
           </section>
 
-          <section className="space-y-2">
-            <p className="text-sm font-bold text-medical-700">Sutures</p>
+          <section id="editor-sutures" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Sutures</h3>
             <div className="grid grid-cols-2 gap-2">
               <SearchableDropdown label="Suture" options={SUTURE_OPTIONS} value={sutureName} onChange={setSutureName} placeholder="Suture" renderSelected={opt => (
                 <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: opt.color }} />{opt.label}</span>
@@ -253,8 +321,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             ))}
           </section>
 
-          <section className="space-y-2">
-            <p className="text-sm font-bold text-medical-700">Implants</p>
+          <section id="editor-implants" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Implants</h3>
             {blocks.implants.map((implant, index) => (
               <div key={implant.id} className="space-y-2 border border-slate-100 rounded-xl p-3">
                 <input aria-label={`Implant ${index + 1}, system name`} value={implant.systemName} placeholder="System name, such as ATTUNE" onChange={e => setBlocks({ implants: blocks.implants.map((t, i) => i === index ? { ...t, systemName: e.target.value, productId: implants.find(p => p.name === e.target.value)?.id || t.productId } : t) })} className={input} />
@@ -276,8 +344,8 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
           </section>
 
           
-          <section className="space-y-2">
-            <p className="text-sm font-bold text-medical-700">Nicknames</p>
+          <section id="editor-nicknames" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Nicknames</h3>
             <NicknameAdder onAdd={(nickname) => setBlocks({ nicknames: [...blocks.nicknames, nickname] })} />
             {blocks.nicknames.map((nick, index) => (
               <div key={`${nick.nickname}-${index}`} className="flex items-center justify-between text-sm bg-slate-900 text-white rounded-xl pl-3">
@@ -289,29 +357,38 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
 
           <PeopleEditor people={blocks.people} onChange={(people) => setBlocks({ people })} />
 
-          <div>
-            <label htmlFor="procedure-end" className={label}>Dressing and end of case</label>
-            <textarea id="procedure-end" value={blocks.endOfCase.text} rows={2} placeholder="Dressing, drains, specimens" onChange={e => setBlocks({ endOfCase: { ...blocks.endOfCase, text: e.target.value } })} className={input} />
-          </div>
+          <section id="editor-end" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>End of case</h3>
+            <div>
+              <label htmlFor="procedure-end" className={label}>Dressing and end of case</label>
+              <textarea id="procedure-end" value={blocks.endOfCase.text} rows={2} placeholder="Dressing, drains, specimens" onChange={e => setBlocks({ endOfCase: { ...blocks.endOfCase, text: e.target.value } })} className={input} />
+            </div>
 
-          <div>
-            <label htmlFor="procedure-note" className={label}>Note</label>
-            <div className="relative">
-              <textarea id="procedure-note" value={blocks.note.text} rows={4} onChange={e => setBlocks({ note: { ...blocks.note, text: e.target.value } })} className={input + ' pr-14'} placeholder="Sequence that does not fit a field." />
+            <div>
+              <label htmlFor="procedure-note" className={label}>Note</label>
+              <div className="relative">
+                <textarea id="procedure-note" value={blocks.note.text} rows={4} onChange={e => setBlocks({ note: { ...blocks.note, text: e.target.value } })} className={input + ' pr-14'} placeholder="Sequence that does not fit a field." />
+                {allowSpeech && (
+                  <MicButton className="absolute right-2 top-2" onTranscript={(text) => setBlocks({ note: { ...blocks.note, text: `${blocks.note.text ? `${blocks.note.text.trim()} ` : ''}${text}` } })} />
+                )}
+              </div>
               {allowSpeech && (
-                <MicButton className="absolute right-2 top-2" onTranscript={(text) => setBlocks({ note: { ...blocks.note, text: `${blocks.note.text ? `${blocks.note.text.trim()} ` : ''}${text}` } })} />
+                <p className="text-xs text-slate-600 mt-1">Dictation sends audio to your browser’s speech service. Do not say a patient’s name.</p>
               )}
             </div>
-            {allowSpeech && (
-              <p className="text-xs text-slate-600 mt-1">Dictation sends audio to your browser’s speech service. Do not say a patient’s name.</p>
-            )}
-          </div>
+          </section>
 
           {allowOfficial && (
-            <section className="space-y-2 border border-slate-200 rounded-xl p-3">
-              <p className="text-sm font-bold text-slate-700">Official card pointer</p>
-              <input aria-label="Official card name" value={draft.official?.label || ''} placeholder="Epic preference card" onChange={e => setDraft(d => ({ ...d, official: { ...d.official, label: e.target.value, reviewedAt: new Date().toISOString() } }))} className={input} />
-              <textarea aria-label="What the official card says" value={draft.official?.note || ''} rows={2} placeholder="What the official card says, in your words" onChange={e => setDraft(d => ({ ...d, official: { ...d.official, note: e.target.value, reviewedAt: new Date().toISOString() } }))} className={input} />
+            <section id="editor-official" tabIndex={-1} className={`${sectionClass} border border-slate-200 rounded-xl p-3`}>
+              <h3 className={heading}>Official card</h3>
+              <input aria-label="Official card name" value={draft.official?.label || ''} placeholder="Epic preference card" onChange={e => setDraft(d => ({ ...d, official: { ...d.official, label: e.target.value } }))} className={input} />
+              <textarea aria-label="What the official card says" value={draft.official?.note || ''} rows={2} placeholder="What the official card says, in your words" onChange={e => setDraft(d => ({ ...d, official: { ...d.official, note: e.target.value } }))} className={input} />
+              <p className="text-xs text-slate-600" aria-live="polite">
+                {reviewedAt
+                  ? `Checked against the official card ${new Date(reviewedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}.`
+                  : 'Not checked against the official card yet.'}
+              </p>
+              <button type="button" onClick={checkedOfficial} className="min-h-11 px-4 rounded-xl bg-slate-100 text-slate-800 text-sm font-bold cursor-pointer">I checked the official card today</button>
             </section>
           )}
         </div>
@@ -321,6 +398,24 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
         </div>
       </div>
       {phi.length > 0 && <PhiPause signals={phi} next="Take that detail out, then save the setup." onEdit={() => setPhi([])} />}
+      {leaving && <DiscardPrompt name={draft.name || 'this card'} onKeep={() => setLeaving(false)} onDiscard={onClose} />}
+    </div>
+  );
+}
+
+function DiscardPrompt({ name, onKeep, onDiscard }) {
+  const keepRef = useRef(null);
+  const dialogRef = useDialog({ onClose: onKeep, initialFocus: keepRef });
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
+      <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby="discard-title" aria-describedby="discard-body" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-3 focus:outline-none">
+        <h2 id="discard-title" className="text-base font-bold text-slate-900">Leave without saving?</h2>
+        <p id="discard-body" className="text-sm text-slate-700">Your changes to {name} are not saved yet.</p>
+        <div className="flex flex-col gap-2">
+          <button ref={keepRef} type="button" onClick={onKeep} className="min-h-11 rounded-xl bg-medical-600 text-white text-sm font-bold cursor-pointer">Keep editing</button>
+          <button type="button" onClick={onDiscard} className="min-h-11 rounded-xl bg-rose-50 text-rose-800 text-sm font-bold cursor-pointer">Discard changes</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -343,8 +438,8 @@ function PeopleEditor({ people, onChange }) {
   const [role, setRole] = useState('PA');
   const input = 'w-full min-h-11 rounded-xl bg-slate-50 border border-slate-200 text-sm px-3 py-2';
   return (
-    <section className="space-y-2">
-      <p className="text-sm font-bold text-medical-700">People in the room</p>
+    <section id="editor-people" tabIndex={-1} className="space-y-3 scroll-mt-2 focus:outline-none">
+      <h3 className="text-sm font-bold text-medical-700">People in the room</h3>
       <div className="flex gap-2">
         <input aria-label="Person’s name" value={name} onChange={e => setName(e.target.value)} placeholder="Name" className={input} />
         <select aria-label="Role" value={role} onChange={e => setRole(e.target.value)} className={input}>

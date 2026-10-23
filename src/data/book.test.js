@@ -6,7 +6,7 @@ import { resolveProductLink } from './productLink';
 import { archivePlace, countLine, deletePlace } from './places';
 import { facilityLabels, filterBook } from './searchBook';
 import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, parseImport, placeIncomingCard, qrFits, shareMessage, suggestionText, toBackup, toGlanceText, toPlacePack, toShareableCard } from './share';
-import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
+import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, duplicateProcedure, emptyBlocks, emptyProcedure, normalizeBlocks, textBlock } from './schema';
 import { requestPersistentStorage } from './storage';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
@@ -148,6 +148,59 @@ describe('trust', () => {
     expect(edited.lastConfirmedAt).toBeNull();
     const approachOnly = applySave(confirmed, { ...confirmed, approach: 'Anterior' }, '2026-10-05T00:00:00.000Z');
     expect(approachOnly.confirmations).toEqual([]);
+  });
+
+  it('keeps a match when the card is only checked against the official card or opened with empty sections filled in', () => {
+    const confirmed = withConfirmation({
+      ...base,
+      name: 'Right total knee',
+      blocks: { note: { text: 'Damp lap' } },
+      official: { label: 'Epic card', note: '', reviewedAt: null },
+    }, { name: 'Alex', at: '2026-10-01T00:00:00.000Z' });
+    const checked = applySave(confirmed, {
+      ...confirmed,
+      blocks: normalizeBlocks(confirmed.blocks),
+      official: { ...confirmed.official, reviewedAt: '2026-10-04T00:00:00.000Z' },
+    }, '2026-10-05T00:00:00.000Z');
+    expect(checked.confirmations).toHaveLength(1);
+    expect(checked.official.reviewedAt).toBe('2026-10-04T00:00:00.000Z');
+    const relabeled = applySave(confirmed, { ...confirmed, official: { ...confirmed.official, label: 'Cerner card' } }, '2026-10-05T00:00:00.000Z');
+    expect(relabeled.confirmations).toEqual([]);
+  });
+
+  it('duplicates a card as a new unconfirmed card with its own item ids', () => {
+    const source = withConfirmation({
+      ...base,
+      name: 'Right total knee',
+      approach: 'Medial parapatellar',
+      aliases: ['R TKA'],
+      disputed: true,
+      reportNote: 'Wrong tray',
+      unitBook: { id: 'u1', place: 'Main', revision: 3 },
+      official: { label: 'Epic card', note: 'Two lap sponges', reviewedAt: '2026-10-01T00:00:00.000Z' },
+      blocks: {
+        position: { text: 'Supine' },
+        steps: [{ id: 'step-1', title: 'Exposure', ready: 'Retractors', habit: '' }],
+        trays: [{ id: 'tray-1', commonName: 'Major', spdName: 'MAJ-1', vendorName: '', openOrHold: 'open' }],
+      },
+    }, { name: 'Alex', at: '2026-10-01T00:00:00.000Z' });
+    const copy = duplicateProcedure(source);
+    expect(copy.id).not.toBe(source.id);
+    expect(copy.surgeonId).toBe(source.surgeonId);
+    expect(copy.name).toBe('Right total knee (copy)');
+    expect(copy.approach).toBe('Medial parapatellar');
+    expect(copy.aliases).toEqual([]);
+    expect(copy.confirmations).toEqual([]);
+    expect(copy.disputed).toBe(false);
+    expect(copy.reportNote).toBe('');
+    expect(copy.unitBook).toBeUndefined();
+    expect(copy.official).toEqual({ label: 'Epic card', note: 'Two lap sponges', reviewedAt: null });
+    expect(copy.blocks.position.text).toBe('Supine');
+    expect(copy.blocks.steps[0]).toMatchObject({ title: 'Exposure', ready: 'Retractors' });
+    expect(copy.blocks.steps[0].id).not.toBe('step-1');
+    expect(copy.blocks.trays[0].id).not.toBe('tray-1');
+    copy.blocks.steps[0].title = 'Changed';
+    expect(source.blocks.steps[0].title).toBe('Exposure');
   });
 
   it('goes stale from the clock', () => {

@@ -56,7 +56,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         {procedure.official?.label && (
           <p className="mt-2 text-xs text-slate-500">
             Official card: {procedure.official.label}
-            {procedure.official.reviewedAt && ` · reviewed ${new Date(procedure.official.reviewedAt).toLocaleDateString()}`}
+            {procedure.official.reviewedAt && ` · checked ${new Date(procedure.official.reviewedAt).toLocaleDateString()}`}
           </p>
         )}
       </div>
