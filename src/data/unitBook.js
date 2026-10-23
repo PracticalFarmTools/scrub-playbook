@@ -1,11 +1,21 @@
 import { BOOK_VERSION, PUBLISHED_KEY, normalizeBlocks, uid } from './schema';
-import { applySave, stripConfirmation } from './trust';
+import { inPlaceGroup } from './places';
+import { applySave, sameContent, stripConfirmation } from './trust';
 
 export function readPublished() {
   try {
     return JSON.parse(localStorage.getItem(PUBLISHED_KEY) || '{}') || {};
   } catch {
     return {};
+  }
+}
+
+export function savePublished(published) {
+  try {
+    localStorage.setItem(PUBLISHED_KEY, JSON.stringify(published || {}));
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -17,19 +27,33 @@ export function unitRevision(book, unitBookId) {
 }
 
 export function unitPreviewText(file) {
-  return `Unit book for ${file?.place}, revision ${file?.revision} from ${file?.publishedBy}.`;
+  return `Unit book for ${file?.place}, revision ${file?.revision} from ${file?.publishedBy || 'a tech'}.`;
 }
 
-export function publishUnitBook(book, place, fromName, { now = new Date().toISOString(), published = readPublished(), persist = true } = {}) {
+export function isOwnUnitBook(file, published = readPublished()) {
+  return Object.values(published || {}).some(entry => entry?.unitBookId && entry.unitBookId === file?.unitBookId);
+}
+
+/** Surgeons already on this phone under the same id that this unit book does not own yet, such as a hand-off copy. */
+export function unitConflicts(current, file) {
+  const ids = new Set((file?.book?.surgeons || []).filter(surgeon => !surgeon.demo).map(surgeon => surgeon.id));
+  return (current?.surgeons || []).filter(surgeon => (
+    !surgeon.demo && ids.has(surgeon.id) && surgeon.unitBook?.id !== file?.unitBookId
+  ));
+}
+
+export function namesList(surgeons) {
+  return (surgeons || []).map(surgeon => surgeon.name).filter(Boolean).join(', ');
+}
+
+/** Returns the next published map. Save it with savePublished once the file has gone out. */
+export function publishUnitBook(book, place, fromName, { now = new Date().toISOString(), published = readPublished() } = {}) {
   const current = published[place] || {};
   const unitBookId = current.unitBookId || uid();
   const revision = (Number(current.revision) || 0) + 1;
   const nextPublished = { ...published, [place]: { unitBookId, revision } };
-  if (persist) {
-    try { localStorage.setItem(PUBLISHED_KEY, JSON.stringify(nextPublished)); } catch { /* the file is still returned */ }
-  }
   const surgeons = (book?.surgeons || [])
-    .filter(surgeon => !surgeon.demo && !surgeon.archived && (surgeon.facility || '') === place)
+    .filter(surgeon => inPlaceGroup(surgeon, place, false))
     .map(surgeon => {
       const copy = { ...surgeon, archived: false };
       delete copy.unitBook;
@@ -41,6 +65,7 @@ export function publishUnitBook(book, place, fromName, { now = new Date().toISOS
     .map(procedure => {
       const copy = stripConfirmation({ ...procedure, blocks: normalizeBlocks(procedure.blocks) });
       delete copy.unitBook;
+      delete copy.copiedFrom;
       return copy;
     });
   return {
@@ -62,19 +87,34 @@ function stampedSurgeon(surgeon, stamp) {
   return { ...surgeon, demo: false, archived: false, unitBook: stamp };
 }
 
-export function applyUnitBook(current, file) {
+function noCounts() {
+  return { added: 0, changed: 0, removed: 0, kept: [] };
+}
+
+/**
+ * A surgeon this phone already keeps under the same id is left alone unless `adopt` is set.
+ * With `adopt`, that surgeon and its matching procedures follow the unit book from now on.
+ */
+export function applyUnitBook(current, file, { adopt = false, published = readPublished() } = {}) {
   const unitBookId = file?.unitBookId;
   const revision = Number(file?.revision) || 0;
+  if (isOwnUnitBook(file, published)) return { status: 'own', revision, book: current, counts: noCounts() };
   const had = unitRevision(current, unitBookId);
-  if (had && revision <= had) return { status: 'older', revision: had, book: current };
+  if (had && revision <= had) return { status: 'older', revision: had, book: current, counts: noCounts() };
 
   const stamp = { id: unitBookId, revision };
-  const personalSurgeonIds = new Set((current?.surgeons || []).filter(surgeon => !surgeon.unitBook).map(surgeon => surgeon.id));
+  const conflicts = unitConflicts(current, file);
+  const conflictIds = new Set(conflicts.map(surgeon => surgeon.id));
+  const blockedIds = adopt ? new Set() : conflictIds;
+  const adoptedIds = adopt ? conflictIds : new Set();
+  const counts = { ...noCounts(), kept: adopt ? [] : conflicts };
+
   const incomingSurgeons = (file?.book?.surgeons || [])
-    .filter(surgeon => !surgeon.demo && !personalSurgeonIds.has(surgeon.id))
+    .filter(surgeon => !surgeon.demo && !blockedIds.has(surgeon.id))
     .map(surgeon => stampedSurgeon(surgeon, stamp));
+  const incomingSurgeonIds = new Set(incomingSurgeons.map(surgeon => surgeon.id));
   const incomingProcedures = (file?.book?.procedures || [])
-    .filter(procedure => !procedure.demo && !personalSurgeonIds.has(procedure.surgeonId))
+    .filter(procedure => !procedure.demo && incomingSurgeonIds.has(procedure.surgeonId))
     .map(procedure => ({
       ...procedure,
       approach: procedure.approach || '',
@@ -82,12 +122,14 @@ export function applyUnitBook(current, file) {
       unitBook: stamp,
       demo: false,
     }));
-  const incomingSurgeonIds = new Set(incomingSurgeons.map(surgeon => surgeon.id));
-  const incomingProcedureIds = new Set(incomingProcedures.map(procedure => procedure.id));
 
+  if (!incomingSurgeons.length) return { status: 'skipped', revision, book: current, counts };
+
+  const ownedBy = (surgeonId) => adoptedIds.has(surgeonId);
   const surgeons = (current?.surgeons || []).map(surgeon => {
     const incoming = incomingSurgeons.find(item => item.id === surgeon.id);
-    if (!incoming || !surgeon.unitBook || surgeon.unitBook.id !== unitBookId) return surgeon;
+    if (!incoming) return surgeon;
+    if (surgeon.unitBook?.id !== unitBookId && !ownedBy(surgeon.id)) return surgeon;
     return { ...surgeon, ...incoming, unitBook: stamp };
   });
   incomingSurgeons.forEach(surgeon => {
@@ -95,23 +137,26 @@ export function applyUnitBook(current, file) {
   });
 
   const procedures = [];
+  const existingIds = new Set((current?.procedures || []).map(procedure => procedure.id));
   for (const existing of current?.procedures || []) {
-    const sameUnit = existing.unitBook?.id === unitBookId;
-    if (sameUnit && !incomingProcedureIds.has(existing.id)) continue;
+    const owned = existing.unitBook?.id === unitBookId;
     const incoming = incomingProcedures.find(item => item.id === existing.id);
-    if (incoming && sameUnit) {
-      const saved = applySave(
-        { ...existing, blocks: normalizeBlocks(existing.blocks) },
-        incoming,
-      );
-      procedures.push({ ...saved, unitBook: stamp });
+    if (owned && !incoming) {
+      counts.removed += 1;
+      continue;
+    }
+    if (incoming && (owned || ownedBy(existing.surgeonId))) {
+      const before = { ...existing, blocks: normalizeBlocks(existing.blocks) };
+      if (!sameContent(before, incoming)) counts.changed += 1;
+      procedures.push({ ...applySave(before, incoming), unitBook: stamp });
     } else {
       procedures.push(existing);
     }
   }
   incomingProcedures.forEach(procedure => {
-    if (!(current?.procedures || []).some(item => item.id === procedure.id)) {
+    if (!existingIds.has(procedure.id)) {
       procedures.push(stripConfirmation(procedure));
+      counts.added += 1;
     }
   });
 
@@ -123,6 +168,20 @@ export function applyUnitBook(current, file) {
   return {
     status: 'updated',
     revision,
+    counts,
     book: { version: BOOK_VERSION, surgeons: nextSurgeons, procedures },
   };
+}
+
+export function unitResultText(place, result) {
+  if (result.status === 'own') return 'This is the unit book you published from this phone. Your notes already have it.';
+  if (result.status === 'older') return `You already have revision ${result.revision}.`;
+  const kept = result.counts?.kept?.length
+    ? ` Your own notes for ${namesList(result.counts.kept)} stay as they are.`
+    : '';
+  if (result.status === 'skipped') return `Nothing was added from the unit book for ${place}.${kept}`;
+  const { added = 0, changed = 0, removed = 0 } = result.counts || {};
+  const word = (n) => (n === 1 ? 'procedure' : 'procedures');
+  const parts = [`${added} ${word(added)} added`, `${changed} changed`, `${removed} removed`];
+  return `Unit book for ${place} is now revision ${result.revision}: ${parts.join(', ')}. New and changed cards are unconfirmed.${kept}`;
 }

@@ -6,7 +6,7 @@ import { STALE_AFTER_DAYS, emptyProcedure } from './data/schema';
 import { facilityLabels, filterBook } from './data/searchBook';
 import { parseImport, toBackup, toPlacePack } from './data/share';
 import { readTechName, useBook } from './hooks/useBook';
-import { publishUnitBook } from './data/unitBook';
+import { publishUnitBook, savePublished, unitResultText } from './data/unitBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import CaseView from './components/CaseView';
@@ -71,9 +71,14 @@ export default function App() {
   };
 
   const publishPlace = async (place) => {
-    const { file } = publishUnitBook(book, place, readTechName() || 'A tech');
+    const { file, published } = publishUnitBook(book, place, readTechName() || 'A tech');
     const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
-    await shareFile(`scrubplaybook-unit-${slug}-r${file.revision}.json`, file);
+    const outcome = await shareFile(`scrubplaybook-unit-${slug}-r${file.revision}.json`, file);
+    if (outcome === 'cancelled') {
+      setNotice(`${place} was not published. The next file is still revision ${file.revision}.`);
+      return;
+    }
+    savePublished(published);
     setNotice(`Published ${place} as unit book revision ${file.revision}.`);
   };
 
@@ -101,9 +106,9 @@ export default function App() {
     if (navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: filename });
-        return;
+        return 'shared';
       } catch (err) {
-        if (err?.name === 'AbortError') return;
+        if (err?.name === 'AbortError') return 'cancelled';
       }
     }
     const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
@@ -112,18 +117,18 @@ export default function App() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    return 'saved';
   };
 
   const onImport = (incoming, options = {}) => {
     try {
       if (options.unitFile) {
-        const result = bookApi.importUnitBook(options.unitFile);
-        if (result.status !== 'updated') {
-          return { success: false, error: `You already have revision ${result.revision}.` };
-        }
+        const result = bookApi.importUnitBook(options.unitFile, { adopt: Boolean(options.adopt) });
+        const text = unitResultText(options.unitFile.place, result);
+        if (result.status !== 'updated') return { success: false, error: text };
         addAudit({ action: 'Unit book updated', surgeonName: options.unitFile.place, note: `Revision ${result.revision}` });
-        setNotice(`Unit book for ${options.unitFile.place} is now revision ${result.revision}.`);
-        return { success: true, imported: 1, skipped: 0 };
+        setNotice(text);
+        return { success: true, imported: result.counts.added, skipped: 0 };
       }
       const parsed = incoming?.surgeons ? { book: incoming } : parseImport(incoming);
       const result = bookApi.importIncoming(parsed.book, options);

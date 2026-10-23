@@ -103,6 +103,10 @@ function contentKey(procedure) {
   });
 }
 
+export function sameContent(a, b) {
+  return contentKey(a) === contentKey(b);
+}
+
 /** A real edit no longer matches the case that was confirmed. */
 export function applySave(previous, next, at = new Date().toISOString()) {
   const saved = { ...next, updatedAt: at };

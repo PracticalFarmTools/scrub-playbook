@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
 import { mergeBackup, placeIncomingCard } from '../data/share';
@@ -31,8 +31,10 @@ export function writeTechName(name) {
 
 export function useBook() {
   const [book, setBook] = useState(loadBook);
+  const bookRef = useRef(book);
 
   useEffect(() => {
+    bookRef.current = book;
     localStorage.setItem(BOOK_KEY, JSON.stringify(book));
   }, [book]);
 
@@ -163,12 +165,12 @@ export function useBook() {
     });
   }, []);
 
-  const importUnitBook = useCallback((file) => {
-    let result = { status: 'older', revision: 0, book: null };
-    setBook(prev => {
-      result = applyUnitBook(prev, file);
-      return result.status === 'updated' ? result.book : prev;
-    });
+  const importUnitBook = useCallback((file, options = {}) => {
+    const result = applyUnitBook(bookRef.current, file, options);
+    if (result.status === 'updated') {
+      bookRef.current = result.book;
+      setBook(result.book);
+    }
     return result;
   }, []);
 

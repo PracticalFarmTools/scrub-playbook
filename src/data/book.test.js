@@ -9,7 +9,7 @@ import { classifyIncomingCard, importPreviewText, instrumentLines, mergeBackup, 
 import { LINK_FRESH_DAYS, QR_MAX_CHARS, STALE_AFTER_DAYS, cleanInstruments, cleanSteps, emptyBlocks, emptyProcedure, textBlock } from './schema';
 import { loadToday, resolveTodayTap, visibleDay } from './today';
 import { applySave, detectConflict, rowTrust, trustState, withConfirmation } from './trust';
-import { applyUnitBook, publishUnitBook, unitPreviewText } from './unitBook';
+import { applyUnitBook, isOwnUnitBook, publishUnitBook, unitConflicts, unitPreviewText, unitResultText, unitRevision } from './unitBook';
 import { validateProcedure } from './validate';
 
 describe('migrateBook', () => {
@@ -702,14 +702,88 @@ describe('unit book', () => {
       ],
       procedures: [withConfirmation(emptyProcedure('surg-1', { id: 'proc-1', name: 'Knee', blocks }), { name: 'Alex' })],
     };
-    const first = publishUnitBook(source, 'Main', 'Alex', { now: '2026-10-21T00:00:00.000Z', published: {}, persist: false });
-    const second = publishUnitBook(source, 'Main', 'Alex', { published: first.published, persist: false });
+    const first = publishUnitBook(source, 'Main', 'Alex', { now: '2026-10-21T00:00:00.000Z', published: {} });
+    const second = publishUnitBook(source, 'Main', 'Alex', { published: first.published });
     expect(second.file.revision).toBe(2);
     expect(second.file.unitBookId).toBe(first.file.unitBookId);
     expect(second.file.book.procedures[0].confirmations).toEqual([]);
     expect(second.file.book.surgeons.map(item => item.id)).toEqual(['surg-1']);
     expect(unitPreviewText(first.file)).toBe('Unit book for Main, revision 1 from Alex.');
     expect(parseImport(JSON.stringify(first.file)).type).toBe('unitbook');
+  });
+
+  const handOffBook = () => {
+    const blocks = emptyBlocks();
+    return {
+      version: 2,
+      surgeons: [
+        { id: 'surg-1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: ['Mine'] },
+      ],
+      procedures: [
+        emptyProcedure('surg-1', { id: 'proc-1', name: 'Knee', blocks }),
+        emptyProcedure('surg-1', { id: 'proc-mine', name: 'My extra', blocks }),
+      ],
+    };
+  };
+  const revisionTwo = () => ({
+    kind: 'scrubplaybook-unitbook',
+    v: 1,
+    unitBookId: 'unit-9',
+    place: 'Main',
+    revision: 2,
+    publishedBy: 'Alex',
+    book: {
+      version: 2,
+      surgeons: [
+        { id: 'surg-1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: ['Unit line'] },
+        { id: 'surg-2', name: 'Dr. Patel', specialty: 'General Surgery', facility: 'Main', demo: false },
+      ],
+      procedures: [
+        emptyProcedure('surg-1', { id: 'proc-1', name: 'Knee revised', blocks: emptyBlocks() }),
+        emptyProcedure('surg-2', { id: 'proc-2', name: 'Lap chole', blocks: emptyBlocks() }),
+      ],
+    },
+  });
+
+  it('keeps a hand-off copy unless the tech switches it to the unit book', () => {
+    const book = handOffBook();
+    const file = revisionTwo();
+    expect(unitConflicts(book, file).map(item => item.id)).toEqual(['surg-1']);
+
+    const kept = applyUnitBook(book, file, { published: {} });
+    expect(kept.status).toBe('updated');
+    expect(kept.counts).toMatchObject({ added: 1, changed: 0, removed: 0 });
+    expect(kept.counts.kept.map(item => item.name)).toEqual(['Dr. Chen']);
+    expect(kept.book.surgeons.find(item => item.id === 'surg-1').firstCase).toEqual(['Mine']);
+    expect(kept.book.surgeons.find(item => item.id === 'surg-1').unitBook).toBeUndefined();
+    expect(kept.book.procedures.find(item => item.id === 'proc-1').name).toBe('Knee');
+    expect(unitResultText('Main', kept)).toBe('Unit book for Main is now revision 2: 1 procedure added, 0 changed, 0 removed. New and changed cards are unconfirmed. Your own notes for Dr. Chen stay as they are.');
+
+    const adopted = applyUnitBook(book, file, { adopt: true, published: {} });
+    expect(adopted.counts).toMatchObject({ added: 1, changed: 1, removed: 0, kept: [] });
+    const chen = adopted.book.surgeons.find(item => item.id === 'surg-1');
+    expect(chen.unitBook).toEqual({ id: 'unit-9', revision: 2 });
+    expect(chen.firstCase).toEqual(['Unit line']);
+    expect(adopted.book.procedures.find(item => item.id === 'proc-1').name).toBe('Knee revised');
+    expect(adopted.book.procedures.find(item => item.id === 'proc-mine').unitBook).toBeUndefined();
+    expect(unitRevision(adopted.book, 'unit-9')).toBe(2);
+
+    const onlyConflicts = { ...file, book: { ...file.book, surgeons: [file.book.surgeons[0]], procedures: [file.book.procedures[0]] } };
+    const skipped = applyUnitBook(book, onlyConflicts, { published: {} });
+    expect(skipped.status).toBe('skipped');
+    expect(skipped.book).toBe(book);
+    expect(unitResultText('Main', skipped)).toBe('Nothing was added from the unit book for Main. Your own notes for Dr. Chen stay as they are.');
+  });
+
+  it('tells the publisher the file is their own', () => {
+    const book = handOffBook();
+    const { file, published } = publishUnitBook(book, 'Main', 'Alex', { published: {} });
+    expect(isOwnUnitBook(file, published)).toBe(true);
+    const result = applyUnitBook(book, file, { published });
+    expect(result.status).toBe('own');
+    expect(result.book).toBe(book);
+    expect(unitResultText('Main', result)).toMatch(/you published from this phone/);
+    expect(applyUnitBook(book, file, { published: {} }).status).toBe('skipped');
   });
 });
 

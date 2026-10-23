@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Download, X } from 'lucide-react';
 import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
 import { classifyIncomingCard, importPreviewText, parseImport } from '../data/share';
-import { unitPreviewText, unitRevision } from '../data/unitBook';
+import { isOwnUnitBook, namesList, unitConflicts, unitPreviewText, unitRevision } from '../data/unitBook';
 import PhiPause from './PhiPause';
 import ProcedureGlance from './ProcedureGlance';
+
+function unitState(book, file, phi) {
+  const had = unitRevision(book, file.unitBookId);
+  const own = isOwnUnitBook(file);
+  const older = had > 0 && Number(file.revision) <= had;
+  const conflicts = unitConflicts(book, file);
+  const conflictIds = new Set(conflicts.map(surgeon => surgeon.id));
+  const fresh = (file.book?.surgeons || []).filter(surgeon => !surgeon.demo && !conflictIds.has(surgeon.id)).length;
+  return { file, had, own, older, conflicts, fresh, canAdd: !own && !older && phi.length === 0 };
+}
 
 function uniqueSignals(list) {
   const seen = new Set();
@@ -62,11 +72,12 @@ export default function ImportCardModal({ book, onClose, onImport }) {
     }
   };
 
-  const commit = (surgeonId) => {
+  const commit = (surgeonId, extra = {}) => {
     if (!preview || preview.phi.length) return;
     const result = onImport(preview.parsed.book, {
       ...(surgeonId ? { surgeonId } : {}),
       ...(preview.parsed.type === 'unitbook' ? { unitFile: preview.parsed.file } : {}),
+      ...extra,
     });
     if (result && result.success === false) {
       setError(result.error || 'Could not import that.');
@@ -123,6 +134,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
     }
   };
 
+  const unit = preview?.parsed?.type === 'unitbook' ? unitState(book, preview.parsed.file, preview.phi) : null;
   const card = preview?.parsed?.type === 'card' ? preview.parsed.book : null;
   const incomingSurgeon = card?.surgeons?.[0];
   const incomingProcedure = card?.procedures?.[0];
@@ -184,15 +196,26 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
-          {preview && preview.parsed.type === 'unitbook' && (
+          {unit && (
             <>
-              <p className="text-sm text-slate-700">{unitPreviewText(preview.parsed.file)}</p>
-              {unitRevision(book, preview.parsed.file.unitBookId) > 0 && preview.parsed.file.revision <= unitRevision(book, preview.parsed.file.unitBookId) && (
-                <p className="text-sm text-slate-700">You already have revision {unitRevision(book, preview.parsed.file.unitBookId)}.</p>
+              <p className="text-sm text-slate-700">{unitPreviewText(unit.file)}</p>
+              {unit.own && <p className="text-sm text-slate-700">This is the unit book you published from this phone. Your notes already have it.</p>}
+              {!unit.own && unit.older && <p className="text-sm text-slate-700">You already have revision {unit.had}.</p>}
+              {!unit.own && !unit.older && unit.conflicts.length > 0 && (
+                <p className="text-sm text-slate-700">
+                  You already keep {namesList(unit.conflicts)} as your own notes, maybe from a hand-off.
+                  Use the unit book for {unit.conflicts.length === 1 ? 'that surgeon' : 'them'} and your matching cards are replaced by the unit’s version. Your other procedures stay yours.
+                </p>
               )}
-              {preview.phi.length === 0 && !(unitRevision(book, preview.parsed.file.unitBookId) > 0 && preview.parsed.file.revision <= unitRevision(book, preview.parsed.file.unitBookId)) && (
-                <button type="button" onClick={() => commit()} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Add unit book</button>
+              {unit.canAdd && unit.conflicts.length > 0 && (
+                <button type="button" onClick={() => commit(undefined, { adopt: true })} className="w-full py-2.5 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Use the unit book for {unit.conflicts.length === 1 ? unit.conflicts[0].name : 'them'}</button>
               )}
+              {unit.canAdd && unit.fresh > 0 && (
+                <button type="button" onClick={() => commit()} className={`w-full py-2.5 rounded-xl font-bold text-sm cursor-pointer ${unit.conflicts.length ? 'bg-slate-100 text-slate-700' : 'bg-medical-600 text-white'}`}>
+                  {unit.conflicts.length ? 'Keep my notes and add the rest' : 'Add unit book'}
+                </button>
+              )}
+              {error && <p className="text-xs text-rose-500 flex items-center gap-1.5"><AlertCircle size={13} /> {error}</p>}
               <button type="button" onClick={() => setPreview(null)} className="w-full py-2 rounded-xl text-sm font-bold text-slate-500 cursor-pointer">Cancel</button>
             </>
           )}
