@@ -10,6 +10,8 @@ When a case is worth handing off, share that procedure. The message reads like t
 
 Export a JSON backup before a phone is replaced. Sample cards stay on the device that previewed them.
 
+A tech who leaves a facility can hand off that place as one file from Places, then archive or delete it. One person on the unit can publish a place as a unit book. Staff import each new revision from a file; unit surgeons stay read-only on their phones, and a card that did not change keeps its match.
+
 ## What is not in the product
 
 - A shared login, a facility code, or a standing password

@@ -110,7 +110,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <textarea value={blocks.equipment.text} rows={2} placeholder="Bovie 35/35. Tourniquet 250." onChange={e => setBlocks({ equipment: { ...blocks.equipment, text: e.target.value } })} className={input} />
           </div>
 
-<section className="space-y-3">
+          <section className="space-y-3">
             <p className="text-sm font-bold text-medical-700">Gloves</p>
             {['outer', 'inner'].map(which => (
               <div key={which} className="grid grid-cols-3 gap-2">
@@ -180,7 +180,7 @@ export default function ProcedureEditor({ surgeon, procedure, allowSpeech, allow
             <button type="button" disabled={(blocks.instruments || []).length >= 60} onClick={() => setBlocks({ instruments: [...(blocks.instruments || []), { id: uid(), name: '', from: '', mayo: false }] })} className="text-xs font-bold text-medical-700 disabled:opacity-40 cursor-pointer inline-flex items-center gap-1"><Plus size={14} /> Add instrument</button>
           </section>
 
-<section className="space-y-2">
+          <section className="space-y-2">
             <p className="text-sm font-bold text-medical-700">Trays</p>
             {blocks.trays.map((tray, index) => (
               <div key={tray.id} className="grid grid-cols-2 gap-2">
