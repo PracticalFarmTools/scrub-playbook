@@ -62,6 +62,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
       </div>
 
       <div className={`mx-5 mb-3 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${STATUS_CLASS[state.status]}`}>
+        {(procedure.demo || surgeon?.demo) && 'Sample · '}
         {statusLabel(state)}
         {state.names?.length > 0 && <span className="font-medium opacity-80"> · {state.names.join(', ')}</span>}
       </div>

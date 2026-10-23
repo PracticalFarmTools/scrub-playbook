@@ -44,15 +44,11 @@ function procedureFromV0(surgeon) {
     gloveBrand: a.gloveBrand || '',
     gloveSize: a.gloveSize || '',
   }));
-  blocks.note = textBlock(surgeon.tips || '', surgeon.addedBy || '');
-  blocks.implants = (surgeon.vendorLinks || []).map(name => ({
-    id: uid(),
-    systemName: name,
-    repExpected: false,
-    productId: null,
-    catalogNumber: '',
-    overrideUrl: '',
-  }));
+  const companies = (surgeon.vendorLinks || []).map(name => String(name || '').trim()).filter(Boolean);
+  const note = [surgeon.tips || '', companies.length ? `Companies: ${companies.join(', ')}.` : '']
+    .filter(Boolean)
+    .join('\n');
+  blocks.note = textBlock(note, surgeon.addedBy || '');
 
   const procedure = {
     id: uid(),

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BOOK_KEY, BOOK_VERSION, LEGACY_STORAGE_KEY, TECH_NAME_KEY, cleanFirstCase, emptyProcedure, emptySurgeon, uid } from '../data/schema';
 import { migrateBook } from '../data/migrate';
+import { refreshSamples } from '../data/defaults';
 import { mergeBackup, placeIncomingCard } from '../data/share';
 import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
@@ -9,9 +10,9 @@ import { applySave, clearConfirmation, stripConfirmation, withConfirmation } fro
 function loadBook() {
   try {
     const saved = localStorage.getItem(BOOK_KEY);
-    if (saved) return migrateBook(JSON.parse(saved));
+    if (saved) return refreshSamples(migrateBook(JSON.parse(saved)));
     const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacy) return migrateBook(JSON.parse(legacy));
+    if (legacy) return refreshSamples(migrateBook(JSON.parse(legacy)));
   } catch {
     /* keep an empty book if storage is unreadable */
   }
@@ -160,7 +161,7 @@ export function useBook() {
       const procedures = [...prev.procedures];
       sample.surgeons.forEach(s => { if (!ids.has(s.id)) surgeons.push(s); });
       const pids = new Set(procedures.map(p => p.id));
-      sample.procedures.forEach(p => { if (!pids.has(p.id)) procedures.push(p); });
+      sample.procedures.forEach(p => { if (!pids.has(p.id) && !ids.has(p.surgeonId)) procedures.push(p); });
       return { version: BOOK_VERSION, surgeons, procedures };
     });
   }, []);

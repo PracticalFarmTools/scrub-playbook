@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_SURGEONS, buildSampleBook } from './defaults';
+import { DEMO_SURGEONS, buildSampleBook, refreshSamples } from './defaults';
 import { migrateBook } from './migrate';
 import { findPhiInSurgeon, findPhiSignals } from './phi';
 import { resolveProductLink } from './productLink';
@@ -26,7 +26,8 @@ describe('migrateBook', () => {
     expect(chen.blocks.nicknames[0].nickname).toBe('The Cobb');
     expect(chen.blocks.people[0].name).toBe('Jake Rivera');
     expect(chen.blocks.note.text).toMatch(/Bovie at 35\/35/);
-    expect(chen.blocks.implants.map(i => i.systemName)).toEqual(['Stryker', 'Zimmer Biomet']);
+    expect(chen.blocks.implants).toEqual([]);
+    expect(chen.blocks.note.text).toMatch(/\nCompanies: Stryker, Zimmer Biomet\.$/);
     expect(chen.name).toBe('All cases (imported)');
   });
 
@@ -45,6 +46,27 @@ describe('migrateBook', () => {
 
   it('is idempotent', () => {
     expect(migrateBook(book)).toBe(book);
+  });
+
+  it('dates sample matches a day back and rebuilds stored samples', () => {
+    const now = Date.parse('2027-03-01T12:00:00.000Z');
+    const samples = buildSampleBook({ now });
+    const confirmed = samples.procedures.filter(procedure => procedure.lastConfirmedAt);
+    expect(confirmed).toHaveLength(2);
+    expect(Math.max(...confirmed.map(procedure => Date.parse(procedure.lastConfirmedAt)))).toBe(now - 86400000);
+    expect(confirmed.every(procedure => trustState(procedure, { now }).status === 'confirmed')).toBe(true);
+    expect(samples.procedures.every(procedure => procedure.blocks.implants.length === 0)).toBe(true);
+
+    const old = migrateBook({ version: 1, surgeons: [{ id: 'demo-miller', name: 'Dr. Miller', demo: true }, { id: 'mine', name: 'Dr. Mine', demo: false }], procedures: [
+      { ...emptyProcedure('demo-miller', { demo: true }), blocks: { ...emptyBlocks(), implants: [{ id: 'x', systemName: 'Alcon' }] } },
+      emptyProcedure('mine', { name: 'Mine' }),
+    ] });
+    const refreshed = refreshSamples(old, { now });
+    expect(refreshed.surgeons.map(item => item.id)).toEqual(['demo-miller', 'mine']);
+    expect(refreshed.procedures.filter(item => item.surgeonId === 'demo-miller')).toHaveLength(1);
+    expect(refreshed.procedures.find(item => item.surgeonId === 'demo-miller').blocks.implants).toEqual([]);
+    expect(refreshed.procedures.find(item => item.surgeonId === 'mine').name).toBe('Mine');
+    expect(refreshSamples(migrateBook(null))).toEqual(migrateBook(null));
   });
 
   it('upgrades a version 1 book and keeps the confirmation', () => {
