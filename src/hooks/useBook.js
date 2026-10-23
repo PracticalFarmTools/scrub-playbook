@@ -177,17 +177,25 @@ export function useBook() {
     return tech;
   }, []);
 
-  const disputeProcedure = useCallback((id) => {
+  const disputeProcedure = useCallback((id, reason = '') => {
+    const at = new Date().toISOString();
     setBook(prev => ({
       ...prev,
-      procedures: prev.procedures.map(p => p.id === id ? { ...p, disputed: true, updatedAt: new Date().toISOString() } : p),
+      procedures: prev.procedures.map(p => p.id === id ? {
+        ...p,
+        disputed: true,
+        reportNote: String(reason || '').trim().slice(0, 300),
+        disputedAt: at,
+        disputedBy: readTechName(),
+        updatedAt: at,
+      } : p),
     }));
   }, []);
 
   const clearDispute = useCallback((id) => {
     setBook(prev => ({
       ...prev,
-      procedures: prev.procedures.map(p => p.id === id ? clearConfirmation({ ...p, disputed: false }) : p),
+      procedures: prev.procedures.map(p => p.id === id ? clearConfirmation({ ...p, disputed: false, reportNote: '', disputedAt: null, disputedBy: '' }) : p),
     }));
   }, []);
 

@@ -1,7 +1,7 @@
 const PROCEDURE_KEYS = new Set([
   'id', 'surgeonId', 'name', 'approach', 'demo', 'disputed', 'reported', 'reportNote',
   'lastConfirmedAt', 'confirmations', 'official', 'updatedAt', 'baseUpdatedAt',
-  'dirty', 'blocks', 'unitBook', 'copiedFrom',
+  'dirty', 'blocks', 'unitBook', 'copiedFrom', 'aliases', 'disputedAt', 'disputedBy',
 ]);
 
 const FORBIDDEN_KEY = /^(patient|patients|patientname|mrn|dob|ssn|dose|doses|lot|lotnumber|serial|serialnumber|photo|photos|price|pricing)$/i;

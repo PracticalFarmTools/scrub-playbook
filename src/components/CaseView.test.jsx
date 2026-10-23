@@ -87,6 +87,48 @@ describe('CaseView', () => {
     expect(screen.getByLabelText('In the room I saw')).toBeTruthy();
   });
 
+  it('keeps today’s pulled items after the case view closes and reopens', () => {
+    localStorage.clear();
+    const procedure = procedureWith();
+    render(<CaseView surgeon={surgeon} procedure={procedure} staleDays={90} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Cobb elevator · Mayo' }));
+    expect(screen.getByText('1 of 2 pulled')).toBeTruthy();
+    cleanup();
+    render(<CaseView surgeon={surgeon} procedure={procedure} staleDays={90} onClose={() => {}} />);
+    expect(screen.getByText('1 of 2 pulled')).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Cobb elevator · Mayo' }).checked).toBe(true);
+  });
+
+  it('confirms after the case with the saved name and flags with a reason', () => {
+    localStorage.setItem('scrubplaybook_tech_name', 'Alex');
+    const onConfirm = vi.fn(() => ({}));
+    const onFlag = vi.fn();
+    render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} onClose={() => {}} onConfirm={onConfirm} onFlag={onFlag} />);
+    expect(screen.getByLabelText('Your name').value).toBe('Alex');
+    fireEvent.click(screen.getByText('I was in this case'));
+    expect(onConfirm).toHaveBeenCalledWith('Alex');
+    expect(screen.getByText('Confirmed by Alex just now.')).toBeTruthy();
+    fireEvent.click(screen.getByText('Flag this card'));
+    fireEvent.change(screen.getByLabelText('What did not match?'), { target: { value: 'MRN 12345678 had a different tray' } });
+    fireEvent.click(screen.getByText('Flag'));
+    expect(screen.getByRole('alertdialog').textContent).toContain('then flag the card.');
+    expect(onFlag).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Go back and edit'));
+    fireEvent.change(screen.getByLabelText('What did not match?'), { target: { value: 'Uses the small tray now' } });
+    fireEvent.click(screen.getByText('Flag'));
+    expect(onFlag).toHaveBeenCalledWith('Uses the small tray now');
+  });
+
+  it('steps through a day of cases', () => {
+    const onNext = vi.fn();
+    const onPrev = vi.fn();
+    render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} position={{ index: 0, total: 3, onNext, onPrev }} onClose={() => {}} />);
+    expect(screen.getByText('Case 1 of 3')).toBeTruthy();
+    expect(screen.getByText('Previous').disabled).toBe(true);
+    fireEvent.click(screen.getByText('Next'));
+    expect(onNext).toHaveBeenCalled();
+  });
+
   it('says it is asking before the screen lock answers', () => {
     vi.stubGlobal('navigator', { ...navigator, wakeLock: { request: () => new Promise(() => {}) } });
     render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} onClose={() => {}} />);

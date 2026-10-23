@@ -125,3 +125,14 @@ describe('restoreExtras', () => {
     expect(merged.suggestions.map(item => item.id).sort()).toEqual(['g1', 'g2']);
   });
 });
+
+describe('pull checklist', () => {
+  it('keeps today’s checks, forgets other days, and drops empty lists', async () => {
+    const { loadPull, nextPull } = await import('./pull');
+    const stored = nextPull({ old: { day: '2026-10-22', checks: { a: true } } }, 'p1', { x: true, y: false }, '2026-10-23');
+    expect(stored).toEqual({ p1: { day: '2026-10-23', checks: { x: true } } });
+    expect(loadPull('p1', '2026-10-23', stored)).toEqual({ x: true });
+    expect(loadPull('p1', '2026-10-24', stored)).toEqual({});
+    expect(nextPull(stored, 'p1', { x: false }, '2026-10-23')).toEqual({});
+  });
+});

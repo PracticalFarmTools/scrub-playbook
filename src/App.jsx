@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { BookOpen, Download, Menu, Plus, Search, Upload, Wifi, WifiOff, X } from 'lucide-react';
 import { SURGICAL_VENDORS } from './data/vendors';
 import { buildSampleBook } from './data/defaults';
@@ -18,6 +18,7 @@ import { VendorLibrary, VendorResults } from './components/VendorPanels';
 import ConfirmNameModal from './components/ConfirmNameModal';
 import { needsHomeScreen, safeGet, safeJson, safeSet } from './data/storage';
 import { downloadText } from './utils/download';
+import { applyUpdate, onUpdateReady } from './pwa';
 import { UNREADABLE_KEY } from './hooks/useBook';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
@@ -26,6 +27,7 @@ const PlacesSheet = lazy(() => import('./components/PlacesSheet'));
 const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
 const ProcedureEditor = lazy(() => import('./components/ProcedureEditor'));
 const ShareCardModal = lazy(() => import('./components/ShareCardModal'));
+const PrintDay = lazy(() => import('./components/PrintDay'));
 
 const WEEK_DAYS = 7;
 const CHANGES_BEFORE_REMINDER = 20;
@@ -56,6 +58,8 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [lastExportAt, setLastExportAt] = useState(() => safeGet(LAST_EXPORT_KEY));
   const [todayVersion, setTodayVersion] = useState(0);
+  const [printCases, setPrintCases] = useState(null);
+  const [updateReady, setUpdateReady] = useState(false);
   const [homeScreenHidden, setHomeScreenHidden] = useState(() => {
     const at = safeGet(HOME_SCREEN_KEY);
     return Boolean(at) && daysSince(at) < WEEK_DAYS;
@@ -189,19 +193,49 @@ export default function App() {
   };
 
   const openCase = (surgeon, procedure) => {
-    setCaseView({ surgeonId: surgeon.id, procedureId: procedure.id });
+    setCaseView({ queue: [procedure.id], index: 0 });
   };
 
   const openTodayCase = (procedure) => {
     setSearch('');
     setActiveFacility(null);
-    setCaseView({ surgeonId: procedure.surgeonId, procedureId: procedure.id, returnTo: procedure.id });
+    setCaseView({ queue: [procedure.id], index: 0, returnTo: true });
   };
 
+  const openTodayAll = (ready) => {
+    setSearch('');
+    setActiveFacility(null);
+    setCaseView({ queue: ready.map(entry => entry.procedure.id), index: 0, returnTo: true });
+  };
+
+  const printToday = (ready) => setPrintCases(ready.map(entry => entry.procedure.id));
+  const donePrinting = useCallback(() => setPrintCases(null), []);
+
+  const caseProcedureId = caseView ? caseView.queue[caseView.index] : null;
+  const caseProcedure = caseProcedureId ? book.procedures.find(item => item.id === caseProcedureId) : null;
+  const caseSurgeon = caseProcedure ? book.surgeons.find(item => item.id === caseProcedure.surgeonId) : null;
+
   const closeCase = () => {
-    if (caseView?.returnTo) flashProcedure(caseView.returnTo);
+    if (caseView?.returnTo && caseProcedureId) flashProcedure(caseProcedureId);
     setCaseView(null);
   };
+
+  const stepCase = (delta) => setCaseView(current => (current
+    ? { ...current, index: Math.min(current.queue.length - 1, Math.max(0, current.index + delta)) }
+    : current));
+
+  const busy = Boolean(caseView || editor || addDraft || showImport || share || showPlaces || confirmTarget || showDisclaimer || printCases);
+
+  useEffect(() => onUpdateReady(setUpdateReady), []);
+
+  useEffect(() => {
+    if (!updateReady || busy) return undefined;
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') applyUpdate();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [updateReady, busy]);
 
   useEffect(() => {
     if (!highlight) return undefined;
@@ -286,6 +320,12 @@ export default function App() {
       {showVendors && !q && <VendorLibrary onClose={() => setShowVendors(false)} />}
 
       <main className="max-w-5xl mx-auto px-4 py-6">
+        {updateReady && !busy && (
+          <div className="bg-medical-50 border border-medical-200 rounded-2xl px-4 py-3 mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-medical-900">A new version is ready. It installs the next time you leave the app, never during a case.</p>
+            <button onClick={applyUpdate} className="shrink-0 min-h-11 px-4 rounded-xl bg-medical-700 text-white text-sm font-bold cursor-pointer">Update now</button>
+          </div>
+        )}
         {!bookApi.saveState.ok && (
           <div role="alert" className="bg-rose-50 border border-rose-300 rounded-2xl px-4 py-3 mb-4 space-y-2">
             <p className="text-sm font-bold text-rose-900">
@@ -336,6 +376,8 @@ export default function App() {
           key={todayVersion}
           book={book}
           onOpen={openTodayCase}
+          onOpenAll={openTodayAll}
+          onPrintAll={printToday}
           onStartProcedure={(surgeon, procedureName) => setEditor({
             surgeon,
             procedure: emptyProcedure(surgeon.id, { name: procedureName }),
@@ -370,7 +412,10 @@ export default function App() {
                 onEdit={(procedure) => setEditor({ surgeon, procedure })}
                 onAddProcedure={() => setEditor({ surgeon, procedure: emptyProcedure(surgeon.id, { name: '' }) })}
                 onConfirm={(procedure) => setConfirmTarget(procedure)}
-                onDispute={(procedure) => bookApi.disputeProcedure(procedure.id)}
+                onDispute={(procedure, reason) => {
+                  bookApi.disputeProcedure(procedure.id, reason);
+                  addAudit({ action: 'Card flagged', surgeonName: surgeon.name, note: [procedure.name, reason].filter(Boolean).join(': ') });
+                }}
                 onClearDispute={(id) => bookApi.clearDispute(id)}
                 onShare={(s, procedure) => setShare({ surgeon: s, procedure })}
                 onUpdateSurgeon={(id, details) => bookApi.updateSurgeon(id, details)}
@@ -471,15 +516,37 @@ export default function App() {
       {caseView && (
         <Suspense fallback={null}>
           <CaseView
-            surgeon={book.surgeons.find(item => item.id === caseView.surgeonId)}
-            procedure={book.procedures.find(item => item.id === caseView.procedureId)}
+            key={caseProcedureId}
+            surgeon={caseSurgeon}
+            procedure={caseProcedure}
             staleDays={STALE_AFTER_DAYS}
+            position={{ index: caseView.index, total: caseView.queue.length, onNext: () => stepCase(1), onPrev: () => stepCase(-1) }}
             onClose={closeCase}
-            onSuggested={() => {
-              const surgeon = book.surgeons.find(item => item.id === caseView.surgeonId);
-              const procedure = book.procedures.find(item => item.id === caseView.procedureId);
-              addAudit({ action: 'Card change suggested', surgeonName: surgeon?.name || '', note: procedure?.name || '' });
+            onConfirm={(name) => {
+              bookApi.confirmProcedure(caseProcedure.id, name);
+              addAudit({ action: 'Case confirmed', surgeonName: caseSurgeon?.name || '', user: name, note: caseProcedure.name });
+              return {};
             }}
+            onFlag={(reason) => {
+              bookApi.disputeProcedure(caseProcedure.id, reason);
+              addAudit({ action: 'Card flagged', surgeonName: caseSurgeon?.name || '', note: `${caseProcedure.name}: ${reason}` });
+            }}
+            onSuggested={() => {
+              addAudit({ action: 'Card change suggested', surgeonName: caseSurgeon?.name || '', note: caseProcedure?.name || '' });
+            }}
+          />
+        </Suspense>
+      )}
+      {printCases && (
+        <Suspense fallback={null}>
+          <PrintDay
+            cases={printCases
+              .map(id => book.procedures.find(item => item.id === id))
+              .filter(Boolean)
+              .map(procedure => ({ procedure, surgeon: book.surgeons.find(item => item.id === procedure.surgeonId) }))
+              .filter(entry => entry.surgeon)}
+            staleDays={STALE_AFTER_DAYS}
+            onDone={donePrinting}
           />
         </Suspense>
       )}

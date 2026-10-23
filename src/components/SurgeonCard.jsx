@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Share2, Stethoscope, Trash2 } from 'lucide-react';
-import { findPhiInSurgeon } from '../data/phi';
+import { findPhiInSurgeon, findPhiSignals } from '../data/phi';
 import { rowTrust, timeAgo } from '../data/trust';
 import ProcedureGlance from './ProcedureGlance';
 import PhiPause from './PhiPause';
@@ -41,6 +41,9 @@ export default function SurgeonCard({
   const [editingFirst, setEditingFirst] = useState(false);
   const [firstDraft, setFirstDraft] = useState(['', '', '']);
   const [phi, setPhi] = useState([]);
+  const [phiNext, setPhiNext] = useState('Take that detail out, then save.');
+  const [flagging, setFlagging] = useState(null);
+  const [flagReason, setFlagReason] = useState('');
   const firstLines = (surgeon.firstCase || []).map(line => String(line || '').trim()).filter(Boolean).slice(0, 3);
   const updated = formatUpdated(surgeon.firstCaseAt);
   const updatedBy = (surgeon.firstCaseBy || '').trim();
@@ -72,7 +75,7 @@ export default function SurgeonCard({
               setDetailsError('');
               const next = { ...surgeon, name, facility: place };
               const hits = findPhiInSurgeon(next);
-              if (hits.length) { setPhi(hits); return; }
+              if (hits.length) { setPhiNext('Take that detail out, then save.'); setPhi(hits); return; }
               onUpdateSurgeon?.(surgeon.id, { name, facility: place });
               setEditingDetails(false);
             }} className="space-y-2">
@@ -139,7 +142,7 @@ export default function SurgeonCard({
                 e.preventDefault();
                 const next = { ...surgeon, firstCase: firstDraft };
                 const hits = findPhiInSurgeon(next);
-                if (hits.length) { setPhi(hits); return; }
+                if (hits.length) { setPhiNext('Take that detail out, then save.'); setPhi(hits); return; }
                 onSaveFirstCase?.(surgeon.id, firstDraft);
                 setEditingFirst(false);
               }}>
@@ -170,7 +173,7 @@ export default function SurgeonCard({
           <button type="button" onClick={() => { setFirstDraft(['', '', '']); setEditingFirst(true); }} className="text-[11px] font-bold text-medical-700 cursor-pointer">Add first-case notes</button>
         </div>
       )}
-      {phi.length > 0 && <PhiPause signals={phi} next="Take that detail out, then save." onEdit={() => setPhi([])} />}
+      {phi.length > 0 && <PhiPause signals={phi} next={phiNext} onEdit={() => setPhi([])} />}
 
       {procedures.length === 0 && (
         <p className="px-5 py-6 text-sm text-slate-400">No procedure yet. Add the case the way the board writes it.</p>
@@ -200,13 +203,40 @@ export default function SurgeonCard({
                 {procedure.disputed ? (
                   <button type="button" onClick={() => onClearDispute(procedure.id)} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Clear flag</button>
                 ) : (
-                  <button type="button" onClick={() => onDispute(procedure)} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Flag</button>
+                  <button type="button" onClick={() => { setFlagReason(''); setFlagging(procedure.id); }} className="text-[11px] font-bold text-rose-700 bg-rose-50 rounded-lg px-2.5 py-1 cursor-pointer">Flag</button>
                 )}
                 <button type="button" onClick={() => onShare(surgeon, procedure)} className="text-[11px] font-bold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1 cursor-pointer inline-flex items-center gap-1"><Share2 size={11} /> Share</button>
                 <button type="button" onClick={() => setConfirming(procedure.id)} className="text-[11px] font-bold text-slate-500 cursor-pointer">Delete case</button>
               </>
             )}
           </div>
+          {flagging === procedure.id && (
+            <form
+              className="px-5 py-3 space-y-2 border-t border-rose-100 bg-rose-50/40"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const reason = flagReason.trim();
+                if (!reason) return;
+                const hits = findPhiSignals(reason);
+                if (hits.length) {
+                  setPhiNext('Take that detail out, then flag the card.');
+                  setPhi(hits);
+                  return;
+                }
+                onDispute(procedure, reason);
+                setFlagging(null);
+              }}
+            >
+              <label className="block text-sm font-semibold text-rose-900">
+                What did not match?
+                <textarea required value={flagReason} onChange={e => setFlagReason(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800" />
+              </label>
+              <div className="flex gap-2">
+                <button type="submit" disabled={!flagReason.trim()} className="min-h-11 px-4 rounded-xl bg-rose-700 text-white text-sm font-bold disabled:opacity-40 cursor-pointer">Flag</button>
+                <button type="button" onClick={() => setFlagging(null)} className="min-h-11 px-4 rounded-xl bg-white border border-rose-200 text-rose-800 text-sm font-bold cursor-pointer">Cancel</button>
+              </div>
+            </form>
+          )}
           {confirming === procedure.id && (
             <div className="px-5 py-2 text-xs text-rose-700 flex gap-3">
               <span>Delete this procedure?</span>

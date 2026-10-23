@@ -129,6 +129,8 @@ export function stripConfirmation(procedure) {
     disputed: false,
     reported: false,
     reportNote: '',
+    disputedAt: null,
+    disputedBy: '',
   };
 }
 

@@ -66,6 +66,13 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         {statusLabel(state)}
         {state.names?.length > 0 && <span className="font-medium opacity-80"> · {state.names.join(', ')}</span>}
       </div>
+      {procedure.disputed && procedure.reportNote?.trim() && (
+        <p className="mx-5 mb-3 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-900">
+          Flag reason: {procedure.reportNote.trim()}
+          {procedure.disputedBy ? ` · ${procedure.disputedBy}` : ''}
+          {procedure.disputedAt ? ` · ${timeAgo(procedure.disputedAt)}` : ''}
+        </p>
+      )}
 
       <p className="px-5 pb-3 text-[11px] text-slate-400 leading-relaxed">
         Staff notes from recent cases. The surgeon and the official card win.

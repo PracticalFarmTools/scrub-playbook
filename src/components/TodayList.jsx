@@ -7,7 +7,7 @@ import PhiPause from './PhiPause';
 
 const field = 'w-full rounded-lg bg-slate-50 border border-slate-200 text-sm px-2 py-2';
 
-export default function TodayList({ book, onOpen, onStartProcedure, onStartSurgeon }) {
+export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStartProcedure, onStartSurgeon }) {
   const [stored, setStored] = useState(loadToday);
   const [today, setToday] = useState(localDay);
   const [offset, setOffset] = useState(0);
@@ -17,6 +17,10 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
   const [choice, setChoice] = useState(null);
   const activeDay = localDay(offset);
   const items = visibleDay(stored, activeDay);
+  const ready = items
+    .map(item => ({ item, result: resolveTodayTap(book, item) }))
+    .filter(entry => entry.result.action === 'open')
+    .map(entry => ({ item: entry.item, procedure: entry.result.procedure }));
 
   useEffect(() => {
     saveToday(stored);
@@ -124,6 +128,19 @@ export default function TodayList({ book, onOpen, onStartProcedure, onStartSurge
             </li>
           ))}
         </ul>
+      )}
+      {ready.length > 0 && (onOpenAll || onPrintAll) && (
+        <div className="flex flex-wrap gap-2 px-3 py-2 border-t border-slate-100">
+          {ready.length > 1 && onOpenAll && (
+            <button type="button" onClick={() => onOpenAll(ready)} className="min-h-11 px-4 rounded-xl bg-medical-600 text-white text-sm font-bold cursor-pointer">Open all {ready.length} cases</button>
+          )}
+          {onPrintAll && (
+            <button type="button" onClick={() => onPrintAll(ready)} className="min-h-11 px-4 rounded-xl bg-slate-100 text-slate-800 text-sm font-bold cursor-pointer">Print the day</button>
+          )}
+          {ready.length < items.length && (
+            <p className="text-xs text-slate-600 self-center">{items.length - ready.length} not matched to one card yet. Tap {items.length - ready.length === 1 ? 'it' : 'each'} to choose.</p>
+          )}
+        </div>
       )}
       {choice?.surgeons && !choice.procedures && (
         <div className="px-4 py-3 border-t border-slate-100 space-y-2">

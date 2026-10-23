@@ -9,7 +9,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // A waiting version installs only when no case or editor is open (src/pwa.js).
+      registerType: 'prompt',
       // Card data lives in localStorage; this only needs to guarantee the
       // app shell (JS/CSS/fonts) loads with zero connectivity — the real
       // "cellular dead zone in the OR" scenario for traveler techs.
