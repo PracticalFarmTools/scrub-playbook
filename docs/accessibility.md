@@ -6,6 +6,7 @@ The target is WCAG 2.2 Level AA, the level hospitals are usually asked to meet f
 
 | Area | What the app does | How it was checked |
 | --- | --- | --- |
+| Automated scan | Every screen is scanned for WCAG 2.0, 2.1, and 2.2 A and AA rules | An axe-core scan in CI of the home list, an open card, the case view, the editor, Share, Earlier versions, Places, Import, Add surgeon, and Recently deleted, on WebKit, Chromium, and Firefox (`e2e/claims.spec.js`). Its first run found a scrolling card preview in Share that a keyboard could not reach, a QR code with no name, and a button whose spoken name did not contain its visible text; all three are fixed. |
 | Touch targets | Every button, link, and field is at least 44 by 44 points (`tap-icon`, `min-h-11`) | A browser probe measures every control on the home list, the editor, the case view, the share sheet, and the import sheet at 390 px wide and reports any under 44 px: none |
 | Text size | Nothing under 12 px on the home list; the case view uses large type for the room | Same probe |
 | Contrast | Body text on white uses slate-600 or darker; error text uses rose-700. Both meet 4.5:1 for small text. | Colors chosen against the Tailwind palette values; spot-checked |
@@ -35,7 +36,7 @@ These need a person with the assistive technology, on real phones, before the ap
 ## Known limits
 
 - Disabled buttons are shown at reduced opacity, which can fall below 4.5:1. WCAG does not require contrast for disabled controls, but some users will still find them hard to read.
-- A QR code cannot be read by a screen reader. The same card is always available as text to copy or send.
+- A QR code cannot be read by a screen reader. It is named for the card it holds, and the same card is always available as text to copy or send.
 - The print layout is designed for paper and has not been checked with a screen reader.
 
 ## Reporting a problem

@@ -56,12 +56,12 @@ npm test
 npm run typecheck
 npm run lint
 npm run build
-npx playwright install chromium   # once
+npx playwright install chromium webkit firefox   # once
 npm run e2e
 npm run check:links
 ```
 
-`npm test` runs the data and hook tests in Node and the component tests in jsdom. `typecheck` runs `tsc --noEmit` with null checks over all of `src`, typed with JSDoc (`src/data/types.js`). `e2e` builds the app and runs the Playwright tests against `vite preview`, which serves the build with the `vercel.json` security headers; any Content Security Policy violation or script error fails a test. `check:links` requests each stored product page and fails on a 404 or 410, or when the oldest check date is within 30 days of the point where the app stops offering product pages (`docs/catalog-upkeep.md`).
+`npm test` runs the data and hook tests in Node and the component tests in jsdom. `typecheck` runs `tsc --noEmit` with null checks over all of `src`, typed with JSDoc (`src/data/types.js`). `e2e` builds the app and runs the Playwright tests against `vite preview`, which serves the build with the `vercel.json` security headers, on WebKit as an iPhone, Chromium as an Android phone, and Firefox; any Content Security Policy violation or script error fails a test, and `e2e/claims.spec.js` checks that a session sends nothing off the phone and scans every screen for accessibility. `npx playwright test --project=iphone-webkit` runs one browser. `docs/assurance.md` maps each claim the app makes to its check. `check:links` requests each stored product page and fails on a 404 or 410, or when the oldest check date is within 30 days of the point where the app stops offering product pages (`docs/catalog-upkeep.md`).
 
 CI (`.github/workflows/ci.yml`) runs lint, the type check, the tests, the build, an `npm audit` of runtime dependencies, and the browser tests on every push and pull request, and checks that the service worker precaches the QR reader. The product link check runs every Monday and on demand. Dependabot proposes npm and GitHub Actions updates weekly.
 
