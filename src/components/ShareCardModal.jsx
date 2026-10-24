@@ -1,54 +1,93 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Copy, Check, Share2 } from 'lucide-react';
+import { Check, Copy, Share2, X } from 'lucide-react';
+import { shareMessage } from '../data/share';
+import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
+import { useDialog } from '../hooks/useDialog';
 
-// Strip local-only bookkeeping (audit trail lives per-device) before sharing.
-function toShareablePayload(surgeon) {
-  const { id: _id, createdAt: _createdAt, addedBy: _addedBy, lastVerifiedBy: _lastVerifiedBy, lastVerifiedAt: _lastVerifiedAt, ...rest } = surgeon;
-  return { ...rest, kind: 'scrubplaybook-card', v: 1 };
-}
-
-/**
- * Peer-to-peer card transfer for when there's no EHR/network to lean on —
- * one tech's phone shows the QR, the other pastes/scans it into "Import".
- */
-export default function ShareCardModal({ surgeon, onClose }) {
+export default function ShareCardModal({ surgeon, procedure, onClose }) {
   const [copied, setCopied] = useState(false);
-  const payload = useMemo(() => JSON.stringify(toShareablePayload(surgeon)), [surgeon]);
+  const [showData, setShowData] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const dialogRef = useDialog({ onClose });
+  const phi = [...findPhiInProcedure(procedure), ...findPhiInSurgeon(surgeon)]
+    .filter((signal, index, list) => list.findIndex(other => other.id === signal.id) === index);
+  const share = phi.length ? {} : shareMessage(surgeon, procedure);
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   const copyText = async () => {
+    if (!share.message) return false;
     try {
-      await navigator.clipboard.writeText(payload);
+      await navigator.clipboard.writeText(share.message);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setCopyFailed(false);
+      return true;
     } catch {
-      // Clipboard API unavailable (non-secure context) — QR is the fallback.
+      setCopyFailed(true);
+      setCopied(false);
+      return false;
+    }
+  };
+
+  const send = async () => {
+    if (!share.message || !canShare) return;
+    try {
+      await navigator.share({
+        title: `${surgeon.name} · ${procedure.name}`,
+        text: share.message,
+      });
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      await copyText();
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-medical-700 to-medical-800">
-          <p className="text-white font-bold text-sm flex items-center gap-2"><Share2 size={16} /> Share Card</p>
-          <button onClick={onClose} className="text-medical-200 hover:text-white cursor-pointer"><X size={18} /></button>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="share-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden max-h-[90dvh] flex flex-col focus:outline-none">
+        <div className="shrink-0 flex items-center justify-between px-5 py-2 bg-gradient-to-r from-medical-700 to-medical-800">
+          <p id="share-title" className="text-white font-bold text-sm flex items-center gap-2"><Share2 size={16} /> Share procedure</p>
+          <button type="button" onClick={onClose} aria-label="Close" className="tap-icon text-medical-100 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
-        <div className="p-6 flex flex-col items-center gap-4">
-          <p className="text-sm text-slate-500 text-center">
-            No network needed — have the other tech open <strong>Import Card</strong> and scan this,
-            or copy the text below.
-          </p>
-          <div className="p-3 bg-white border border-slate-200 rounded-xl">
-            <QRCodeSVG value={payload} size={200} level="M" />
-          </div>
-          <p className="text-xs font-bold text-slate-700">{surgeon.name}</p>
-          <button
-            onClick={copyText}
-            className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-all cursor-pointer"
-          >
-            {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
-            {copied ? 'Copied!' : 'Copy as Text'}
-          </button>
+        <div className="p-5 flex flex-col gap-4 overflow-y-auto min-h-0">
+          {phi.length > 0 && (
+            <div role="alert" className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-3 text-sm text-rose-900">
+              This card may include {phi.map(signal => signal.label).join(', ')}. Scrub Playbook does not send patient information. Edit the card to take it out, then share it.
+            </div>
+          )}
+          {share.error && <p className="text-sm text-slate-600 text-center">{share.error}</p>}
+          {!share.error && !phi.length && (
+            <>
+              <div role="region" aria-label="The card as it will be sent" tabIndex={0} className="max-h-64 overflow-y-auto rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{share.glance}</div>
+              <p className="text-xs text-slate-500 text-center">
+                {!share.showQr && 'Send this message. It is too long for a code.'}
+                {share.showQr && (share.qrSigned || !procedure.trail?.length) && 'The code is the same card, for a phone that can scan.'}
+                {share.showQr && !share.qrSigned && procedure.trail?.length > 0 && 'The code is the same card without who signed the last change. Send the message to include it.'}
+              </p>
+              {share.showQr && (
+                <div className="p-3 bg-white border border-slate-200 rounded-xl self-center">
+                  <QRCodeSVG value={share.qrText} size={200} level="M" title={`Code for ${procedure.name}, ${surgeon.name}`} />
+                </div>
+              )}
+              {canShare && (
+                <button type="button" onClick={send} className="w-full inline-flex items-center justify-center gap-2 min-h-11 rounded-xl bg-medical-600 text-white text-sm font-semibold cursor-pointer">
+                  <Share2 size={16} /> Send
+                </button>
+              )}
+              <button type="button" onClick={copyText} className="w-full inline-flex items-center justify-center gap-2 min-h-11 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold cursor-pointer">
+                {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+              {copyFailed && <p className="text-xs text-slate-500 text-center">Select the message below and copy it.</p>}
+              {copyFailed && (
+                <textarea readOnly value={share.message} rows={6} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-2 py-2" />
+              )}
+              <button type="button" onClick={() => setShowData(v => !v)} className="min-h-11 text-xs font-bold text-medical-700 cursor-pointer">{showData ? 'Hide card data' : 'Show card data'}</button>
+              {showData && (
+                <textarea readOnly value={share.payloadText} rows={5} onFocus={(e) => e.target.select()} className="w-full rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono px-2 py-2" />
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

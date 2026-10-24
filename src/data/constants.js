@@ -7,13 +7,3 @@ export const SPECIALTIES = [
 ];
 
 export const ASSIST_ROLES = ["PA", "Resident", "Fellow", "NP", "RNFA"];
-
-export const STORAGE_KEY = 'scrubplaybook_surgeons';
-
-// Verification status — the "is this still true?" trust layer.
-export const CARD_STATUS = {
-  VERIFIED: 'verified',
-  PENDING_COSIGN: 'pending-cosign',
-  UNCONFIRMED: 'unconfirmed',
-  DISPUTED: 'disputed',
-};

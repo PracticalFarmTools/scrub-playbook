@@ -33,7 +33,7 @@
   --color-rose-400: #fb7185;
   --color-rose-500: #f43e5e;
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter Variable', system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
@@ -53,6 +53,31 @@
 
   #root {
     min-height: 100dvh;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-medical-500);
+    outline-offset: 2px;
+  }
+}
+
+/* A 44 by 44 point target for icon and header buttons. */
+@utility tap-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -106,3 +131,73 @@
   animation: slide-over-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.surgeon-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
+.print-root {
+  display: none;
+}
+
+@media print {
+  body {
+    overflow: visible !important;
+  }
+
+  #root {
+    display: none !important;
+  }
+
+  .print-root {
+    display: block !important;
+    padding: 0 16px;
+  }
+
+  .print-case {
+    break-after: page;
+  }
+
+  .print-case:last-child {
+    break-after: auto;
+  }
+
+  #case-view-root {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  #case-view-root,
+  #case-view-root *,
+  .print-root,
+  .print-root * {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  #case-view-root .case-topbar,
+  #case-view-root .case-noprint {
+    display: none !important;
+  }
+
+  #case-view-root .case-check,
+  .print-root .case-check {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 16px !important;
+    height: 16px !important;
+    border: 1.5px solid #000 !important;
+    background: #fff !important;
+    print-color-adjust: exact;
+  }
+
+  .case-section {
+    break-inside: avoid;
+  }
+}

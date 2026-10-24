@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [gittrunk, main]
+  pull_request:
+  schedule:
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, test, build
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Service worker precaches the QR reader
+        run: |
+          chunk=$(ls dist/assets | grep -m1 '^jsQR-.*\.js$')
+          test -n "$chunk"
+          grep -q "$chunk" dist/sw.js
+      - run: npm audit --omit=dev --audit-level=moderate
+      # The full SBOM marks what ships to the phone as "required" and build tools as "optional".
+      # `npm sbom --omit dev` is not used: it drops React, which a test library also depends on.
+      - name: Software bill of materials
+        run: |
+          npm sbom --sbom-format cyclonedx > sbom.cdx.json
+          node -e "
+            const bom = require('./sbom.cdx.json');
+            const ships = bom.components.filter(c => c.scope === 'required').map(c => c.name + '@' + c.version);
+            console.log('Ships to the phone: ' + ships.join(', '));
+            if (!['react@', 'react-dom@', 'jsqr@', 'qrcode.react@'].every(n => ships.some(s => s.startsWith(n)))) process.exit(1);
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
+
+  browser:
+    name: Browser tests on the production build (Chromium, WebKit, Firefox)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit firefox
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  links:
+    name: Company product pages
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run check:links

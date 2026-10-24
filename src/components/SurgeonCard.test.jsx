@@ -1,0 +1,151 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { emptyProcedure } from '../data/schema';
+import EmptyState from './EmptyState';
+import SurgeonCard from './SurgeonCard';
+
+afterEach(cleanup);
+
+const noop = () => {};
+const handlers = {
+  onDeleteSurgeon: noop,
+  onDeleteProcedure: noop,
+  onEdit: noop,
+  onAddProcedure: noop,
+  onConfirm: noop,
+  onDispute: noop,
+  onClearDispute: noop,
+  onShare: noop,
+  onCopySample: noop,
+  onCaseView: noop,
+  onSaveFirstCase: noop,
+};
+
+describe('SurgeonCard', () => {
+  it('says why a blank name is not saved', () => {
+    const onUpdateSurgeon = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [] };
+    render(<SurgeonCard surgeon={surgeon} procedures={[]} staleDays={90} onUpdateSurgeon={onUpdateSurgeon} onCopyToNotes={noop} {...handlers} />);
+    fireEvent.click(screen.getByText('Edit details'));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(screen.getByRole('alert').textContent).toBe('Add a name to save.');
+    expect(screen.getByLabelText('Name')).toBeTruthy();
+    expect(onUpdateSurgeon).not.toHaveBeenCalled();
+  });
+
+  it('keeps a unit surgeon read-only and points to the copy once it exists', () => {
+    const stamp = { id: 'unit-1', revision: 3 };
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: ['Bovie 35/35'], unitBook: stamp };
+    const unitCard = { ...emptyProcedure('s1', { id: 'p1', name: 'Knee' }), unitBook: stamp };
+    const onCopyToNotes = vi.fn();
+    const { rerender } = render(<SurgeonCard surgeon={surgeon} procedures={[unitCard]} staleDays={90} onUpdateSurgeon={noop} onCopyToNotes={onCopyToNotes} {...handlers} />);
+    expect(screen.queryByText('Edit details')).toBeNull();
+    expect(screen.queryByText('Edit')).toBeNull();
+    expect(screen.getByText('Unit book · revision 3', { selector: 'header p' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Knee/ }));
+    fireEvent.click(screen.getByText('Copy to my notes'));
+    expect(onCopyToNotes).toHaveBeenCalledWith('p1');
+
+    const copy = { ...emptyProcedure('s1', { id: 'p2', name: 'Knee' }), copiedFrom: 'p1' };
+    rerender(<SurgeonCard surgeon={surgeon} procedures={[copy, unitCard]} staleDays={90} autoOpen onUpdateSurgeon={noop} onCopyToNotes={onCopyToNotes} {...handlers} />);
+    expect(screen.getByText('Go to my copy')).toBeTruthy();
+    expect(screen.getByText('My notes')).toBeTruthy();
+    expect(screen.getAllByText('Edit')).toHaveLength(1);
+  });
+
+  it('uses the unit rule for two-person confirmation and shows what the revision changed', () => {
+    const at = new Date(Date.now() - 86400000).toISOString();
+    const stamp = { id: 'unit-1', revision: 4, changes: ['Trays', 'Sutures'], settings: { staleDays: 90, dictation: true, twoPerson: true } };
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [], unitBook: stamp };
+    const procedure = { ...emptyProcedure('s1', { id: 'p1', name: 'Knee' }), unitBook: stamp, confirmations: [{ name: 'Alex', userId: 'alex', at }], lastConfirmedAt: at };
+    const trustFor = () => ({ staleDays: 90, mode: 'facility' });
+    render(<SurgeonCard surgeon={surgeon} procedures={[procedure]} staleDays={90} trustFor={trustFor} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    expect(screen.getByText('Unconfirmed')).toBeTruthy();
+    expect(screen.getByText('One person')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Knee/ }));
+    expect(screen.getByText(/One staff member/)).toBeTruthy();
+    expect(screen.getByText('Changed in revision 4: Trays, Sutures.')).toBeTruthy();
+  });
+
+  it('starts with procedures collapsed and opens one on tap', () => {
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
+    const knee = emptyProcedure('s1', { id: 'p1', name: 'Knee', blocks: { ...emptyProcedure('s1').blocks, position: { text: 'Supine' } } });
+    const hip = emptyProcedure('s1', { id: 'p2', name: 'Hip' });
+    render(<SurgeonCard surgeon={surgeon} procedures={[knee, hip]} staleDays={90} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    const row = screen.getByRole('button', { name: /^Knee/ });
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Supine')).toBeNull();
+    expect(screen.queryByText('I was in this case')).toBeNull();
+    fireEvent.click(row);
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Supine')).toBeTruthy();
+    expect(screen.getAllByText('I was in this case')).toHaveLength(1);
+    fireEvent.click(row);
+    expect(screen.queryByText('Supine')).toBeNull();
+  });
+
+  it('offers Duplicate on a card from your own notes only', () => {
+    const onDuplicate = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [] };
+    const own = emptyProcedure('s1', { id: 'p1', name: 'Right total knee' });
+    const unit = emptyProcedure('s1', { id: 'p2', name: 'Left total knee', unitBook: { id: 'u1', revision: 2 } });
+    render(<SurgeonCard surgeon={surgeon} procedures={[own, unit]} staleDays={90} autoOpen onDuplicate={onDuplicate} onCopyToNotes={noop} {...handlers} />);
+    expect(screen.queryByRole('button', { name: 'Duplicate Left total knee' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate Right total knee' }));
+    expect(onDuplicate).toHaveBeenCalledWith(own);
+  });
+
+  it('shows an open suggestion on the row and lets you close it', () => {
+    const onCloseSuggestion = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [] };
+    const card = emptyProcedure('s1', { id: 'p1', name: 'Right total knee' });
+    const suggestion = { id: 'g1', procedureId: 'p1', at: new Date().toISOString(), change: 'Add a second lap pack', status: 'open', revision: null };
+    render(<SurgeonCard surgeon={surgeon} procedures={[card]} staleDays={90} suggestionFor={(id) => (id === 'p1' ? suggestion : null)} onCloseSuggestion={onCloseSuggestion} onCopyToNotes={noop} {...handlers} />);
+    expect(screen.getByText('Your suggestion is open')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Right total knee/ }));
+    expect(screen.getByText(/You suggested a change .*: Add a second lap pack/)).toBeTruthy();
+    expect(screen.getByText('Check the official card for it the next time you are in this case.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'The card has it now' }));
+    expect(onCloseSuggestion).toHaveBeenCalledWith(suggestion, 'made');
+  });
+
+  it('draws the highlight inside the highlighted card only', () => {
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
+    const cards = [emptyProcedure('s1', { id: 'p1', name: 'Knee' }), emptyProcedure('s1', { id: 'p2', name: 'Hip' })];
+    const { container } = render(<SurgeonCard surgeon={surgeon} procedures={cards} staleDays={90} highlightId="p2" onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    expect(container.querySelector('#procedure-p2').className).toContain('ring-inset');
+    expect(container.querySelector('#procedure-p1').className).not.toContain('ring-inset');
+  });
+
+  it('keeps two identical first-case lines', () => {
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: ['Same', 'Same'] };
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<SurgeonCard surgeon={surgeon} procedures={[]} staleDays={90} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    expect(screen.getAllByText('• Same')).toHaveLength(2);
+    expect(error.mock.calls.some(call => String(call[0]).includes('same key'))).toBe(false);
+    error.mockRestore();
+  });
+
+  it('opens earlier versions of a card, including a unit book card', () => {
+    const onHistory = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
+    const unitCard = { ...emptyProcedure('s1', { id: 'p1', name: 'Knee' }), unitBook: { id: 'u', revision: 2 } };
+    render(<SurgeonCard surgeon={surgeon} procedures={[unitCard]} staleDays={90} autoOpen onHistory={onHistory} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    fireEvent.click(screen.getByRole('button', { name: 'History of Knee' }));
+    expect(onHistory).toHaveBeenCalledWith(unitCard);
+  });
+});
+
+describe('EmptyState', () => {
+  it('sends an all-archived book to Places instead of offering samples', () => {
+    const onOpenPlaces = vi.fn();
+    render(<EmptyState hasQuery={false} archivedCount={2} onAddSurgeon={noop} onPreview={noop} onOpenPlaces={onOpenPlaces} />);
+    expect(screen.getByText('Every place is archived')).toBeTruthy();
+    expect(screen.getByText(/2 archived surgeons are kept in Places/)).toBeTruthy();
+    expect(screen.queryByText('Preview sample cards')).toBeNull();
+    fireEvent.click(screen.getByText('Open Places'));
+    expect(onOpenPlaces).toHaveBeenCalled();
+  });
+});

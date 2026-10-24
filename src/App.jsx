@@ -1,443 +1,593 @@
-import { useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { Search, Plus, BookOpen, X, Menu, Wifi, WifiOff, Download, Upload, ShieldAlert, Users } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { SURGICAL_VENDORS } from './data/vendors';
-import { DEMO_SURGEONS } from './data/defaults';
-import { STORAGE_KEY } from './data/constants';
-import { useLocalStorage, useSearch } from './hooks/usePlaybook';
-import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { buildSampleBook } from './data/defaults';
+import {
+  CARD_STATUS, DISCLAIMER_KEY, HOME_SCREEN_KEY, SORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, duplicateProcedure, emptyProcedure,
+} from './data/schema';
+import { personId, rowTrust, trustState, withConfirmation } from './data/trust';
+import { SORT_CHOICES, facilityLabels, filterBook, sortSurgeons } from './data/searchBook';
+import { parseImport } from './data/incoming';
+import { dictationOff, takeOverPublishing, trustOptionsFor, unitResultText } from './data/unitBook';
+import { closeSuggestion, loadSuggestions, openSuggestion, recordSuggestion, saveSuggestions } from './data/suggestions';
+import { needsHomeScreen, safeGet, safeSet } from './data/storage';
+import { UNREADABLE_KEY, useBook } from './hooks/useBook';
 import { useAuditLog } from './hooks/useAuditLog';
-import { useFacilitySync } from './hooks/useFacilitySync';
-import { isSyncAvailable } from './lib/supabaseClient';
-import { hapticLight, hapticSuccess } from './utils/haptics';
-import SurgeonCard from './components/SurgeonCard';
+import { daysSince, useBackup } from './hooks/useBackup';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { CANNOT_SAVE, usePublishing } from './hooks/usePublishing';
+import { useStoredState } from './hooks/useStoredState';
+import { useCardHistory } from './hooks/useCardHistory';
+import { deletedToRestore, forgetCard, updateHistory } from './data/history';
+import AppHeader from './components/AppHeader';
+import ConfirmNameModal from './components/ConfirmNameModal';
+import Disclaimer from './components/Disclaimer';
 import EmptyState from './components/EmptyState';
+import HomeBanners from './components/HomeBanners';
 import RecentActivity from './components/RecentActivity';
-import { VendorResults, VendorLibrary } from './components/VendorPanels';
+import SurgeonCard from './components/SurgeonCard';
+import TodayList from './components/TodayList';
+import { VendorLibrary, VendorResults } from './components/VendorPanels';
+import { dayStamp, downloadText } from './utils/download';
+import { applyUpdate, onUpdateReady } from './pwa';
 
 const AddSurgeonModal = lazy(() => import('./components/AddSurgeonModal'));
+const CaseView = lazy(() => import('./components/CaseView'));
+const PlacesSheet = lazy(() => import('./components/PlacesSheet'));
 const ImportCardModal = lazy(() => import('./components/ImportCardModal'));
-const TeamSyncModal = lazy(() => import('./components/TeamSyncModal'));
+const ProcedureEditor = lazy(() => import('./components/ProcedureEditor'));
+const ShareCardModal = lazy(() => import('./components/ShareCardModal'));
+const PrintDay = lazy(() => import('./components/PrintDay'));
+const BackupKeyPrompt = lazy(() => import('./components/BackupKeyPrompt'));
+const CardHistorySheet = lazy(() => import('./components/CardHistorySheet'));
+const DeletedCardsSheet = lazy(() => import('./components/DeletedCardsSheet'));
 
-const LAST_EXPORT_KEY = 'scrubplaybook_last_export';
-const BACKUP_SNOOZE_KEY = 'scrubplaybook_backup_snooze_until';
-const BACKUP_REMINDER_DAYS = 30;
-const BACKUP_SNOOZE_DAYS = 14;
+const WEEK_DAYS = 7;
+const UNDO_MS = 20000;
+const HIGHLIGHT_MS = 2500;
 
-function resolveVendorLinks(vendorNames) {
-  return vendorNames
-    .map(name => SURGICAL_VENDORS.find(v => v.name.toLowerCase().includes(name.toLowerCase())))
-    .filter(Boolean);
+function plural(count, one, many) {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
-function daysSince(iso) {
-  return (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
-}
-
+/**
+ * One overlay at a time.
+ * @typedef {import('./data/types').Surgeon} Surgeon
+ * @typedef {import('./data/types').Procedure} Procedure
+ * @typedef {{ kind: 'add', name?: string, procedureName?: string }
+ *   | { kind: 'editor', surgeon: Surgeon, procedure: Procedure, copyOf?: string }
+ *   | { kind: 'share', surgeon: Surgeon, procedure: Procedure }
+ *   | { kind: 'confirm', procedure: Procedure }
+ *   | { kind: 'case', queue: string[], index: number, returnTo?: boolean }
+ *   | { kind: 'print', ids: string[] }
+ *   | { kind: 'import' }
+ *   | { kind: 'places' }
+ *   | { kind: 'history', procedureId: string }
+ *   | { kind: 'deleted' }} Overlay
+ */
 export default function App() {
-  const [surgeons, setSurgeons] = useLocalStorage(STORAGE_KEY, DEMO_SURGEONS);
-  const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [showImport, setShowImport] = useState(false);
-  const [showVendors, setShowVendors] = useState(false);
-  const [activeFacility, setActiveFacility] = useState(null);
-  const [showDisclaimer, setShowDisclaimer] = useState(() => {
-    return !localStorage.getItem('scrubplaybook_disclaimer_seen');
-  });
-  const [lastExportAt, setLastExportAt] = useState(() => localStorage.getItem(LAST_EXPORT_KEY));
-  const [backupSnoozeUntil, setBackupSnoozeUntil] = useState(() => localStorage.getItem(BACKUP_SNOOZE_KEY));
-  const [showTeamSync, setShowTeamSync] = useState(false);
+  const bookApi = useBook();
+  const { book } = bookApi;
+  const { log: auditLog, addEntry: addAudit, mergeLog } = useAuditLog();
   const { isOnline } = useNetworkStatus();
-  const { log: auditLog, addEntry: addAudit } = useAuditLog();
-  const searchDebounce = useRef(null);
+  const [suggestions, updateSuggestions] = useStoredState(SUGGESTIONS_KEY, loadSuggestions, saveSuggestions);
+  const { history: cardHistory } = useCardHistory();
 
-  // Team Sync: fully inert unless a Supabase project is configured (opt-in,
-  // local-first stays the default). Remote is authoritative once synced —
-  // small-team use case, low conflict risk, documented in supabase/schema.sql.
-  const facilitySync = useFacilitySync({
-    onRemoteCard: (cardData) => {
-      setSurgeons(prev => {
-        const exists = prev.some(s => s.id === cardData.id);
-        return exists ? prev.map(s => s.id === cardData.id ? cardData : s) : [cardData, ...prev];
-      });
+  const [overlay, setOverlay] = useState(/** @type {Overlay | null} */ (null));
+  const closeOverlay = () => setOverlay(null);
+  const [notice, setNotice] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchKey, setSearchKey] = useState(0);
+  const [sortMode, setSortMode] = useState(() => {
+    const saved = safeGet(SORT_KEY) || 'attention';
+    return SORT_CHOICES.some(([value]) => value === saved) ? saved : 'attention';
+  });
+  const [activeFacility, setActiveFacility] = useState(/** @type {string | null} */ (null));
+  const [showVendors, setShowVendors] = useState(false);
+  const [undo, setUndo] = useState(/** @type {{ text: string, removed: { surgeons: Surgeon[], procedures: Procedure[] } } | null} */ (null));
+  const [highlight, setHighlight] = useState(/** @type {{ id: string } | null} */ (null));
+  const [showDisclaimer, setShowDisclaimer] = useState(() => !safeGet(DISCLAIMER_KEY));
+  const [todayVersion, setTodayVersion] = useState(0);
+  const [updateReady, setUpdateReady] = useState(false);
+  const [homeScreenHidden, setHomeScreenHidden] = useState(() => {
+    const at = safeGet(HOME_SCREEN_KEY);
+    return Boolean(at) && daysSince(at) < WEEK_DAYS;
+  });
+
+  const publishing = usePublishing({ book, addAudit, setNotice });
+  const { published } = publishing;
+  const backup = useBackup({
+    book, bookApi, auditLog, addAudit, mergeLog, suggestions, updateSuggestions,
+    updatePublished: publishing.update, setNotice, onBoardRestored: () => setTodayVersion(v => v + 1),
+  });
+
+  const clearSearch = () => {
+    setSearch('');
+    setSearchKey(key => key + 1);
+  };
+  const flashProcedure = (id) => setHighlight({ id });
+
+  const labels = facilityLabels(book);
+  const placeFilter = activeFacility && labels.includes(activeFacility) ? activeFacility : null;
+  const filtered = useMemo(() => filterBook(book, search, placeFilter), [book, search, placeFilter]);
+  const archivedCount = book.surgeons.filter(s => !s.demo && s.archived).length;
+  const q = search.trim().toLowerCase();
+  const vendorHits = q
+    ? SURGICAL_VENDORS.filter(v => v.name.toLowerCase().includes(q) || v.blurb.toLowerCase().includes(q))
+    : [];
+  const showVendorHits = q && vendorHits.length > 0 && vendorHits.length < SURGICAL_VENDORS.length;
+
+  const trustFor = useCallback(
+    (procedure) => trustOptionsFor(procedure, book.surgeons.find(surgeon => surgeon.id === procedure.surgeonId), published),
+    [book.surgeons, published],
+  );
+
+  const bySurgeon = useMemo(() => {
+    const all = new Map();
+    const shown = new Map();
+    const push = (map, procedure) => {
+      if (!map.has(procedure.surgeonId)) map.set(procedure.surgeonId, []);
+      map.get(procedure.surgeonId).push(procedure);
+    };
+    book.procedures.forEach(procedure => push(all, procedure));
+    filtered.procedures.forEach(procedure => push(shown, procedure));
+    return { all, shown };
+  }, [book.procedures, filtered.procedures]);
+
+  const sortedSurgeons = useMemo(
+    () => sortSurgeons(filtered.surgeons, book.procedures, sortMode, surgeon => rowTrust(bySurgeon.all.get(surgeon.id) || [], {}, trustFor)?.status),
+    [filtered.surgeons, book.procedures, sortMode, bySurgeon, trustFor],
+  );
+
+  const busy = Boolean(overlay || backup.keyPrompt || showDisclaimer);
+
+  useEffect(() => onUpdateReady(setUpdateReady), []);
+
+  useEffect(() => {
+    if (!updateReady || busy) return undefined;
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') applyUpdate();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [updateReady, busy]);
+
+  useEffect(() => {
+    if (!undo) return undefined;
+    const timer = setTimeout(() => setUndo(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [undo]);
+
+  useEffect(() => {
+    if (!highlight) return undefined;
+    const el = document.getElementById(`procedure-${highlight.id}`);
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+    const timer = setTimeout(() => setHighlight(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [highlight]);
+
+  const offerUndo = (text, removed) => {
+    if (removed?.surgeons?.length || removed?.procedures?.length) setUndo({ text, removed });
+  };
+
+  const undoDelete = () => {
+    if (!undo) return;
+    const result = bookApi.restoreRemoved(undo.removed);
+    addAudit({ action: 'Delete undone', surgeonName: undo.removed.surgeons[0]?.name || '', note: `${result.surgeons} surgeons, ${result.procedures} procedures back` });
+    setUndo(null);
+  };
+
+  const surgeonOf = (procedure) => book.surgeons.find(surgeon => surgeon.id === procedure?.surgeonId) || null;
+
+  const restoreVersion = (procedure, version) => {
+    if (!bookApi.restoreVersion(procedure.id, version)) return;
+    addAudit({ action: 'Earlier version brought back', surgeonName: surgeonOf(procedure)?.name || '', note: procedure.name });
+    setNotice(`The earlier version of ${procedure.name} is back. It is unconfirmed until someone is in that case.`);
+    closeOverlay();
+    flashProcedure(procedure.id);
+  };
+
+  const forgetHistory = (procedure) => {
+    updateHistory(current => forgetCard(current, procedure.id));
+    addAudit({ action: 'Card history cleared', surgeonName: surgeonOf(procedure)?.name || '', note: procedure.name });
+    closeOverlay();
+  };
+
+  const bringBackDeleted = (entry) => {
+    const result = bookApi.restoreRemoved(deletedToRestore(book, entry));
+    if (!result.procedures) {
+      setNotice(`${entry.procedure.name} could not come back. Its surgeon is no longer on this phone.`);
+      return;
+    }
+    if (undo?.removed.procedures.some(procedure => procedure.id === entry.procedure.id)) setUndo(null);
+    addAudit({ action: 'Deleted card brought back', surgeonName: entry.surgeonName, note: entry.procedure.name });
+    setNotice(`${entry.procedure.name} is back in your book, unconfirmed.`);
+    closeOverlay();
+    setActiveFacility(null);
+    clearSearch();
+    flashProcedure(entry.procedure.id);
+  };
+
+  const confirmCard = (procedure, name) => {
+    const options = trustFor(procedure);
+    const tech = bookApi.confirmProcedure(procedure.id, name, { mode: options.mode });
+    addAudit({ action: 'Case confirmed', surgeonName: surgeonOf(procedure)?.name || '', user: name, note: procedure.name });
+    if (options.mode !== 'facility') return {};
+    const after = trustState(withConfirmation(procedure, { name: tech, userId: personId(tech), mode: 'facility' }), options);
+    const message = after.status === CARD_STATUS.CONFIRMED
+      ? `Confirmed by ${tech}. Two people have now matched this card.`
+      : `Confirmed by ${tech}. This unit asks a second person to confirm before it shows as matched.`;
+    setNotice(message);
+    return { message };
+  };
+
+  const flagCard = (procedure, reason) => {
+    bookApi.disputeProcedure(procedure.id, reason);
+    addAudit({ action: 'Card flagged', surgeonName: surgeonOf(procedure)?.name || '', note: [procedure.name, reason].filter(Boolean).join(': ') });
+  };
+
+  const onImport = (incoming, options = {}) => {
+    try {
+      if (options.handover) {
+        const result = takeOverPublishing(book, options.handover, { fingerprint: options.fingerprint });
+        if (!result.entry) return { success: false, error: unitResultText(result.place, result) };
+        if (!publishing.update(current => ({ ...current, [result.place]: result.entry }))) {
+          publishing.update(current => current);
+          return { success: false, error: `Publishing for ${result.place} was not taken over. ${CANNOT_SAVE}` };
+        }
+        bookApi.replaceBook(result.book);
+        addAudit({ action: 'Publishing taken over', surgeonName: result.place, note: `Revision ${result.entry.revision}` });
+        setNotice(`You now publish the unit book for ${result.place}. Its cards are your notes. Delete the hand-over file.`);
+        return { success: true, imported: 0, skipped: 0 };
+      }
+      if (options.unitFile) {
+        const result = bookApi.importUnitBook(options.unitFile, { adopt: Boolean(options.adopt), published, fingerprint: options.fingerprint });
+        const text = unitResultText(options.unitFile.place, result);
+        if (result.status !== 'updated') return { success: false, error: text };
+        addAudit({ action: 'Unit book updated', surgeonName: options.unitFile.place, note: `Revision ${result.revision}` });
+        setNotice(text);
+        return { success: true, imported: result.counts.added, skipped: 0 };
+      }
+      if (options.restore) return backup.restore(options.restore);
+      const parsed = incoming?.surgeons ? { book: incoming } : parseImport(incoming);
+      const result = bookApi.importIncoming(parsed.book, options);
+      addAudit({ action: 'Backup imported', surgeonName: `${result.imported} added`, note: `${result.skipped} skipped` });
+      setNotice(`${result.imported} added, ${result.skipped} skipped. Imported cards are unconfirmed.`);
+      return { success: true, imported: result.imported, skipped: result.skipped };
+    } catch {
+      return { success: false, error: 'That is not a Scrub Playbook card or backup.' };
+    }
+  };
+
+  const addSurgeon = (partial, procedureName = '') => {
+    const surgeon = bookApi.addSurgeon(partial);
+    if (!surgeon) {
+      closeOverlay();
+      return;
+    }
+    addAudit({ action: 'Surgeon created', surgeonName: surgeon.name, user: partial.addedBy });
+    setOverlay({ kind: 'editor', surgeon, procedure: emptyProcedure(surgeon.id, { name: procedureName || '' }) });
+  };
+
+  const saveProcedure = (procedure, options = {}) => {
+    bookApi.saveProcedure(procedure, options);
+    addAudit({ action: 'Procedure saved', surgeonName: surgeonOf(procedure)?.name || '', note: procedure.name, user: options.by });
+  };
+
+  const openCases = (ids, returnTo) => {
+    if (returnTo) {
+      clearSearch();
+      setActiveFacility(null);
+    }
+    setOverlay({ kind: 'case', queue: ids, index: 0, returnTo });
+  };
+
+  const caseProcedureId = overlay?.kind === 'case' ? overlay.queue[overlay.index] : null;
+  const caseProcedure = caseProcedureId ? book.procedures.find(item => item.id === caseProcedureId) : null;
+  const caseSurgeon = caseProcedure ? surgeonOf(caseProcedure) : null;
+  const historyProcedure = overlay?.kind === 'history' ? book.procedures.find(item => item.id === overlay.procedureId) || null : null;
+
+  const closeCase = () => {
+    if (overlay?.kind === 'case' && overlay.returnTo && caseProcedureId) flashProcedure(caseProcedureId);
+    closeOverlay();
+  };
+
+  const stepCase = (delta) => setOverlay(current => (current?.kind === 'case'
+    ? { ...current, index: Math.min(current.queue.length - 1, Math.max(0, current.index + delta)) }
+    : current));
+
+  const donePrinting = useCallback(() => setOverlay(current => (current?.kind === 'print' ? null : current)), []);
+
+  const cardActions = (surgeon) => ({
+    onDeleteSurgeon: (id) => {
+      const removed = bookApi.deleteSurgeon(id);
+      addAudit({ action: 'Surgeon deleted', surgeonName: surgeon.name, note: `${removed.procedures.length} procedures` });
+      if (!surgeon.demo) offerUndo(`Deleted ${surgeon.name} and ${plural(removed.procedures.length, 'procedure', 'procedures')}.`, removed);
     },
-    onRemoteDelete: (id) => {
-      setSurgeons(prev => prev.filter(s => s.id !== id));
+    onDeleteProcedure: (id) => {
+      const removed = bookApi.deleteProcedure(id);
+      const name = removed.procedures[0]?.name || '';
+      addAudit({ action: 'Procedure deleted', surgeonName: surgeon.name, note: name });
+      if (!surgeon.demo) offerUndo(`Deleted ${name || 'the procedure'} for ${surgeon.name}.`, removed);
+    },
+    onEdit: (procedure) => setOverlay({ kind: 'editor', surgeon, procedure }),
+    onDuplicate: (procedure) => setOverlay({ kind: 'editor', surgeon, procedure: duplicateProcedure(procedure), copyOf: procedure.name }),
+    onAddProcedure: () => setOverlay({ kind: 'editor', surgeon, procedure: emptyProcedure(surgeon.id, { name: '' }) }),
+    onConfirm: (procedure) => setOverlay({ kind: 'confirm', procedure }),
+    onDispute: flagCard,
+    onClearDispute: (id) => {
+      const procedure = book.procedures.find(item => item.id === id);
+      bookApi.clearDispute(id);
+      addAudit({ action: 'Flag cleared', surgeonName: surgeon.name, note: [procedure?.name, procedure?.reportNote].filter(Boolean).join(': ') });
+    },
+    suggestionFor: (id) => openSuggestion(suggestions, id),
+    onCloseSuggestion: (suggestion, status) => {
+      updateSuggestions(list => closeSuggestion(list, suggestion.id, status));
+      const procedure = book.procedures.find(item => item.id === suggestion.procedureId);
+      addAudit({ action: status === 'made' ? 'Suggestion made on the card' : 'Suggestion closed', surgeonName: surgeon.name, note: procedure?.name || '' });
+    },
+    onShare: (s, procedure) => setOverlay({ kind: 'share', surgeon: s, procedure }),
+    onUpdateSurgeon: (id, details) => {
+      bookApi.updateSurgeon(id, details);
+      addAudit({ action: 'Surgeon details edited', surgeonName: details.name || surgeon.name, note: details.facility || '' });
+    },
+    onSaveFirstCase: (id, lines) => {
+      bookApi.saveFirstCase(id, lines);
+      addAudit({ action: 'First-case notes edited', surgeonName: surgeon.name });
+    },
+    onCaseView: (s, procedure) => openCases([procedure.id], false),
+    onHistory: surgeon.demo ? undefined : (procedure) => setOverlay({ kind: 'history', procedureId: procedure.id }),
+    onCopyToNotes: (id) => {
+      const result = bookApi.copyToNotes(id);
+      if (result.status === 'missing') return;
+      flashProcedure(result.procedureId);
+      setNotice(result.status === 'already'
+        ? 'This card is already in your notes. Your copy is highlighted.'
+        : 'Copied into your notes under the same surgeon. It is unconfirmed until you are in that case.');
+    },
+    onCopySample: (id) => {
+      bookApi.copySample(id);
+      setNotice('Copied into your book. It is unconfirmed until you were in that case.');
     },
   });
 
-  const { q, filteredSurgeons, filteredVendors, hasVendorResults, facilities } = useSearch(surgeons, SURGICAL_VENDORS, search, activeFacility);
-
-  // ── Haptic + Audit-enhanced callbacks ──
-  const addSurgeon = useCallback((data) => {
-    setSurgeons(prev => [data, ...prev]);
-    addAudit({ action: 'Surgeon Created', surgeonName: data.name, user: data.addedBy || 'Kyle', note: data.changeNote || null });
-    facilitySync.pushCard(data);
-    hapticSuccess();
-  }, [setSurgeons, addAudit, facilitySync]);
-
-  const deleteSurgeon = useCallback((id) => {
-    setSurgeons(prev => {
-      const target = prev.find(s => s.id === id);
-      if (target) addAudit({ action: 'Surgeon Deleted', surgeonName: target.name, user: target.addedBy || 'Kyle' });
-      return prev.filter(s => s.id !== id);
-    });
-    facilitySync.pushDelete(id);
-    hapticLight();
-  }, [setSurgeons, addAudit, facilitySync]);
-
-  const updateSurgeon = useCallback((updated) => {
-    setSurgeons(prev => prev.map(s => s.id === updated.id ? updated : s));
-    facilitySync.pushCard(updated);
-    hapticLight();
-  }, [setSurgeons, facilitySync]);
-
-  const importSurgeon = useCallback((data) => {
-    const { kind: _kind, ...card } = data;
-    const surgeon = {
-      ...card,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      addedBy: card.addedBy || 'Imported',
-      status: 'unconfirmed', // re-verify locally before trusting an imported card
-      lastVerifiedBy: null,
-      lastVerifiedAt: null,
-    };
-    setSurgeons(prev => [surgeon, ...prev]);
-    addAudit({ action: 'Surgeon Imported', surgeonName: surgeon.name, user: 'Kyle' });
-    facilitySync.pushCard(surgeon);
-    hapticSuccess();
-  }, [setSurgeons, addAudit, facilitySync]);
-
-  const handleEnableSync = useCallback((code) => {
-    facilitySync.enableSync(code);
-    facilitySync.pushBulk(surgeons);
-  }, [facilitySync, surgeons]);
-
-  const exportPlaybook = useCallback(() => {
-    const data = {
-      kind: 'scrubplaybook-backup',
-      v: 1,
-      exportedAt: new Date().toISOString(),
-      surgeons: surgeons,
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `scrubplaybook-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    const now = new Date().toISOString();
-    localStorage.setItem(LAST_EXPORT_KEY, now);
-    setLastExportAt(now);
-    localStorage.removeItem(BACKUP_SNOOZE_KEY);
-    setBackupSnoozeUntil(null);
-    hapticLight();
-  }, [surgeons]);
-
-  const snoozeBackupReminder = useCallback(() => {
-    const until = new Date(Date.now() + BACKUP_SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    localStorage.setItem(BACKUP_SNOOZE_KEY, until);
-    setBackupSnoozeUntil(until);
-  }, []);
-
-  // Nudge, don't nag: only for real playbooks that have never been backed up
-  // or haven't been in 30+ days, and never more than once per snooze window.
-  const showBackupReminder = surgeons.length > 0
-    && (!lastExportAt || daysSince(lastExportAt) > BACKUP_REMINDER_DAYS)
-    && (!backupSnoozeUntil || Date.now() > new Date(backupSnoozeUntil).getTime());
-
-  const importBackup = useCallback((backupData) => {
-    if (!backupData || backupData.kind !== 'scrubplaybook-backup' || !Array.isArray(backupData.surgeons)) {
-      return { success: false, error: 'Invalid backup format' };
-    }
-
-    let importedCount = 0;
-    let skippedCount = 0;
-
-    setSurgeons(prev => {
-      const existingIds = new Set(prev.map(s => s.id));
-      const newSurgeons = [];
-
-      backupData.surgeons.forEach(card => {
-        if (existingIds.has(card.id)) {
-          skippedCount++;
-        } else {
-          newSurgeons.push(card);
-          importedCount++;
-        }
-      });
-
-      if (newSurgeons.length > 0) {
-        return [...prev, ...newSurgeons];
-      }
-      return prev;
-    });
-
-    addAudit({
-      action: 'Backup Imported',
-      surgeonName: `${importedCount} card(s)`,
-      user: 'Kyle',
-      note: `${importedCount} imported, ${skippedCount} skipped as duplicates`
-    });
-    hapticSuccess();
-
-    return { success: true, imported: importedCount, skipped: skippedCount };
-  }, [setSurgeons, addAudit]);
-
-  const openModal = useCallback(() => setShowModal(true), []);
-
-  const handleSearch = (e) => {
-    setSearch(e.target.value);
-    clearTimeout(searchDebounce.current);
-    searchDebounce.current = setTimeout(() => {
-      if (e.target.value.trim()) hapticLight();
-    }, 300);
-  };
+  if (!bookApi.loaded) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50" role="status">
+        <p className="text-sm font-semibold text-slate-600">Opening your book…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-slate-100">
-      {/* ═══ HEADER ═══ */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
-        <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-medical-600 to-medical-800 flex items-center justify-center shadow-lg shadow-medical-600/20">
-                <BookOpen size={18} className="text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">ScrubPlaybook</h1>
-                  <div className="relative group">
-                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
-                      isOnline ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'
-                    }`}>
-                      {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
-                      {isOnline ? '' : 'Offline'}
-                    </div>
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-1 bg-slate-900 text-white text-[10px] rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      {isOnline ? 'Online — app shell cached for offline use' : 'Offline — running from cache, data saved locally'}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-400 tracking-wide">YOUR SURGEONS. YOUR RULES.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isSyncAvailable && (
-                <button onClick={() => setShowTeamSync(true)}
-                  className={`relative p-2 rounded-xl transition-all cursor-pointer ${
-                    facilitySync.syncCode ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:text-medical-600 hover:bg-medical-50'
-                  }`}
-                  title={facilitySync.syncCode ? `Team Sync: ${facilitySync.syncCode}` : 'Team Sync'}>
-                  <Users size={20} />
-                  {facilitySync.syncCode && facilitySync.status === 'connected' && (
-                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  )}
-                </button>
-              )}
-              <button onClick={exportPlaybook}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Export All Cards (Backup)">
-                <Download size={20} />
-              </button>
-              <button onClick={() => setShowImport(true)}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Import Card / Backup">
-                <Upload size={20} />
-              </button>
-              <button onClick={() => setShowVendors(v => !v)}
-                className="p-2 rounded-xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all cursor-pointer" title="Vendor Library">
-                <Menu size={20} />
-              </button>
-              <button onClick={openModal}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-medical-600 to-medical-700 text-white font-semibold text-sm shadow-lg shadow-medical-600/25 hover:from-medical-700 hover:to-medical-800 active:scale-[0.97] transition-all cursor-pointer">
-                <Plus size={16} />
-                <span className="hidden sm:inline">Add Surgeon</span>
-              </button>
-            </div>
-          </div>
-          <div className="relative">
-            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={search} onChange={handleSearch}
-              placeholder="Search surgeons, instruments, vendors…"
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-medical-400/40 focus:bg-white transition-all" />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          {/* ═══ FACILITY FILTER CHIPS (traveler tech: same surgeon, different site) ═══ */}
-          {facilities.length > 1 && (
-            <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-0.5">
-              <button
-                onClick={() => setActiveFacility(null)}
-                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                  !activeFacility ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                All Facilities
-              </button>
-              {facilities.map(f => (
-                <button
-                  key={f}
-                  onClick={() => setActiveFacility(cur => cur === f ? null : f)}
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    activeFacility === f ? 'bg-medical-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </header>
+      <AppHeader
+        isOnline={isOnline}
+        search={search}
+        searchKey={searchKey}
+        onSearch={setSearch}
+        labels={labels}
+        placeFilter={placeFilter}
+        onPlaceFilter={setActiveFacility}
+        showVendors={showVendors}
+        onExport={backup.exportBackup}
+        onPlaces={() => setOverlay({ kind: 'places' })}
+        onImport={() => setOverlay({ kind: 'import' })}
+        onToggleVendors={() => setShowVendors(v => !v)}
+        onAddSurgeon={() => setOverlay({ kind: 'add' })}
+      />
 
-      {/* ═══ VENDOR PANELS ═══ */}
-      {hasVendorResults && <VendorResults vendors={filteredVendors} />}
+      {showVendorHits && <VendorResults vendors={vendorHits} />}
       {showVendors && !q && <VendorLibrary onClose={() => setShowVendors(false)} />}
 
-      {/* ═══ BENTO GRID ═══ */}
       <main className="max-w-5xl mx-auto px-4 py-6">
-        {/* ═══ BACKUP REMINDER (data lives only on this device) ═══ */}
-        {showBackupReminder && (
-          <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
-            <div className="flex items-start gap-2.5">
-              <ShieldAlert size={16} className="text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-800 leading-relaxed">
-                {lastExportAt
-                  ? `It's been over ${BACKUP_REMINDER_DAYS} days since your last backup.`
-                  : "Your cards only live on this device — back them up in case you lose your phone."}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-              <button onClick={snoozeBackupReminder}
-                className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 px-2 py-1 transition-colors cursor-pointer">
-                Remind me later
-              </button>
-              <button onClick={exportPlaybook}
-                className="text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg px-3 py-1.5 transition-all cursor-pointer">
-                Back Up Now
-              </button>
-            </div>
+        <HomeBanners
+          updateReady={updateReady && !busy}
+          onUpdate={applyUpdate}
+          saveState={bookApi.saveState}
+          onExport={backup.exportBackup}
+          onRetrySave={bookApi.retrySave}
+          unreadable={bookApi.unreadable}
+          onDownloadUnreadable={() => downloadText(`scrubplaybook-unreadable-${dayStamp()}.json`, safeGet(UNREADABLE_KEY, ''))}
+          notice={notice}
+          onDismissNotice={() => setNotice('')}
+          reminder={backup.reminder}
+          showHomeScreen={!homeScreenHidden && needsHomeScreen()}
+          onHideHomeScreen={() => { safeSet(HOME_SCREEN_KEY, new Date().toISOString()); setHomeScreenHidden(true); }}
+        />
+
+        <TodayList
+          key={todayVersion}
+          book={book}
+          onOpen={(procedure) => openCases([procedure.id], true)}
+          onOpenAll={(ready) => openCases(ready.map(entry => entry.procedure.id), true)}
+          onPrintAll={(ready) => setOverlay({ kind: 'print', ids: ready.map(entry => entry.procedure.id) })}
+          onStartProcedure={(surgeon, procedureName) => setOverlay({ kind: 'editor', surgeon, procedure: emptyProcedure(surgeon.id, { name: procedureName }) })}
+          onStartSurgeon={(surgeonName, procedureName) => setOverlay({ kind: 'add', name: surgeonName, procedureName })}
+        />
+
+        {filtered.surgeons.length > 1 && (
+          <div className="flex justify-end mb-3">
+            <label htmlFor="home-sort" className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              Sort
+              <select
+                id="home-sort"
+                value={sortMode}
+                onChange={e => { setSortMode(e.target.value); safeSet(SORT_KEY, e.target.value); }}
+                className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              >
+                {SORT_CHOICES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
           </div>
         )}
 
-        {filteredSurgeons.length === 0 ? (
-          <EmptyState hasQuery={!!q} searchTerm={search} onAddSurgeon={openModal} />
+        {filtered.surgeons.length === 0 ? (
+          <EmptyState
+            hasQuery={!!q}
+            searchTerm={search}
+            archivedCount={book.surgeons.some(s => !s.archived) ? 0 : archivedCount}
+            onAddSurgeon={() => setOverlay({ kind: 'add' })}
+            onPreview={!q ? () => bookApi.loadSamples(buildSampleBook()) : null}
+            onOpenPlaces={() => setOverlay({ kind: 'places' })}
+          />
         ) : (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                {filteredSurgeons.length} Surgeon{filteredSurgeons.length !== 1 ? 's' : ''}
-                {q && ` matching "${search}"`}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredSurgeons.map((s, i) => (
-                <SurgeonCard
-                  key={s.id}
-                  surgeon={s}
-                  vendorLinks={resolveVendorLinks(s.vendorLinks || [])}
-                  index={i}
-                  onDelete={deleteSurgeon}
-                  onUpdate={updateSurgeon}
-                  onAudit={addAudit}
-                  auditLog={auditLog}
-                />
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sortedSurgeons.map(surgeon => (
+              <SurgeonCard
+                key={surgeon.id}
+                surgeon={surgeon}
+                procedures={bySurgeon.shown.get(surgeon.id) || []}
+                trustProcedures={bySurgeon.all.get(surgeon.id) || []}
+                staleDays={STALE_AFTER_DAYS}
+                trustFor={trustFor}
+                highlightId={highlight?.id}
+                autoOpen={Boolean(q)}
+                {...cardActions(surgeon)}
+              />
+            ))}
+          </div>
         )}
 
-        {/* ═══ RECENT ACTIVITY FEED ═══ */}
-        {auditLog.length > 0 && (
-          <div className="mt-8">
-            <RecentActivity log={auditLog} maxItems={10} />
+        {cardHistory && cardHistory.deleted.length > 0 && (
+          <div className="mt-8 flex justify-center">
+            <button type="button" onClick={() => setOverlay({ kind: 'deleted' })} className="min-h-11 px-4 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 cursor-pointer">
+              Recently deleted cards ({cardHistory.deleted.length})
+            </button>
           </div>
+        )}
+
+        {auditLog.length > 0 && (
+          <div className="mt-8"><RecentActivity log={auditLog} /></div>
         )}
       </main>
 
-      {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-slate-200/60 mt-4">
-        <div className="max-w-5xl mx-auto px-4 py-6 text-center space-y-2">
-          <p className="text-xs text-slate-400">ScrubPlaybook — Built by Scrub Techs, for Scrub Techs 🩺</p>
-          <p className="text-[10px] text-slate-300 leading-relaxed max-w-lg mx-auto">
-            This tool is a <strong>personal reference aid</strong> and is not a substitute for official manufacturer Instructions for Use (IFU), facility-specific policies, or surgeon-verified preference cards.
-            Always confirm preferences directly with the surgical team before each procedure.
-            No patient-identifiable information (PHI) should be entered.
-            Aligned with{' '}
-            <a href="https://www.ast.org" target="_blank" rel="noopener noreferrer" className="text-medical-500 hover:text-medical-600 underline">
-              AST
-            </a>{' '}
-            standards of practice.
+        <div className="max-w-5xl mx-auto px-4 py-6 text-center">
+          <p className="text-xs text-slate-600 leading-relaxed max-w-xl mx-auto">
+            Scrub Playbook is staff memory, not the medical record, not an order, and not an Instructions for Use.
+            The surgeon and the hospital’s official preference card win when they disagree.
+            Product names such as DePuy, Cardinal Health, Stryker, Ethicon, and Mölnlycke belong to their owners.
+            This app is not those companies. Links open their pages. Their documents stay on their sites.
+            Nothing in this book is uploaded.
           </p>
+          <p className="mt-2 text-xs text-slate-500">Version {__APP_VERSION__} · built {__BUILD_DATE__}</p>
         </div>
       </footer>
 
-      {/* ═══ MODALS ═══ */}
-      {showModal && (
-        <Suspense fallback={null}>
-          <AddSurgeonModal onClose={() => setShowModal(false)} onSave={addSurgeon} />
-        </Suspense>
-      )}
-      {showImport && (
-        <Suspense fallback={null}>
-          <ImportCardModal onClose={() => setShowImport(false)} onImport={importSurgeon} onImportBackup={importBackup} />
-        </Suspense>
-      )}
-      {showTeamSync && (
-        <Suspense fallback={null}>
-          <TeamSyncModal
-            syncCode={facilitySync.syncCode}
-            status={facilitySync.status}
-            onEnable={handleEnableSync}
-            onDisable={facilitySync.disableSync}
-            onClose={() => setShowTeamSync(false)}
+      <Suspense fallback={null}>
+        {overlay?.kind === 'add' && (
+          <AddSurgeonModal
+            initialName={overlay.name || ''}
+            onClose={closeOverlay}
+            onSave={(partial) => addSurgeon(partial, overlay.procedureName || '')}
           />
-        </Suspense>
+        )}
+        {overlay?.kind === 'editor' && (
+          <ProcedureEditor
+            surgeon={overlay.surgeon}
+            procedure={overlay.procedure}
+            copyOf={overlay.copyOf || ''}
+            allowSpeech={!dictationOff(book, published)}
+            allowOfficial
+            onClose={closeOverlay}
+            onSave={saveProcedure}
+          />
+        )}
+        {overlay?.kind === 'share' && (
+          <ShareCardModal surgeon={overlay.surgeon} procedure={overlay.procedure} onClose={closeOverlay} />
+        )}
+        {overlay?.kind === 'places' && (
+          <PlacesSheet
+            book={book}
+            published={published}
+            onSettings={publishing.saveUnitSettings}
+            onHandOverPublishing={publishing.handOverPlace}
+            onReplaceKey={publishing.replaceKey}
+            onClose={closeOverlay}
+            onHandOff={publishing.handOffPlace}
+            onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}
+            onDelete={(place, options) => {
+              const removed = bookApi.removePlace(place, options);
+              addAudit({ action: 'Place deleted', surgeonName: place, note: `${removed.surgeons.length} surgeons, ${removed.procedures.length} procedures` });
+              offerUndo(`Deleted ${plural(removed.surgeons.length, 'surgeon', 'surgeons')} at ${place}.`, removed);
+            }}
+            onPublish={publishing.publishPlace}
+          />
+        )}
+        {overlay?.kind === 'import' && (
+          <ImportCardModal book={book} onClose={closeOverlay} onImport={onImport} />
+        )}
+        {overlay?.kind === 'case' && (
+          <CaseView
+            key={caseProcedureId}
+            surgeon={caseSurgeon}
+            procedure={caseProcedure}
+            staleDays={STALE_AFTER_DAYS}
+            trust={caseProcedure ? trustFor(caseProcedure) : undefined}
+            position={{ index: overlay.index, total: overlay.queue.length, onNext: () => stepCase(1), onPrev: () => stepCase(-1) }}
+            onClose={closeCase}
+            onConfirm={(name) => confirmCard(caseProcedure, name)}
+            onFlag={(reason) => flagCard(caseProcedure, reason)}
+            onSuggested={(sent) => {
+              updateSuggestions(list => recordSuggestion(list, caseProcedure, sent));
+              addAudit({ action: 'Card change suggested', surgeonName: caseSurgeon?.name || '', note: caseProcedure?.name || '' });
+            }}
+          />
+        )}
+        {overlay?.kind === 'print' && (
+          <PrintDay
+            cases={overlay.ids
+              .map(id => book.procedures.find(item => item.id === id))
+              .filter(Boolean)
+              .map(procedure => ({ procedure, surgeon: surgeonOf(procedure) }))
+              .filter(entry => entry.surgeon)}
+            staleDays={STALE_AFTER_DAYS}
+            trustFor={trustFor}
+            onDone={donePrinting}
+          />
+        )}
+        {overlay?.kind === 'history' && historyProcedure && surgeonOf(historyProcedure) && (
+          <CardHistorySheet
+            surgeon={/** @type {Surgeon} */ (surgeonOf(historyProcedure))}
+            procedure={historyProcedure}
+            history={cardHistory}
+            onRestore={(version) => restoreVersion(historyProcedure, version)}
+            onForget={() => forgetHistory(historyProcedure)}
+            onClose={closeOverlay}
+          />
+        )}
+        {overlay?.kind === 'deleted' && (
+          <DeletedCardsSheet
+            history={cardHistory}
+            onBringBack={bringBackDeleted}
+            onRemove={(entry) => {
+              updateHistory(current => forgetCard(current, entry.procedure.id));
+              addAudit({ action: 'Deleted card removed for good', surgeonName: entry.surgeonName, note: entry.procedure.name });
+            }}
+            onClose={closeOverlay}
+          />
+        )}
+        {backup.keyPrompt && <BackupKeyPrompt {...backup.keyPrompt} />}
+      </Suspense>
+      {overlay?.kind === 'confirm' && (
+        <ConfirmNameModal
+          title="I was in this case"
+          subtitle="Your name and the time are the confirmation. It goes stale. It is not an order."
+          onClose={closeOverlay}
+          onSubmit={(name) => confirmCard(overlay.procedure, name)}
+        />
       )}
-      {showDisclaimer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-gradient-to-r from-medical-700 to-medical-800 px-5 py-4 text-white">
-              <h2 className="text-base font-extrabold tracking-tight flex items-center gap-2">
-                🩺 ScrubPlaybook Disclaimer
-              </h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm font-semibold text-slate-800">
-                Please read and accept the following guidelines before using ScrubPlaybook:
-              </p>
-              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-xs text-slate-600 leading-relaxed space-y-3 max-h-60 overflow-y-auto">
-                <p>
-                  This tool is a <strong>personal reference aid</strong> and is not a substitute for official manufacturer Instructions for Use (IFU), facility-specific policies, or surgeon-verified preference cards.
-                </p>
-                <p>
-                  Always confirm preferences directly with the surgical team before each procedure.
-                </p>
-                <p className="font-semibold text-rose-600">
-                  Strictly NO patient-identifiable information (PHI) should be entered into this application under any circumstances.
-                </p>
-                <p>
-                  This application is aligned with AST standards of practice.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  localStorage.setItem('scrubplaybook_disclaimer_seen', 'true');
-                  setShowDisclaimer(false);
-                  hapticSuccess();
-                }}
-                className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold text-sm hover:bg-medical-700 active:scale-[0.98] transition-all shadow-lg shadow-medical-600/20 cursor-pointer"
-              >
-                I Understand & Accept
-              </button>
-            </div>
+      {undo && overlay?.kind !== 'deleted' && (
+        <div role="status" className="fixed inset-x-0 bottom-4 z-[70] flex justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto max-w-md w-full rounded-2xl bg-slate-900 text-white shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm">{undo.text}</p>
+            <button type="button" onClick={undoDelete} className="shrink-0 min-h-11 px-4 rounded-xl bg-white text-slate-900 text-sm font-bold cursor-pointer">Undo</button>
           </div>
         </div>
+      )}
+      {showDisclaimer && (
+        <Disclaimer onAccept={() => { safeSet(DISCLAIMER_KEY, 'true'); setShowDisclaimer(false); }} />
       )}
     </div>
   );

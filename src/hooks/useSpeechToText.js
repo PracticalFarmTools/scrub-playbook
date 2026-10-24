@@ -4,15 +4,17 @@ import { useState, useRef, useCallback, useEffect } from 'react';
  * Zero-typing capture for gloved/sterile hands.
  * Wraps the Web Speech API (available on Chrome/Android + Safari 14.5+).
  * Feature-detects and no-ops gracefully where unsupported (e.g. Firefox).
+ * @param {{ onResult?: (transcript: string) => void }} [options]
  */
 export function useSpeechToText({ onResult } = {}) {
-  const SpeechRecognition = typeof window !== 'undefined'
-    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+  const speechWindow = /** @type {any} */ (typeof window !== 'undefined' ? window : null);
+  const SpeechRecognition = speechWindow
+    ? (speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition)
     : null;
   const supported = !!SpeechRecognition;
 
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef(null);
+  const recognitionRef = useRef(/** @type {any} */ (null));
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
 

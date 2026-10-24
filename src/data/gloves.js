@@ -41,3 +41,16 @@ export const SURGICAL_GLOVES = [
 ];
 
 export const GLOVE_SIZES = ["5.5", "6.0", "6.5", "7.0", "7.5", "8.0", "8.5", "9.0"];
+
+export const GLOVE_COLOR_HEX = {
+  Green: '#22c55e',
+  Blue: '#3b82f6',
+  White: '#e2e8f0',
+  'Straw/Tan': '#d4a574',
+  Straw: '#d4a574',
+  Ivory: '#f5f0e8',
+  'Brown/Green': '#6b7a3d',
+  'Dark Brown': '#5c3a1e',
+  Cream: '#f5e6c8',
+  Brown: '#8b5a2b',
+};
