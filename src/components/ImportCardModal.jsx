@@ -355,6 +355,12 @@ export default function ImportCardModal({ book, onClose, onImport }) {
                   Use the unit book for {unit.mine.length === 1 ? 'that surgeon' : 'them'} and your matching cards are replaced by the unit’s version. Your other procedures stay yours.
                 </p>
               )}
+              {unit.canAdd && unit.had === 0 && unit.earlier.length === 0 && (
+                <p className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  This is the first file from this unit book on this phone. Check that the key {unit.check.fingerprint} matches the one your unit posted.
+                  From now on this phone accepts revisions signed with this key only.
+                </p>
+              )}
               {unit.canAdd && unit.earlier.length > 0 && (
                 <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
                   You have {namesList(unit.earlier)} from an earlier unit book. Switch only if your unit told you it replaced its publishing key,

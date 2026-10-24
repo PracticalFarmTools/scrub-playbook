@@ -255,10 +255,11 @@ export function applyUnitBook(current, file, { adopt = false, published = readPu
     settings: cleanSettings(file.settings),
     ...(replaced.length ? { replaced } : {}),
   };
+  const retiring = new Set(left);
   const conflictIds = new Set(conflicts.map(surgeon => surgeon.id));
   const blockedIds = adopt ? new Set() : conflictIds;
   const adoptedIds = adopt ? conflictIds : new Set();
-  const counts = { ...noCounts(), kept: adopt ? [] : conflicts };
+  const counts = { ...noCounts(), kept: adopt ? [] : conflicts, switched: conflicts.filter(surgeon => retiring.has(surgeon.unitBook?.id)) };
 
   const incomingSurgeons = (file?.book?.surgeons || [])
     .filter(surgeon => !surgeon.demo && !blockedIds.has(surgeon.id))
@@ -292,7 +293,7 @@ export function applyUnitBook(current, file, { adopt = false, published = readPu
   for (const existing of current?.procedures || []) {
     const owned = existing.unitBook?.id === unitBookId;
     const incoming = incomingProcedures.find(item => item.id === existing.id);
-    if (owned && !incoming) {
+    if ((owned || retiring.has(existing.unitBook?.id)) && !incoming) {
       counts.removed += 1;
       continue;
     }
@@ -316,9 +317,12 @@ export function applyUnitBook(current, file, { adopt = false, published = readPu
   });
 
   const keptSurgeonIds = new Set(procedures.map(procedure => procedure.surgeonId));
-  const nextSurgeons = surgeons.filter(surgeon => (
-    surgeon.unitBook?.id !== unitBookId || incomingSurgeonIds.has(surgeon.id) || keptSurgeonIds.has(surgeon.id)
-  ));
+  const nextSurgeons = surgeons
+    .filter(surgeon => (
+      (surgeon.unitBook?.id !== unitBookId && !retiring.has(surgeon.unitBook?.id))
+      || incomingSurgeonIds.has(surgeon.id) || keptSurgeonIds.has(surgeon.id)
+    ))
+    .map(surgeon => (retiring.has(surgeon.unitBook?.id) ? unstamp(surgeon, surgeon.unitBook.id) : surgeon));
 
   return {
     status: 'updated',
@@ -341,7 +345,10 @@ export function unitResultText(place, result) {
   const { added = 0, changed = 0, removed = 0 } = result.counts || {};
   const word = (n) => (n === 1 ? 'procedure' : 'procedures');
   const parts = [`${added} ${word(added)} added`, `${changed} changed`, `${removed} removed`];
-  return `Unit book for ${place} is now revision ${result.revision}: ${parts.join(', ')}. New and changed cards are unconfirmed.${kept}`;
+  const switched = result.counts?.switched?.length
+    ? `${namesList(result.counts.switched)} switched to the new unit book for ${place}. This phone will not accept the earlier one again. `
+    : '';
+  return `${switched}Unit book for ${place} is now revision ${result.revision}: ${parts.join(', ')}. New and changed cards are unconfirmed.${kept}`;
 }
 
 /** What a revision would change on this phone, card by card, without saving anything. */

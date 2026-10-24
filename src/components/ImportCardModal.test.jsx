@@ -54,6 +54,7 @@ describe('ImportCardModal', () => {
     expect(screen.queryByText('Use the unit book for Dr. Chen')).toBeNull();
     expect(await screen.findByText(`Signed by publisher key ${fingerprint}.`)).toBeTruthy();
     expect(screen.getByText(/You already keep Dr. Chen as your own notes/)).toBeTruthy();
+    expect(screen.getByText(/first file from this unit book on this phone/).textContent).toContain(`the key ${fingerprint} matches the one your unit posted`);
     fireEvent.click(screen.getByText('Use the unit book for Dr. Chen'));
     expect(onImport.mock.calls[0][1]).toMatchObject({ unitFile: { unitBookId: file.unitBookId }, adopt: true, fingerprint });
   });

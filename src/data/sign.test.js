@@ -152,6 +152,28 @@ describe('publisher hand-over', () => {
     expect((await handOverPublishing(source(), 'Main', 'Alex', { published: {} })).error).toBe('not-publisher');
   });
 
+  it('drops what only the earlier unit book had when staff switch, and keeps their own copies editable', async () => {
+    const wide = source();
+    wide.surgeons.push({ id: 's2', name: 'Dr. Patel', specialty: 'General Surgery', facility: 'Main', demo: false, firstCase: [] });
+    wide.procedures.push(emptyProcedure('s1', { id: 'p2', name: 'Hip', blocks: emptyBlocks() }));
+    wide.procedures.push(emptyProcedure('s2', { id: 'p3', name: 'Lap chole', blocks: emptyBlocks() }));
+    const first = await publishUnitBook(wide, 'Main', 'Alex', { published: {} });
+    const phone = (await subscribe(empty(), first.file)).book;
+    const copy = { ...emptyProcedure('s2', { id: 'mine', name: 'Lap chole, my way', blocks: emptyBlocks() }), copiedFrom: 'p3' };
+    const withCopy = { ...phone, procedures: [...phone.procedures, copy] };
+
+    const fresh = await publishUnitBook(source(), 'Main', 'Alex', { published: replacePublishingKey(first.published, 'Main') });
+    const switched = applyUnitBook(withCopy, fresh.file, { adopt: true, published: {}, fingerprint: fresh.fingerprint });
+    expect(switched.status).toBe('updated');
+    expect(switched.book.procedures.map(procedure => procedure.id).sort()).toEqual(['mine', 'p1']);
+    expect(switched.counts.removed).toBe(2);
+    expect(switched.counts.switched.map(surgeon => surgeon.name)).toEqual(['Dr. Chen']);
+    const patel = switched.book.surgeons.find(surgeon => surgeon.id === 's2');
+    expect(patel.unitBook).toBeUndefined();
+    expect(switched.book.procedures.every(procedure => !procedure.unitBook || procedure.unitBook.id === fresh.file.unitBookId)).toBe(true);
+    expect(unitResultText('Main', switched)).toMatch(/^Dr. Chen switched to the new unit book for Main\. This phone will not accept the earlier one again\. Unit book for Main is now revision 1: 0 procedures added, 0 changed, 2 removed\./);
+  });
+
   it('moves staff to a new unit book after the key is replaced, and refuses the old one from then on', async () => {
     const first = await publishUnitBook(source(), 'Main', 'Alex', { published: {} });
     const phone = (await subscribe(empty(), first.file)).book;
