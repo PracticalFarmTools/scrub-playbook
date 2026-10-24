@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const open = [];
 let bodyOverflow = '';
@@ -11,10 +11,13 @@ const FOCUSABLE = [
  * Shared behavior for every overlay: focus moves in, Tab stays inside, Escape closes only the
  * top one, the page behind does not scroll, and focus goes back where it was. Without
  * `onClose`, Escape does nothing, for a notice that has to be answered.
+ * @param {{ onClose?: () => void, initialFocus?: import('react').RefObject<HTMLElement> }} [options]
  */
 export function useDialog({ onClose, initialFocus } = {}) {
   const ref = useRef(null);
   const closeRef = useRef(onClose);
+  // Read on first render: React's autoFocus moves focus into the dialog before effects run.
+  const [opener] = useState(() => /** @type {HTMLElement | null} */ (globalThis.document?.activeElement ?? null));
   useEffect(() => {
     closeRef.current = onClose;
   });
@@ -28,9 +31,10 @@ export function useDialog({ onClose, initialFocus } = {}) {
       bodyOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
     }
-    const previous = document.activeElement;
+    const previous = opener;
     if (!node.hasAttribute('tabindex')) node.setAttribute('tabindex', '-1');
-    const target = initialFocus?.current || node.querySelector('[autofocus]') || node.querySelector(FOCUSABLE) || node;
+    const focusedInside = node !== document.activeElement && node.contains(document.activeElement) ? document.activeElement : null;
+    const target = initialFocus?.current || focusedInside || node.querySelector('[autofocus]') || node.querySelector(FOCUSABLE) || node;
     target.focus?.({ preventScroll: true });
 
     const onKey = (event) => {
@@ -66,9 +70,9 @@ export function useDialog({ onClose, initialFocus } = {}) {
       const index = open.indexOf(entry);
       if (index >= 0) open.splice(index, 1);
       if (!open.length) document.body.style.overflow = bodyOverflow;
-      if (previous && previous !== document.body && document.contains(previous)) previous.focus?.({ preventScroll: true });
+      if (previous && previous !== document.body && !node.contains(previous) && document.contains(previous)) previous.focus?.({ preventScroll: true });
     };
-  }, [initialFocus]);
+  }, [initialFocus, opener]);
 
   return ref;
 }

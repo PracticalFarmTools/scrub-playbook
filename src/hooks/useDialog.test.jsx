@@ -79,6 +79,35 @@ describe('useDialog', () => {
     expect(document.activeElement).toBe(last);
   });
 
+  it('keeps an autoFocus field focused and still gives focus back to the opener', () => {
+    function Form({ onClose }) {
+      const ref = useDialog({ onClose });
+      return (
+        <div ref={ref} role="dialog" aria-label="Form">
+          <button type="button">Cancel</button>
+          <input aria-label="Name" autoFocus />
+        </div>
+      );
+    }
+    function FormPage() {
+      const [shown, setShown] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setShown(true)}>Add</button>
+          {shown && <Form onClose={() => setShown(false)} />}
+        </>
+      );
+    }
+    render(<FormPage />);
+    const opener = screen.getByRole('button', { name: 'Add' });
+    opener.focus();
+    fireEvent.click(opener);
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Name' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
   it('ignores Escape when the notice has to be answered', () => {
     function Notice() {
       const ref = useDialog();
