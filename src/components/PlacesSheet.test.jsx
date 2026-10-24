@@ -73,4 +73,26 @@ describe('PlacesSheet', () => {
     fireEvent.click(within(mine).getByText('Hand over publishing'));
     expect(onHandOverPublishing).toHaveBeenCalledWith('Main');
   });
+
+  it('replaces the publishing key only after a second tap', async () => {
+    const onReplaceKey = vi.fn(() => ({ message: 'The key for Main is replaced.' }));
+    const props = { book, onClose: () => {}, onHandOff: () => {}, onArchive: () => {}, onDelete: () => {}, onPublish: () => {}, onSettings: () => {}, onHandOverPublishing: () => {}, onReplaceKey };
+    render(<PlacesSheet {...props} published={{}} />);
+    expect(screen.queryByText('Replace the publishing key')).toBeNull();
+    cleanup();
+
+    render(<PlacesSheet {...props} published={{ Main: { unitBookId: 'u', revision: 2, publicKey: { x: 'a' } } }} />);
+    const mine = sections()[0];
+    expect(within(mine).queryByText('Hand over publishing')).toBeNull();
+    fireEvent.click(within(mine).getByText('Replace the publishing key'));
+    expect(within(mine).getByRole('alert').textContent).toContain('starts a new unit book for Main under a new key');
+    fireEvent.click(within(mine).getByText('Keep the key'));
+    expect(within(mine).queryByRole('alert')).toBeNull();
+    expect(onReplaceKey).not.toHaveBeenCalled();
+
+    fireEvent.click(within(mine).getByText('Replace the publishing key'));
+    fireEvent.click(within(mine).getByText('Replace the key'));
+    expect(onReplaceKey).toHaveBeenCalledWith('Main');
+    expect((await screen.findByRole('status')).textContent).toBe('The key for Main is replaced.');
+  });
 });

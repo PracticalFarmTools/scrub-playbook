@@ -141,6 +141,22 @@ describe('restoreExtras', () => {
     expect(merged.published.West).toBeUndefined();
     expect(merged.published.East.revision).toBe(7);
   });
+
+  it('never brings back a replaced publishing key, and keeps this phone’s unit book over a different one', () => {
+    const old = { unitBookId: 'u1', revision: 9, publicKey: { x: 'a' }, privateKey: { d: 'a' } };
+    const beforePublish = restoreExtras({ published: { Main: { settings: {}, retired: ['u1'] } } }, { published: { Main: old } });
+    expect(beforePublish.published.Main).toEqual({ settings: {}, retired: ['u1'] });
+
+    const fresh = { unitBookId: 'u2', revision: 1, publicKey: { x: 'b' }, privateKey: { d: 'b' }, retired: ['u1'] };
+    const afterPublish = restoreExtras({ published: { Main: fresh } }, { published: { Main: old } });
+    expect(afterPublish.published.Main).toBe(fresh);
+
+    const other = restoreExtras({ published: { Main: { unitBookId: 'u3', revision: 1 } } }, { published: { Main: { unitBookId: 'u4', revision: 6 } } });
+    expect(other.published.Main.unitBookId).toBe('u3');
+
+    const newerBackup = restoreExtras({ published: { Main: old } }, { published: { Main: fresh } });
+    expect(newerBackup.published.Main).toEqual(fresh);
+  });
 });
 
 describe('pull checklist', () => {

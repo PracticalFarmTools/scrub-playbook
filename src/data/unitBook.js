@@ -58,6 +58,11 @@ export function unitAgeDays(file, now = Date.now()) {
   return Number.isNaN(at) ? 0 : Math.floor((now - at) / 86400000);
 }
 
+/** True when this phone switched away from that unit book, for example after its key leaked. */
+export function isRetiredUnitBook(book, unitBookId) {
+  return [...(book?.surgeons || []), ...(book?.procedures || [])].some(item => item?.unitBook?.replaced?.includes(unitBookId));
+}
+
 /** The publisher key this phone already trusts for a unit book, from its stamps. */
 export function pinnedKey(book, unitBookId) {
   const stamped = [...(book?.surgeons || []), ...(book?.procedures || [])].find(item => item?.unitBook?.id === unitBookId && item.unitBook.key);
@@ -157,6 +162,17 @@ export async function publishUnitBook(book, place, fromName, { now = new Date().
   return { published: nextPublished, file, fingerprint };
 }
 
+/**
+ * Forgets the place's unit book id and key, keeping its rules. The next publish starts a new unit book
+ * under a new key; staff phones switch to it and stop accepting the old one. `retired` keeps the old id
+ * so restoring an older backup cannot bring the old key back.
+ */
+export function replacePublishingKey(published, place) {
+  const current = published?.[place] || {};
+  const retired = [...new Set([...(current.retired || []), ...(current.unitBookId ? [current.unitBookId] : [])])];
+  return { ...published, [place]: { settings: cleanSettings(current.settings), ...(retired.length ? { retired } : {}) } };
+}
+
 /** Unit settings saved before the first publish, or changed between revisions. */
 export function withUnitSettings(published, place, settings) {
   return { ...published, [place]: { ...(published[place] || {}), settings: cleanSettings(settings) } };
@@ -219,19 +235,26 @@ export function applyUnitBook(current, file, { adopt = false, published = readPu
   const revision = Number(file?.revision) || 0;
   if (!fingerprint) return { status: 'unsigned', revision, book: current, counts: noCounts() };
   if (isOwnUnitBook(file, published)) return { status: 'own', revision, book: current, counts: noCounts() };
+  if (isRetiredUnitBook(current, unitBookId)) return { status: 'retired', revision, book: current, counts: noCounts() };
   const pinned = pinnedKey(current, unitBookId);
   if (pinned && pinned !== fingerprint) return { status: 'other-publisher', revision, book: current, counts: noCounts() };
   const had = unitRevision(current, unitBookId);
   if (had && revision <= had) return { status: 'older', revision: had, book: current, counts: noCounts() };
 
+  const conflicts = unitConflicts(current, file);
+  const carried = [...(current?.surgeons || []), ...(current?.procedures || [])]
+    .filter(item => item?.unitBook?.id === unitBookId)
+    .flatMap(item => item.unitBook.replaced || []);
+  const left = adopt ? conflicts.map(surgeon => surgeon.unitBook?.id).filter(id => id && id !== unitBookId) : [];
+  const replaced = [...new Set([...carried, ...left])];
   const stamp = {
     id: unitBookId,
     revision,
     publishedAt: file.publishedAt || null,
     key: fingerprint,
     settings: cleanSettings(file.settings),
+    ...(replaced.length ? { replaced } : {}),
   };
-  const conflicts = unitConflicts(current, file);
   const conflictIds = new Set(conflicts.map(surgeon => surgeon.id));
   const blockedIds = adopt ? new Set() : conflictIds;
   const adoptedIds = adopt ? conflictIds : new Set();
@@ -310,6 +333,7 @@ export function unitResultText(place, result) {
   if (result.status === 'other-publisher') return `This file for ${place} was signed by a different publisher than the unit book on this phone, so it was not used. Ask your unit who publishes it now.`;
   if (result.status === 'own') return 'This is the unit book you published from this phone. Your notes already have it.';
   if (result.status === 'older') return `You already have revision ${result.revision}.`;
+  if (result.status === 'retired') return `This phone already switched from this unit book for ${place} to a newer one, so the file was not used. Ask your unit who publishes ${place} now.`;
   const kept = result.counts?.kept?.length
     ? ` Your own notes for ${namesList(result.counts.kept)} stay as they are.`
     : '';

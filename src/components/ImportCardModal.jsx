@@ -3,7 +3,7 @@ import { AlertCircle, Download, X } from 'lucide-react';
 import { findPhiInProcedure, findPhiInSurgeon } from '../data/phi';
 import { classifyIncomingCard, importPreviewText, parseImport } from '../data/share';
 import {
-  UNIT_AGE_WARNING_DAYS, checkHandover, checkUnitFile, isOwnUnitBook, namesList, pinnedKey, unitAgeDays,
+  UNIT_AGE_WARNING_DAYS, checkHandover, checkUnitFile, isOwnUnitBook, isRetiredUnitBook, namesList, pinnedKey, unitAgeDays,
   unitChangeList, unitCheckText, unitConflicts, unitPreviewText, unitRevision,
 } from '../data/unitBook';
 import PhiPause from './PhiPause';
@@ -18,10 +18,11 @@ function unitState(book, file, phi, check) {
   const older = had > 0 && Number(file.revision) <= had;
   const pinned = pinnedKey(book, file.unitBookId);
   const otherPublisher = Boolean(check?.ok && pinned && pinned !== check.fingerprint);
+  const retired = isRetiredUnitBook(book, file.unitBookId);
   const conflicts = unitConflicts(book, file);
   const conflictIds = new Set(conflicts.map(surgeon => surgeon.id));
   const fresh = (file.book?.surgeons || []).filter(surgeon => !surgeon.demo && !conflictIds.has(surgeon.id)).length;
-  const signed = Boolean(check?.ok) && !otherPublisher;
+  const signed = Boolean(check?.ok) && !otherPublisher && !retired;
   const changes = signed && had > 0 && !own && !older
     ? unitChangeList(book, file, { fingerprint: check.fingerprint })
     : null;
@@ -32,7 +33,10 @@ function unitState(book, file, phi, check) {
     older,
     check,
     otherPublisher,
+    retired,
     conflicts,
+    mine: conflicts.filter(surgeon => !surgeon.unitBook),
+    earlier: conflicts.filter(surgeon => surgeon.unitBook),
     fresh,
     changes,
     ageDays: unitAgeDays(file),
@@ -340,18 +344,31 @@ export default function ImportCardModal({ book, onClose, onImport }) {
               )}
               {unit.own && <p className="text-sm text-slate-700">This is the unit book you published from this phone. Your notes already have it.</p>}
               {!unit.own && unit.older && <p className="text-sm text-slate-700">You already have revision {unit.had}.</p>}
-              {!unit.own && !unit.older && unit.conflicts.length > 0 && (
+              {unit.retired && (
+                <p className="text-sm text-rose-700" role="alert">
+                  This phone already switched from this unit book for {unit.file.place} to a newer one, so it can’t be used. Ask your unit who publishes {unit.file.place} now.
+                </p>
+              )}
+              {unit.canAdd && unit.mine.length > 0 && (
                 <p className="text-sm text-slate-700">
-                  You already keep {namesList(unit.conflicts)} as your own notes, maybe from a hand-off.
-                  Use the unit book for {unit.conflicts.length === 1 ? 'that surgeon' : 'them'} and your matching cards are replaced by the unit’s version. Your other procedures stay yours.
+                  You already keep {namesList(unit.mine)} as your own notes, maybe from a hand-off.
+                  Use the unit book for {unit.mine.length === 1 ? 'that surgeon' : 'them'} and your matching cards are replaced by the unit’s version. Your other procedures stay yours.
+                </p>
+              )}
+              {unit.canAdd && unit.earlier.length > 0 && (
+                <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                  You have {namesList(unit.earlier)} from an earlier unit book. Switch only if your unit told you it replaced its publishing key,
+                  and check that the key {unit.check.fingerprint} matches the one your unit announced. After you switch, this phone will not accept the earlier unit book again.
                 </p>
               )}
               {unit.canAdd && unit.conflicts.length > 0 && (
-                <button type="button" onClick={() => commit(undefined, { adopt: true })} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Use the unit book for {unit.conflicts.length === 1 ? unit.conflicts[0].name : 'them'}</button>
+                <button type="button" onClick={() => commit(undefined, { adopt: true })} className="w-full min-h-11 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">
+                  {unit.earlier.length ? 'Switch to this unit book for' : 'Use the unit book for'} {unit.conflicts.length === 1 ? unit.conflicts[0].name : 'them'}
+                </button>
               )}
               {unit.canAdd && unit.fresh > 0 && (
                 <button type="button" onClick={() => commit()} className={`w-full min-h-11 rounded-xl font-bold text-sm cursor-pointer ${unit.conflicts.length ? 'bg-slate-100 text-slate-700' : 'bg-medical-600 text-white'}`}>
-                  {unit.conflicts.length ? 'Keep my notes and add the rest' : 'Add unit book'}
+                  {unit.conflicts.length ? (unit.earlier.length ? 'Keep the earlier unit book and add the rest' : 'Keep my notes and add the rest') : 'Add unit book'}
                 </button>
               )}
               {error && <p role="alert" className="text-xs text-rose-700 flex items-center gap-1.5"><AlertCircle size={13} aria-hidden="true" /> {error}</p>}

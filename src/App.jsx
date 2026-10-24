@@ -9,7 +9,7 @@ import { parseImport, restoreExtras, toBackup, toPlacePack } from './data/share'
 import { loadToday, localDay, saveToday } from './data/today';
 import { readTechName, useBook } from './hooks/useBook';
 import {
-  dictationOff, handOverPublishing, publishUnitBook, readPublished, savePublished, takeOverPublishing,
+  dictationOff, handOverPublishing, publishUnitBook, readPublished, replacePublishingKey, savePublished, takeOverPublishing,
   trustOptionsFor, unitResultText, withUnitSettings,
 } from './data/unitBook';
 import { useAuditLog } from './hooks/useAuditLog';
@@ -200,7 +200,7 @@ export default function App() {
     try {
       signed = await publishUnitBook(book, place, readTechName() || 'A tech', { published });
     } catch (err) {
-      if (err?.message === 'no-key') return { message: `This phone does not hold the publishing key for ${place}. Restore your locked backup with its passphrase, or ask the unit who publishes ${place} now.` };
+      if (err?.message === 'no-key') return { message: `This phone does not hold the publishing key for ${place}. Restore your locked backup with its passphrase, ask the unit who publishes ${place} now, or replace the publishing key in Unit rules.` };
       throw err;
     }
     const { file, published: next } = signed;
@@ -210,7 +210,7 @@ export default function App() {
     storePublished(next);
     addAudit({ action: 'Unit book published', surgeonName: place, note: `Revision ${file.revision}` });
     setNotice(`Published ${place} as unit book revision ${file.revision}.`);
-    return { message: `Published ${place} as unit book revision ${file.revision}.` };
+    return { message: `Published ${place} as unit book revision ${file.revision}. Publisher key ${signed.fingerprint}.` };
   };
 
   const handOverPlace = async (place) => {
@@ -230,6 +230,14 @@ export default function App() {
     addAudit({ action: 'Publishing handed over', surgeonName: place, note: `Revision ${result.revision}` });
     return {
       message: `Hand-over file for ${place} is ready with revision ${result.revision}. Send it only to the next publisher. This phone no longer publishes ${place}; your cards stay as your notes.`,
+    };
+  };
+
+  const replaceKey = (place) => {
+    storePublished(replacePublishingKey(published, place));
+    addAudit({ action: 'Publishing key replaced', surgeonName: place });
+    return {
+      message: `The key for ${place} is replaced. Publish ${place} now and send the file to every staff phone; each one is asked to switch to the new unit book. Tell staff the new publisher key shown after you publish. Then save a new locked backup and delete older backups, which still hold the old key.`,
     };
   };
 
@@ -392,7 +400,8 @@ export default function App() {
   useEffect(() => {
     if (!highlight) return undefined;
     const el = document.getElementById(`procedure-${highlight.id}`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
     const timer = setTimeout(() => setHighlight(null), 2500);
     return () => clearTimeout(timer);
   }, [highlight]);
@@ -686,6 +695,7 @@ export default function App() {
             published={published}
             onSettings={saveUnitSettings}
             onHandOverPublishing={handOverPlace}
+            onReplaceKey={replaceKey}
             onClose={() => setShowPlaces(false)}
             onHandOff={handOffPlace}
             onArchive={(place, archived) => bookApi.setPlaceArchived(place, archived)}

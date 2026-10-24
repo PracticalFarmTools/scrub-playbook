@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { applyUnitBook, checkUnitFile, handOverPublishing, publishUnitBook } from '../data/unitBook';
+import { applyUnitBook, checkUnitFile, handOverPublishing, publishUnitBook, replacePublishingKey } from '../data/unitBook';
 import { PUBLISHED_KEY, emptyBlocks, emptyProcedure } from '../data/schema';
 import { shareMessage, toBackup } from '../data/share';
 import { lockPublished } from '../data/keyLock';
@@ -56,6 +56,31 @@ describe('ImportCardModal', () => {
     expect(screen.getByText(/You already keep Dr. Chen as your own notes/)).toBeTruthy();
     fireEvent.click(screen.getByText('Use the unit book for Dr. Chen'));
     expect(onImport.mock.calls[0][1]).toMatchObject({ unitFile: { unitBookId: file.unitBookId }, adopt: true, fingerprint });
+  });
+
+  it('asks before switching to a new unit book after a key change, then refuses the old one', async () => {
+    const first = await signedUnit();
+    const empty = { version: 2, surgeons: [], procedures: [] };
+    const phone = applyUnitBook(empty, first.file, { published: {}, fingerprint: (await checkUnitFile(first.file)).fingerprint }).book;
+    const fresh = await signedUnit(unitSource(), replacePublishingKey(first.published, 'Main'));
+    const onImport = vi.fn(() => ({ success: true }));
+    render(<ImportCardModal book={phone} onClose={() => {}} onImport={onImport} />);
+    paste(JSON.stringify(fresh.file));
+    await screen.findByText(`Signed by publisher key ${fresh.fingerprint}.`);
+    expect(screen.getByText(/You have Dr. Chen, Dr. Patel from an earlier unit book/).textContent).toContain(`the key ${fresh.fingerprint} matches`);
+    expect(screen.queryByText(/as your own notes/)).toBeNull();
+    expect(screen.queryByText('Add unit book')).toBeNull();
+    fireEvent.click(screen.getByText('Switch to this unit book for them'));
+    expect(onImport.mock.calls[0][1]).toMatchObject({ unitFile: { unitBookId: fresh.file.unitBookId }, adopt: true });
+    cleanup();
+
+    const switched = applyUnitBook(phone, fresh.file, { adopt: true, published: {}, fingerprint: fresh.fingerprint }).book;
+    const leaked = await publishUnitBook(unitSource(), 'Main', 'Mallory', { published: first.published });
+    render(<ImportCardModal book={switched} onClose={() => {}} onImport={onImport} />);
+    paste(JSON.stringify(leaked.file));
+    expect((await screen.findByRole('alert')).textContent).toContain('already switched from this unit book for Main');
+    expect(screen.queryByText(/Switch to this unit book/)).toBeNull();
+    expect(screen.queryByText('Add unit book')).toBeNull();
   });
 
   it('tells the publisher the unit book is their own', async () => {

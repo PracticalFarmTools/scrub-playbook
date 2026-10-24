@@ -4,8 +4,8 @@ import { emptyBlocks, emptyProcedure } from './schema';
 import { parseImport } from './share';
 import { trustState } from './trust';
 import {
-  applyUnitBook, changedSections, checkHandover, checkUnitFile, dictationOff, handOverPublishing, publishUnitBook,
-  takeOverPublishing, trustOptionsFor, unitAgeDays, unitChangeList, unitCheckText, unitResultText, withUnitSettings,
+  applyUnitBook, changedSections, checkHandover, checkUnitFile, dictationOff, handOverPublishing, isRetiredUnitBook, publishUnitBook,
+  replacePublishingKey, takeOverPublishing, trustOptionsFor, unitAgeDays, unitChangeList, unitCheckText, unitResultText, withUnitSettings,
 } from './unitBook';
 
 const source = () => ({
@@ -150,6 +150,40 @@ describe('publisher hand-over', () => {
     const other = await generateSigningKey();
     expect((await checkHandover({ ...handover.file, privateKey: other.privateKey })).ok).toBe(false);
     expect((await handOverPublishing(source(), 'Main', 'Alex', { published: {} })).error).toBe('not-publisher');
+  });
+
+  it('moves staff to a new unit book after the key is replaced, and refuses the old one from then on', async () => {
+    const first = await publishUnitBook(source(), 'Main', 'Alex', { published: {} });
+    const phone = (await subscribe(empty(), first.file)).book;
+    const reset = replacePublishingKey(withUnitSettings(first.published, 'Main', { staleDays: 30, dictation: false, twoPerson: true }), 'Main');
+    expect(reset.Main).toEqual({ settings: { staleDays: 30, dictation: false, twoPerson: true }, retired: [first.file.unitBookId] });
+
+    const fresh = await publishUnitBook(source(), 'Main', 'Alex', { published: reset });
+    expect(fresh.file.unitBookId).not.toBe(first.file.unitBookId);
+    expect(fresh.fingerprint).not.toBe(first.fingerprint);
+    expect(fresh.file.revision).toBe(1);
+    expect(fresh.file.settings.twoPerson).toBe(true);
+
+    const check = await checkUnitFile(fresh.file);
+    expect(applyUnitBook(phone, fresh.file, { published: {}, fingerprint: check.fingerprint }).status).toBe('skipped');
+    const switched = applyUnitBook(phone, fresh.file, { adopt: true, published: {}, fingerprint: check.fingerprint });
+    expect(switched.status).toBe('updated');
+    expect(switched.book.surgeons[0].unitBook).toMatchObject({ id: fresh.file.unitBookId, key: fresh.fingerprint, replaced: [first.file.unitBookId] });
+    expect(switched.book.procedures[0].unitBook.id).toBe(fresh.file.unitBookId);
+    expect(isRetiredUnitBook(switched.book, first.file.unitBookId)).toBe(true);
+
+    const forged = await publishUnitBook(source(), 'Main', 'Mallory', { published: first.published });
+    const forgedCheck = await checkUnitFile(forged.file);
+    const refused = applyUnitBook(switched.book, forged.file, { adopt: true, published: {}, fingerprint: forgedCheck.fingerprint });
+    expect(refused.status).toBe('retired');
+    expect(refused.book).toBe(switched.book);
+    expect(unitResultText('Main', refused)).toContain('already switched from this unit book for Main');
+
+    const next = await publishUnitBook(source(), 'Main', 'Alex', { published: fresh.published });
+    const nextCheck = await checkUnitFile(next.file);
+    const updated = applyUnitBook(switched.book, next.file, { published: {}, fingerprint: nextCheck.fingerprint });
+    expect(updated.status).toBe('updated');
+    expect(updated.book.surgeons[0].unitBook.replaced).toEqual([first.file.unitBookId]);
   });
 
   it('will not publish under a new key when the place already has a key this phone lacks', async () => {

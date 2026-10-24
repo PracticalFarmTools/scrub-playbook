@@ -359,8 +359,13 @@ export function restoreExtras(current = {}, incoming = {}, { today: day, maxLog 
     if (entry?.lockedKey && !entry.privateKey) continue;
     const gone = handedOver[place];
     if (gone && gone.unitBookId === entry?.unitBookId && (Number(entry?.revision) || 0) <= (Number(gone.revision) || 0)) continue;
-    if (!published[place] || (Number(entry?.revision) || 0) > (Number(published[place]?.revision) || 0)) {
-      published[place] = entry;
+    const here = published[place];
+    const retired = [...new Set([...(here?.retired || []), ...(entry?.retired || [])])];
+    if (entry?.unitBookId && retired.includes(entry.unitBookId)) continue;
+    const replacedHere = here?.unitBookId && retired.includes(here.unitBookId);
+    if (!replacedHere && here?.unitBookId && entry?.unitBookId && here.unitBookId !== entry.unitBookId) continue;
+    if (!here || replacedHere || (Number(entry?.revision) || 0) > (Number(here?.revision) || 0)) {
+      published[place] = retired.length ? { ...entry, retired } : entry;
     }
   }
   const todayItems = mergeById(current.today?.items, incoming.today?.items)

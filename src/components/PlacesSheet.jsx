@@ -32,8 +32,9 @@ const secondary = 'text-xs font-bold text-medical-700 bg-medical-50 rounded-lg p
 const plain = 'text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer';
 const danger = 'text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 min-h-11 cursor-pointer';
 
-function UnitRules({ place, entry, onSettings, onHandOverPublishing, run }) {
+function UnitRules({ place, entry, onSettings, onHandOverPublishing, onReplaceKey, run }) {
   const settings = cleanSettings(entry?.settings);
+  const [replacing, setReplacing] = useState(false);
   const change = (patch) => onSettings(place, { ...settings, ...patch });
   const id = `unit-rules-${place.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
@@ -71,12 +72,25 @@ function UnitRules({ place, entry, onSettings, onHandOverPublishing, run }) {
             </p>
           </>
         )}
+        {entry?.unitBookId && onReplaceKey && !replacing && (
+          <button type="button" onClick={() => setReplacing(true)} className={danger}>Replace the publishing key</button>
+        )}
+        {entry?.unitBookId && onReplaceKey && replacing && (
+          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-900 space-y-2">
+            <p>Use this only if the key may have reached someone else, such as a hand-over file or a backup sent to the wrong person, or if this phone lost the key.</p>
+            <p>Your next publish starts a new unit book for {place} under a new key. Each staff phone is asked to switch to it, and after switching it refuses the old unit book.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => { setReplacing(false); run(() => onReplaceKey(place)); }} className={danger}>Replace the key</button>
+              <button type="button" onClick={() => setReplacing(false)} className={plain}>Keep the key</button>
+            </div>
+          </div>
+        )}
       </div>
     </details>
   );
 }
 
-export default function PlacesSheet({ book, published = {}, onClose, onHandOff, onArchive, onDelete, onPublish, onSettings, onHandOverPublishing }) {
+export default function PlacesSheet({ book, published = {}, onClose, onHandOff, onArchive, onDelete, onPublish, onSettings, onHandOverPublishing, onReplaceKey }) {
   const groups = groupsFor(book, false);
   const archived = groupsFor(book, true);
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -115,7 +129,7 @@ export default function PlacesSheet({ book, published = {}, onClose, onHandOff, 
           <button type="button" onClick={() => setPendingDelete({ place: group.place, archived: group.archived })} className={danger}>Delete</button>
         </div>
         {group.place && !group.archived && onSettings && (
-          <UnitRules place={group.place} entry={published[group.place]} onSettings={onSettings} onHandOverPublishing={onHandOverPublishing} run={run} />
+          <UnitRules place={group.place} entry={published[group.place]} onSettings={onSettings} onHandOverPublishing={onHandOverPublishing} onReplaceKey={onReplaceKey} run={run} />
         )}
         {pending && (
           <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 space-y-2">
