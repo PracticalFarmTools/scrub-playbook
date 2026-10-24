@@ -5,6 +5,7 @@ import { samePersonName, sameProcedureName } from './today';
 import { cleanAliases } from './boardMatch';
 import { SHARE_FENCE } from './share';
 import { mergeBackup } from './backup';
+import { TRAIL_MAX } from './editTrail';
 
 /** Reading what arrives: a shared card, a hand-off, a backup, a unit book, or a hand-over file. */
 
@@ -75,7 +76,9 @@ function cardToBook(data) {
         note: data.procedure.official?.note || '',
       },
       blocks: normalizeBlocks(data.procedure.blocks),
+      trail: Array.isArray(data.procedure.trail) ? data.procedure.trail.slice(-TRAIL_MAX) : undefined,
     });
+    if (!procedure.trail) delete procedure.trail;
     return {
       version: BOOK_VERSION,
       surgeons: [{

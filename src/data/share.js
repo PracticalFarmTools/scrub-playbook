@@ -29,7 +29,14 @@ function prune(value) {
   return value;
 }
 
+/** The newest signed record goes with a shared card, so the other phone can see who last changed it. */
 function slimProcedure(procedure) {
+  const last = Array.isArray(procedure?.trail) ? procedure.trail.at(-1) : null;
+  const slim = slimContent(procedure);
+  return last ? { ...slim, trail: [last] } : slim;
+}
+
+function slimContent(procedure) {
   const stripped = stripConfirmation(procedure);
   return prune({
     name: stripped.name,
@@ -163,7 +170,10 @@ export function toShareableCard(surgeon, procedure) {
     procedure: slimProcedure(procedure),
   };
   const text = JSON.stringify(payload);
-  return { payload, text, showQr: qrFits(text) };
+  const qrText = qrFits(text) || !payload.procedure.trail
+    ? text
+    : JSON.stringify({ ...payload, procedure: slimContent(procedure) });
+  return { payload, text, qrText, showQr: qrFits(qrText), qrSigned: qrText === text && Boolean(payload.procedure.trail) };
 }
 
 export function shareMessage(surgeon, procedure) {
@@ -175,8 +185,10 @@ export function shareMessage(surgeon, procedure) {
     glance: glance.text,
     payload: card.payload,
     payloadText: card.text,
+    qrText: card.qrText,
     message: `${glance.text}\n\n${SHARE_FENCE}\n${card.text}`,
     showQr: card.showQr,
+    qrSigned: card.qrSigned,
   };
 }
 

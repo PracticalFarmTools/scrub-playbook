@@ -60,13 +60,13 @@ export default function ShareCardModal({ surgeon, procedure, onClose }) {
             <>
               <div role="region" aria-label="The card as it will be sent" tabIndex={0} className="max-h-64 overflow-y-auto rounded-xl bg-slate-50 border border-slate-200 px-3 py-3 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{share.glance}</div>
               <p className="text-xs text-slate-500 text-center">
-                {share.showQr
-                  ? 'The code is the same card, for a phone that can scan.'
-                  : 'Send this message. It is too long for a code.'}
+                {!share.showQr && 'Send this message. It is too long for a code.'}
+                {share.showQr && (share.qrSigned || !procedure.trail?.length) && 'The code is the same card, for a phone that can scan.'}
+                {share.showQr && !share.qrSigned && procedure.trail?.length > 0 && 'The code is the same card without who signed the last change. Send the message to include it.'}
               </p>
               {share.showQr && (
                 <div className="p-3 bg-white border border-slate-200 rounded-xl self-center">
-                  <QRCodeSVG value={share.payloadText} size={200} level="M" title={`Code for ${procedure.name}, ${surgeon.name}`} />
+                  <QRCodeSVG value={share.qrText} size={200} level="M" title={`Code for ${procedure.name}, ${surgeon.name}`} />
                 </div>
               )}
               {canShare && (

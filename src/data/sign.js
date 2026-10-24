@@ -1,7 +1,7 @@
-const ALGORITHM = { name: 'ECDSA', namedCurve: 'P-256' };
-const SIGN = { name: 'ECDSA', hash: 'SHA-256' };
+export const ALGORITHM = { name: 'ECDSA', namedCurve: 'P-256' };
+export const SIGN = { name: 'ECDSA', hash: 'SHA-256' };
 
-function subtle() {
+export function subtle() {
   const value = globalThis.crypto?.subtle;
   if (!value) throw new Error('no-crypto');
   return value;
@@ -15,13 +15,13 @@ export function canonicalJson(value) {
   return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
 }
 
-function toBase64Url(bytes) {
+export function toBase64Url(bytes) {
   let binary = '';
   new Uint8Array(bytes).forEach(byte => { binary += String.fromCharCode(byte); });
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function fromBase64Url(text) {
+export function fromBase64Url(text) {
   const padded = String(text || '').replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4));
   return Uint8Array.from(binary, char => char.charCodeAt(0));

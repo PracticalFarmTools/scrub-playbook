@@ -61,6 +61,7 @@
  * @property {string} [baseUpdatedAt]
  * @property {Blocks} [blocks]
  * @property {UnitStamp} [unitBook]
+ * @property {Array<import('./editTrail').SignedEdit>} [trail] Signed records of the last changes, oldest first.
  *
  * @typedef {object} UnitStamp Where a card came from when it arrived in a unit book.
  * @property {string} id
