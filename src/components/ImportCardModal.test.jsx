@@ -242,4 +242,16 @@ describe('ImportCardModal', () => {
     fireEvent.click(screen.getByText('Restore without publishing'));
     expect(onImport.mock.calls[1][1].restore.extras.published).toEqual({});
   });
+
+  it('refuses a file far larger than any book without reading it', () => {
+    const onImport = vi.fn();
+    const read = vi.spyOn(FileReader.prototype, 'readAsText');
+    render(<ImportCardModal book={{ version: 2, surgeons: [], procedures: [] }} onClose={() => {}} onImport={onImport} />);
+    const huge = new File(['{}'], 'video.mov', { type: 'video/quicktime' });
+    Object.defineProperty(huge, 'size', { value: 200 * 1024 * 1024 });
+    fireEvent.change(screen.getByLabelText('Or a backup file'), { target: { files: [huge] } });
+    expect(screen.getByRole('alert').textContent).toContain('too large');
+    expect(read).not.toHaveBeenCalled();
+    expect(onImport).not.toHaveBeenCalled();
+  });
 });

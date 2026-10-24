@@ -99,8 +99,12 @@ export default function PlacesSheet({ book, published = {}, onClose, onHandOff, 
   const dialogRef = useDialog({ onClose });
   const run = async (action) => {
     setMessage('');
-    const result = await action();
-    if (result?.message) setMessage(result.message);
+    try {
+      const result = await action();
+      if (result?.message) setMessage(result.message);
+    } catch {
+      setMessage('That did not finish, and nothing was changed. Try again.');
+    }
   };
 
   const renderGroup = (group) => {

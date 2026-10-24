@@ -8,6 +8,9 @@ import { BackupPreview, CardPreview, ErrorLine, HandoverPreview, UnitBookPreview
 import { useDialog } from '../hooks/useDialog';
 import { canUseCamera, createQrReader } from '../utils/qrReader';
 
+/** A book of several thousand cards is a few megabytes; anything far larger is the wrong file. */
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
 function uniqueSignals(list) {
   const seen = new Set();
   return list.filter(signal => {
@@ -103,6 +106,11 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      setPreview(null);
+      setError('That file is too large to be a Scrub Playbook file. Choose the backup or unit book file you saved.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = String(event.target.result || '');

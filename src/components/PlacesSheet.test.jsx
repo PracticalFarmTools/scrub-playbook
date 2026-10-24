@@ -95,4 +95,11 @@ describe('PlacesSheet', () => {
     expect(onReplaceKey).toHaveBeenCalledWith('Main');
     expect((await screen.findByRole('status')).textContent).toBe('The key for Main is replaced.');
   });
+
+  it('says nothing changed when publishing fails', async () => {
+    const onPublish = vi.fn(async () => { throw new Error('crypto unavailable'); });
+    render(<PlacesSheet book={book} onClose={() => {}} onHandOff={() => {}} onArchive={() => {}} onDelete={() => {}} onPublish={onPublish} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Publish as unit book' }));
+    expect((await screen.findByRole('status')).textContent).toBe('That did not finish, and nothing was changed. Try again.');
+  });
 });
