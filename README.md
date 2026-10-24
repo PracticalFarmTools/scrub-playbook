@@ -19,7 +19,11 @@ Anything that looks like a patient detail, a lot number, or a serial number paus
 
 ## The board
 
-Today and Tomorrow hold the lines from the board: time, room, surgeon, procedure. A tap opens the matching card in the case view, or starts the surgeon or procedure that is missing. The board stays on this phone and is not part of a backup.
+Today and Tomorrow hold the lines from the board: time, room, surgeon, procedure. A tap opens the matching card in the case view, or starts the surgeon or procedure that is missing. The board stays on this phone; your own backup carries it, and restoring keeps only today and later.
+
+## More than one tab
+
+The book, the board, recent activity, suggestions, and the unit books this phone publishes stay in step across every open tab of the app. Each change applies to what is stored at that moment, and publishing runs under one Web Lock, so two tabs never start two unit books for the same place (`useStoredState.js`, `locks.js`).
 
 ## Sharing a case
 
@@ -47,11 +51,23 @@ Every revision is signed with the publisher's key, and a staff phone refuses a f
 
 ```bash
 npm test
-npm run check:links
+npm run typecheck
 npm run lint
 npm run build
+npx playwright install chromium   # once
+npm run e2e
+npm run check:links
 ```
 
-`npm test` runs the data tests in Node and the component tests in jsdom. `check:links` requests each stored product page and fails on a 404 or 410, or when the oldest check date is within 30 days of the point where the app stops offering product pages (`docs/catalog-upkeep.md`).
+`npm test` runs the data and hook tests in Node and the component tests in jsdom. `typecheck` runs `tsc --noEmit` over the data layer, hooks, and utilities, typed with JSDoc (`src/data/types.js`). `e2e` builds the app and runs the Playwright tests against `vite preview`, which serves the build with the `vercel.json` security headers; any Content Security Policy violation or script error fails a test. `check:links` requests each stored product page and fails on a 404 or 410, or when the oldest check date is within 30 days of the point where the app stops offering product pages (`docs/catalog-upkeep.md`).
 
-CI (`.github/workflows/ci.yml`) runs lint, tests, and the build on every push and pull request, and checks that the service worker precaches the QR reader. The product link check runs every Monday and on demand.
+CI (`.github/workflows/ci.yml`) runs lint, the type check, the tests, the build, an `npm audit` of runtime dependencies, and the browser tests on every push and pull request, and checks that the service worker precaches the QR reader. The product link check runs every Monday and on demand. Dependabot proposes npm and GitHub Actions updates weekly.
+
+The footer shows the version from `package.json` and the build date, and each backup records the version that wrote it.
+
+## Code layout
+
+- `src/data`: the book and everything that does not draw: `share.js` (the card text a tech sends), `incoming.js` (reading what arrives), `backup.js` (backups and hand-offs), `unitBook.js` and `sign.js` (unit books), `keyLock.js` (locked keys), `boardMatch.js` and `today.js` (the board).
+- `src/hooks`: `useBook` (the book in IndexedDB, synced across tabs), `usePublishing`, `useBackup`, `useAuditLog`, `useStoredState`, and `useDialog` (shared overlay behavior).
+- `src/components`: the screens. `App.jsx` holds one overlay at a time.
+- `e2e`: the browser tests.

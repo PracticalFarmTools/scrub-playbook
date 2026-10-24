@@ -23,7 +23,7 @@ The app has no field for a patient. Before a card is saved, shared, imported, ha
 Everything is stored in the browser on the phone, for this site only.
 
 - **IndexedDB**, database `scrubplaybook`, store `kv`: the book (`store.js`). If IndexedDB is unavailable, the book falls back to `localStorage`.
-- **localStorage**, keys starting with `scrubplaybook_`: the typed name, the board, recent activity, suggestions, the pull checklist for today, unit books this phone publishes, places this phone handed over, sort order, and backup reminders (`schema.js`, `pull.js`, `useAuditLog.js`).
+- **localStorage**, keys starting with `scrubplaybook_`: the typed name, the board, recent activity, suggestions, the pull checklist for today, unit books this phone publishes, places this phone handed over, sort order, the case view's dark mode, and backup reminders (`schema.js`, `pull.js`, `useAuditLog.js`). Every open tab sees the same values: a change applies to what is stored at that moment, and other tabs pick it up from the browser's storage event (`useStoredState.js`).
 - The app asks the browser to keep this storage when space runs low (`storage.js`, `navigator.storage.persist`). On iPhone, data written by a site that is not on the Home Screen can be cleared by Safari after a period without use, which is why the app asks iPhone users to add it to the Home Screen.
 
 The app does not encrypt this storage itself. It relies on the phone's passcode and device encryption. A unit book publisher's private signing key is stored here so the phone can sign the next revision.
