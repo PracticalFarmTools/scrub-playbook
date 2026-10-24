@@ -13,22 +13,23 @@ export const seedBook = {
   }],
 }
 
-/** Clears the phone, skips the first-open notice, and loads `book` (or nothing). */
+/**
+ * Sets up a phone in a fresh browser context before the app first runs: the first-open notice
+ * is answered and `book` (or nothing) is saved. Seeding after the app opened its database races
+ * with the app's own first save.
+ */
 export async function resetPhone(page, { book = seedBook, techName = 'Alex' } = {}) {
-  await page.goto('/')
-  await page.evaluate(async ({ book, techName }) => {
-    localStorage.clear()
-    await new Promise(resolve => {
-      const request = indexedDB.deleteDatabase('scrubplaybook')
-      request.onsuccess = request.onerror = request.onblocked = () => resolve()
-    })
+  await page.addInitScript(({ book, techName }) => {
+    if (sessionStorage.getItem('e2e-seeded')) return
+    sessionStorage.setItem('e2e-seeded', '1')
     localStorage.setItem('scrubplaybook_disclaimer_seen', 'true')
     localStorage.setItem('scrubplaybook_tech_name', techName)
     localStorage.setItem('scrubplaybook_last_export', new Date().toISOString())
     if (book) localStorage.setItem('scrubplaybook_book', JSON.stringify(book))
   }, { book, techName })
-  await page.reload()
+  await page.goto('/')
   await expect(page.getByRole('button', { name: 'Places', exact: true })).toBeVisible()
+  if (book) await expect(page.getByRole('heading', { name: book.surgeons[0].name })).toBeVisible()
 }
 
 export const published = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('scrubplaybook_published') || '{}'))
