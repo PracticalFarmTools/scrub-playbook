@@ -68,6 +68,7 @@ export function matchSurgeons(surgeons, boardName) {
   return scored.filter(entry => entry.rank === best).map(entry => entry.surgeon);
 }
 
+/** @type {Array<[RegExp, string]>} */
 const PHRASES = [
   [/\bi\s*(?:&|and)\s*d\b/g, ' irrigation debridement '],
   [/\bd\s*(?:&|and)\s*c\b/g, ' dilation curettage '],

@@ -18,16 +18,21 @@ export function cleanSettings(settings) {
   };
 }
 
+/** @returns {import('./types').Published} */
 export function readPublished() {
   const value = safeJson(PUBLISHED_KEY, {});
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+/** @param {import('./types').Published} published */
 export function savePublished(published) {
   return safeSet(PUBLISHED_KEY, JSON.stringify(published || {}));
 }
 
-/** Places this phone handed over, so an older backup does not make it a publisher again. */
+/**
+ * Places this phone handed over, so an older backup does not make it a publisher again.
+ * @returns {Record<string, import('./types').HandOverRecord>}
+ */
 export function readHandedOver() {
   const value = safeJson(HANDED_OVER_KEY, {});
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -142,6 +147,10 @@ function publishableBook(book, place) {
 /**
  * Builds the next signed revision. Returns the next published map; save it with savePublished
  * once the file has gone out. The first publish of a place makes its signing key.
+ * @param {import('./types').Book} book
+ * @param {string} place
+ * @param {string} fromName
+ * @param {{ now?: string, published?: import('./types').Published, keys?: { publicKey: JsonWebKey, privateKey: JsonWebKey } }} [options]
  */
 export async function publishUnitBook(book, place, fromName, { now = new Date().toISOString(), published = readPublished(), keys } = {}) {
   const current = published[place] || {};
@@ -440,6 +449,9 @@ function unstamp(item, unitBookId) {
 /**
  * The next publisher takes the unit book as their own notes and keeps the key.
  * Cards this phone already kept as its own stay as they are.
+ * @param {import('./types').Book} current
+ * @param {object} handover
+ * @param {{ fingerprint?: string }} [options]
  */
 export function takeOverPublishing(current, handover, { fingerprint } = {}) {
   const file = handover.unitFile;

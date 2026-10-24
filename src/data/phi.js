@@ -40,6 +40,10 @@ const RULES = [
 /** Catalog numbers and product links often hold digit runs, dates, and sizes that are not about a patient. */
 const CODE_SKIP = new Set(['long-id', 'date', 'phone', 'account', 'dose']);
 
+/**
+ * @param {string} text
+ * @param {{ skip?: Set<string> }} [options]
+ */
 export function findPhiSignals(text, { skip } = {}) {
   const value = text || '';
   if (!value.trim()) return [];

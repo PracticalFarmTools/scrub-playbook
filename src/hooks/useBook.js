@@ -59,7 +59,7 @@ export function useBook() {
   const [book, setBook] = useState(() => migrateBook(null));
   const [loaded, setLoaded] = useState(false);
   const [unreadable, setUnreadable] = useState(false);
-  const [saveState, setSaveState] = useState({ ok: true });
+  const [saveState, setSaveState] = useState(/** @type {{ ok: boolean, reason?: string }} */ ({ ok: true }));
   const [saveAttempt, setSaveAttempt] = useState(0);
   const bookRef = useRef(book);
   const askedPersist = useRef(false);
@@ -255,7 +255,7 @@ export function useBook() {
     };
   }, [commit]);
 
-  const updateSurgeon = useCallback((id, { name, facility } = {}) => {
+  const updateSurgeon = useCallback((id, /** @type {{ name?: string, facility?: string }} */ { name, facility } = {}) => {
     const trimmed = (name || '').trim();
     if (!trimmed) return;
     setBook(prev => ({

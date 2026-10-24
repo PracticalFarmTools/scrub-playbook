@@ -61,6 +61,6 @@ export function needsHomeScreen({ nav = globalThis.navigator, win = globalThis.w
   const ua = nav?.userAgent || '';
   const apple = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (nav?.maxTouchPoints || 0) > 1);
   if (!apple) return false;
-  const standalone = nav?.standalone === true || win?.matchMedia?.('(display-mode: standalone)')?.matches === true;
+  const standalone = /** @type {{ standalone?: boolean }} */ (nav)?.standalone === true || win?.matchMedia?.('(display-mode: standalone)')?.matches === true;
   return !standalone;
 }

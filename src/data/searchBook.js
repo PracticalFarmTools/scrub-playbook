@@ -63,6 +63,12 @@ function lastName(name) {
  * Surgeons in the chosen order. `rowStatus(surgeon)` gives the row's trust status for
  * 'attention'; samples always go last.
  */
+/**
+ * @param {Array<object>} surgeons
+ * @param {Array<object>} procedures
+ * @param {string} [mode]
+ * @param {(surgeon: object) => string | null | undefined} [rowStatus]
+ */
 export function sortSurgeons(surgeons, procedures, mode = 'attention', rowStatus = () => null) {
   const latest = new Map();
   for (const procedure of procedures || []) {

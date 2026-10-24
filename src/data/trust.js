@@ -73,6 +73,10 @@ export function personId(name) {
   return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ') || null;
 }
 
+/**
+ * @param {import('./types').Procedure} procedure
+ * @param {{ name?: string, userId?: string | null, at?: string, mode?: string }} [confirmation]
+ */
 export function withConfirmation(procedure, { name, userId = null, at = new Date().toISOString(), mode = 'personal' } = {}) {
   if (mode === 'facility' && userId) {
     const confs = [...(procedure.confirmations || [])];

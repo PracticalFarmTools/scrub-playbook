@@ -184,9 +184,7 @@ export function shareMessage(surgeon, procedure) {
 }
 
 function fail(code) {
-  const error = new Error(code);
-  error.code = code;
-  return error;
+  return Object.assign(new Error(code), { code });
 }
 
 export function extractPayload(raw) {
@@ -267,6 +265,9 @@ export function importPreviewText(parsed) {
 /**
  * A full backup of this phone. `extras` carries the board, the activity log,
  * the unit books this phone publishes, and suggestion follow-ups.
+ * @param {import('./types').Book} book
+ * @param {{ today?: object, log?: Array<object>, published?: import('./types').Published, suggestions?: Array<object> }} [extras]
+ * @param {{ appVersion?: string }} [about]
  */
 export function toBackup(book, extras = {}, { appVersion } = {}) {
   const surgeons = book.surgeons.filter(s => !s.demo);
@@ -353,6 +354,9 @@ function mergeById(current, incoming, order) {
 /**
  * `handedOver` lists the places this phone handed to the next publisher; a backup from before
  * the hand-over does not make this phone a publisher again. A place whose key is still locked is skipped.
+ * @param {{ published?: import('./types').Published, today?: object, log?: Array<object>, suggestions?: Array<object> }} [current]
+ * @param {{ published?: import('./types').Published, today?: object, log?: Array<object>, suggestions?: Array<object> }} [incoming]
+ * @param {{ today?: string, maxLog?: number, handedOver?: Record<string, import('./types').HandOverRecord> }} [options]
  */
 export function restoreExtras(current = {}, incoming = {}, { today: day, maxLog = 100, handedOver = {} } = {}) {
   const published = { ...(current.published || {}) };
@@ -491,6 +495,11 @@ export function classifyIncomingCard(book, surgeon, procedure) {
   return { kind: 'attach', surgeon: found };
 }
 
+/**
+ * @param {import('./types').Book} book
+ * @param {import('./types').Book} incomingBook
+ * @param {{ surgeonId?: string }} [options]
+ */
 export function placeIncomingCard(book, incomingBook, { surgeonId } = {}) {
   if (!surgeonId) return { kind: 'new', ...mergeBackup(book, incomingBook) };
   const procedure = incomingBook?.procedures?.[0];

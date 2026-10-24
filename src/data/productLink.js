@@ -27,6 +27,7 @@ export function findVendor(name) {
  * Product-page and hospital links may replace the product name.
  * A company page or a search is never presented as the product page.
  * Catalog links exist only when the card stored a code.
+ * @param {{ productId?: string, catalogNumber?: string, overrideUrl?: string, vendorName?: string, now?: number }} [link]
  */
 export function resolveProductLink({ productId, catalogNumber, overrideUrl, vendorName, now = Date.now() } = {}) {
   if (isHttps(overrideUrl)) {
