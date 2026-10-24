@@ -32,7 +32,7 @@ export default defineConfig({
         ],
       },
       manifest: false, // we ship our own public/manifest.json
-      includeAssets: ['favicon.svg', 'icons.svg', 'icon-512.png'],
+      includeAssets: ['favicon.svg', 'icon-512.png'],
     }),
   ],
   preview: {
