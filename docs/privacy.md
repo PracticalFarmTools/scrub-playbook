@@ -12,6 +12,8 @@ Scrub Playbook keeps your notes on your phone. We do not have an account for you
 
 Your book (surgeons, procedures, the board, confirmations, flags, suggestions, and recent activity) is stored in your browser on your phone. It is not sent to us. The full list is in `docs/data-flow.md`.
 
+Your phone also keeps the last 10 versions of each card and the cards you deleted in the last 30 days, so a mistake can be undone. They stay on your phone and are not in what you share or in your backups.
+
 The name you type when you confirm a card or flag one is stored with that card on your phone and goes into your backups. Names of people you add under "People in the room" are stored with that card and travel with it when you share it.
 
 ## What we receive
@@ -36,7 +38,8 @@ The app is not built for patient information and has no place for it. It checks 
 ## Your choices
 
 - See everything the app holds by exporting a backup and opening the file.
-- Delete a card, a surgeon, or a place in the app.
+- Delete a card, a surgeon, or a place in the app. A deleted card stays in Recently deleted for 30 days unless you remove it for good; deleting a place keeps nothing of it.
+- Clear the earlier versions of a card.
 - Delete everything by clearing this site's data in your browser settings or removing the app from your Home Screen.
 
 Because we do not hold your data, we cannot retrieve, correct, or delete it for you. For request logs held by the host, contact [contact email].

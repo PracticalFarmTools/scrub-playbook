@@ -20,12 +20,13 @@ Who: every tech, nurse, and traveler who will use the app. Travelers take it on 
 4. After the case: tap **I was in this case** to confirm, or **Flag** with what did not match.
 5. If the official card is wrong, tap **Suggest a card change**, write what the card says, what you saw, and the change, and send it. Tap **I sent it** once it has gone.
 6. Edit a card, change one tray, and tap **Save procedure**. Try leaving without saving and see the app ask first.
+   Then tap **Earlier versions** on that card, view the version before your change, and bring it back. See that the card is unconfirmed again.
 7. Share a procedure with the person next to you, and import theirs with **Import**. See that it arrives unconfirmed.
 8. Tap **Export backup** and save the file where your phone keeps files.
 
 **Leaving a place (2 minutes)**
 
-- Places, **Hand off** to whoever comes next, then **Archive** or **Delete** that place. Follow your contract and the hospital's policy on keeping notes.
+- Places, **Hand off** to whoever comes next, then **Archive** or **Delete** that place. Deleting a place keeps nothing of its cards on the phone. Follow your contract and the hospital's policy on keeping notes.
 
 **Check (3 minutes).** The trainee pastes a board line, opens the card, confirms it, flags a second card with a reason, and exports a backup without help.
 

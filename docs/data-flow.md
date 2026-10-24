@@ -15,6 +15,7 @@ What Scrub Playbook keeps, where it keeps it, and every way something leaves the
 | Suggestions | What the official card said, what the tech saw, the change they suggested | No |
 | Recent activity | Up to 100 entries: what changed, on which surgeon, by which typed name (`useAuditLog.js`) | No |
 | Unit books this phone publishes | Place, revision, unit rules, the publisher's signing key (`unitBook.js`) | No |
+| Earlier versions | The last 10 versions of each card, and cards deleted in the last 30 days (up to 50), each with when it was saved and what replaced it (`history.js`) | No |
 
 The app has no field for a patient. Before a card is saved, shared, imported, handed off, published, flagged, or suggested, the text is checked for patient names with a title, "Pt Last, First", dates of birth, full dates, phone numbers, Social Security numbers, record, account, and visit numbers, long identifying numbers, lot and serial numbers, and medication doses (`phi.js`). A file that carries a field named `patient`, `mrn`, `dob`, `ssn`, `dose`, `lot`, `serial`, `photo`, or `price` pauses the same way and is not saved (`validate.js`). The check pauses the person and asks them to take the detail out. It is a check, not a guarantee.
 
@@ -22,7 +23,7 @@ The app has no field for a patient. Before a card is saved, shared, imported, ha
 
 Everything is stored in the browser on the phone, for this site only.
 
-- **IndexedDB**, database `scrubplaybook`, store `kv`: the book (`store.js`). If IndexedDB is unavailable, the book falls back to `localStorage`.
+- **IndexedDB**, database `scrubplaybook`, store `kv`: the book (`store.js`) and the earlier versions of its cards (`history.js`). If IndexedDB is unavailable, the book falls back to `localStorage` and no earlier versions are kept, so they never take the room the book needs.
 - **localStorage**, keys starting with `scrubplaybook_`: the typed name, the board, recent activity, suggestions, the pull checklist for today, unit books this phone publishes, places this phone handed over, sort order, the case view's dark mode, and backup reminders (`schema.js`, `pull.js`, `useAuditLog.js`). Every open tab sees the same values: a change applies to what is stored at that moment, and other tabs pick it up from the browser's storage event (`useStoredState.js`).
 - The app asks the browser to keep this storage when space runs low (`storage.js`, `navigator.storage.persist`). On iPhone, data written by a site that is not on the Home Screen can be cleared by Safari after a period without use, which is why the app asks iPhone users to add it to the Home Screen.
 
@@ -50,6 +51,8 @@ Each of these happens only when the person taps it.
 | Dictate (`useSpeechToText.js`) | Microphone audio while the button is on | The browser's speech service. Depending on the phone and browser, Apple or Google may process the audio on their servers. | Not applicable |
 | Tap a product or company link (`productLink.js`) | Nothing from the book. The browser opens the manufacturer's page with no referrer (`Referrer-Policy: no-referrer`). | The manufacturer's site | Not applicable |
 
+Earlier versions never leave the phone. They are not in a shared card, a hand-off, a unit book, or a backup.
+
 A unit can turn dictation off in its unit rules. The rule travels in the signed unit book and turns dictation off on every phone that has it (`dictationOff`).
 
 ## What comes in
@@ -58,8 +61,9 @@ The import sheet reads a shared card, a hand-off file, a unit book, a hand-over 
 
 ## Deleting data
 
-- One card or surgeon: Delete on the home list, with an undo for a few seconds.
-- One place: Places, then Delete for the active or the archived group.
+- One card or surgeon: Delete on the home list, with an undo for a few seconds. The card then stays in **Recently deleted** on this phone for 30 days, where **Remove for good** removes it and its earlier versions at once.
+- Earlier versions of one card: **Earlier versions**, then **Clear this card’s history**.
+- One place: Places, then Delete for the active or the archived group. Nothing of that place's cards is kept in Recently deleted or in earlier versions.
 - Everything: remove the app from the Home Screen and clear the site's data in the browser's settings. On a managed phone, removing the web clip or wiping the device removes it.
 
 Files that left the phone (shared messages, hand-off files, backups, printouts) are outside the app and follow the place they were sent to.
