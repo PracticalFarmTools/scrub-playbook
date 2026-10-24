@@ -18,10 +18,10 @@ export default function SearchableDropdown({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
-  const [menuBox, setMenuBox] = useState(null);
-  const containerRef = useRef(null);
-  const inputRef = useRef(null);
-  const triggerRef = useRef(null);
+  const [menuBox, setMenuBox] = useState(/** @type {{ left: number, width: number, top?: number, bottom?: number } | null} */ (null));
+  const containerRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const inputRef = useRef(/** @type {HTMLInputElement | null} */ (null));
+  const triggerRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const listId = useId();
 
   const placeMenu = () => {

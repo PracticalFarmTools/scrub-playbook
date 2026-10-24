@@ -33,6 +33,10 @@ function GloveLine({ glove, label }) {
   );
 }
 
+/**
+ * @param {{ procedure: any, mode?: string, staleDays?: number, surgeon?: any, onCaseView?: () => void, showTitle?: boolean,
+ *   suggestion?: { at: string, change: string } | null, onCloseSuggestion?: (suggestion: object, outcome: string) => void }} props
+ */
 export default function ProcedureGlance({ procedure, mode = 'personal', staleDays, surgeon, onCaseView, showTitle = true, suggestion = null, onCloseSuggestion }) {
   const state = trustState(procedure, { mode, staleDays });
   const blocks = procedure.blocks || {};

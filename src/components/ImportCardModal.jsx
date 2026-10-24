@@ -24,16 +24,16 @@ export default function ImportCardModal({ book, onClose, onImport }) {
   const [raw, setRaw] = useState('');
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState(/** @type {{ parsed: any, classification: any, phi: Array<object>, check: any } | null} */ (null));
   const checkRef = useRef(0);
   const canScan = canUseCamera();
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const timerRef = useRef(null);
+  const videoRef = useRef(/** @type {HTMLVideoElement | null} */ (null));
+  const streamRef = useRef(/** @type {MediaStream | null} */ (null));
+  const timerRef = useRef(/** @type {ReturnType<typeof setInterval> | undefined} */ (undefined));
 
   const stopScan = () => {
     clearInterval(timerRef.current);
-    timerRef.current = null;
+    timerRef.current = undefined;
     streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
     setScanning(false);
@@ -112,8 +112,8 @@ export default function ImportCardModal({ book, onClose, onImport }) {
       return;
     }
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = String(event.target.result || '');
+    reader.onload = () => {
+      const text = String(reader.result || '');
       setRaw(text);
       review(text);
     };
@@ -200,7 +200,7 @@ export default function ImportCardModal({ book, onClose, onImport }) {
           {type === 'backup' && <BackupPreview {...shown} setError={setError} />}
         </div>
       </div>
-      {preview?.phi?.length > 0 && (
+      {preview && preview.phi.length > 0 && (
         <PhiPause
           signals={preview.phi}
           next="Nothing was saved. Ask the sender to take that detail out and share it again."

@@ -9,7 +9,11 @@ function Section({ title, children, muted }) {
   );
 }
 
-/** The readable case: header, setup, and the pull list. Shared by the case view and the day printout. */
+/**
+ * The readable case: header, setup, and the pull list. Shared by the case view and the day printout.
+ * @param {{ surgeon: any, procedure: any, blocks: any, staleDays?: number, trust?: any, dark?: boolean,
+ *   checks?: Record<string, boolean>, onToggle?: (id: string) => void, idPrefix?: string }} props
+ */
 export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust, dark, checks, onToggle, idPrefix = 'case-view' }) {
   const targets = pullTargets(blocks);
   const sample = Boolean(procedure.demo || surgeon.demo);

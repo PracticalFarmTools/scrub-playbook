@@ -4,7 +4,7 @@ import { ShieldAlert } from 'lucide-react';
 import { useDialog } from '../hooks/useDialog';
 
 export default function PhiPause({ signals, onEdit, next = 'Take that detail out, then save.', action = 'Go back and edit' }) {
-  const buttonRef = useRef(null);
+  const buttonRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const dialogRef = useDialog({ onClose: onEdit, initialFocus: buttonRef });
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>

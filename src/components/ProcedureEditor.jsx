@@ -58,10 +58,10 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
     return { draft: first, aliases, key: editorKey(first, aliases) };
   });
   const [draft, setDraft] = useState(start.draft);
-  const [phi, setPhi] = useState([]);
+  const [phi, setPhi] = useState(/** @type {Array<import('../data/types').PhiSignal>} */ ([]));
   const [aliasText, setAliasText] = useState(start.aliases);
   const [leaving, setLeaving] = useState(false);
-  const nameRef = useRef(null);
+  const nameRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const [sutureName, setSutureName] = useState(SUTURE_LIBRARY[0].name);
   const [sutureSize, setSutureSize] = useState('3-0');
   const [needle, setNeedle] = useState('CT-1');
@@ -404,7 +404,7 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
 }
 
 function DiscardPrompt({ name, onKeep, onDiscard }) {
-  const keepRef = useRef(null);
+  const keepRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const dialogRef = useDialog({ onClose: onKeep, initialFocus: keepRef });
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>

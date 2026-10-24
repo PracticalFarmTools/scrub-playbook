@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { emptyProcedure } from '../data/schema';
 import TodayList from './TodayList';
 
@@ -40,6 +40,24 @@ describe('TodayList', () => {
     expect(screen.queryByText(/SMITH/)).toBeNull();
     fireEvent.click(screen.getByText('07:30 · Rm 4 · CHEN, AMY · R TKA'));
     expect(props.onOpen).toHaveBeenCalledWith(right);
+  });
+
+  it('edits a board line in place and keeps the edit after a reload', () => {
+    renderList();
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '07:30' } });
+    fireEvent.change(screen.getByLabelText('Room'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('Surgeon'), { target: { value: 'Chen' } });
+    fireEvent.change(screen.getByLabelText('Procedure'), { target: { value: 'Right TKA' } });
+    fireEvent.click(screen.getByText('Add'));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Chen' }));
+    const row = within(screen.getByRole('list'));
+    fireEvent.change(row.getByLabelText('Room'), { target: { value: '7' } });
+    fireEvent.change(row.getByLabelText('Procedure'), { target: { value: 'Left TKA' } });
+    fireEvent.click(row.getByText('Save'));
+    expect(screen.getByText('07:30 · Rm 7 · Chen · Left TKA')).toBeTruthy();
+    cleanup();
+    renderList();
+    expect(screen.getByText('07:30 · Rm 7 · Chen · Left TKA')).toBeTruthy();
   });
 
   it('shows the closest cards when the board names no side, with a way to start a new card', () => {

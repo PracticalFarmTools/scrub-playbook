@@ -40,12 +40,12 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
   const [phiNext, setPhiNext] = useState('');
   const [dark, setDark] = useState(storedDark);
   const [wake, setWake] = useState(() => (wakeSupported() ? 'asking' : 'off'));
-  const closeRef = useRef(null);
+  const closeRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const [suggesting, setSuggesting] = useState(false);
   const [cardSays, setCardSays] = useState(procedure?.official?.note || '');
   const [seen, setSeen] = useState('');
   const [change, setChange] = useState('');
-  const [phi, setPhi] = useState([]);
+  const [phi, setPhi] = useState(/** @type {Array<import('../data/types').PhiSignal>} */ ([]));
   const [copied, setCopied] = useState(false);
   const [manualText, setManualText] = useState('');
   const [missing, setMissing] = useState(false);

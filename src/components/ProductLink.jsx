@@ -5,6 +5,7 @@ import { resolveProductLink } from '../data/productLink';
  * The product name is a link only for a verified product page, a catalog
  * code the card actually stored, or a hospital https override.
  * Company pages stay a separate control so a portal is not mistaken for the product.
+ * @param {{ productId?: string, catalogNumber?: string, overrideUrl?: string, vendorName?: string, children?: import('react').ReactNode, className?: string, showCompany?: boolean }} props
  */
 export default function ProductLink({ productId, catalogNumber, overrideUrl, vendorName, children, className = '', showCompany = true }) {
   const link = resolveProductLink({ productId, catalogNumber, overrideUrl, vendorName });

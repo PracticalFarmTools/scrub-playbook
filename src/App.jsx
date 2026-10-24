@@ -46,7 +46,17 @@ function plural(count, one, many) {
 }
 
 /**
- * One overlay at a time: `{ kind: 'add' | 'editor' | 'share' | 'import' | 'places' | 'confirm' | 'case' | 'print', ... }`.
+ * One overlay at a time.
+ * @typedef {import('./data/types').Surgeon} Surgeon
+ * @typedef {import('./data/types').Procedure} Procedure
+ * @typedef {{ kind: 'add', name?: string, procedureName?: string }
+ *   | { kind: 'editor', surgeon: Surgeon, procedure: Procedure, copyOf?: string }
+ *   | { kind: 'share', surgeon: Surgeon, procedure: Procedure }
+ *   | { kind: 'confirm', procedure: Procedure }
+ *   | { kind: 'case', queue: string[], index: number, returnTo?: boolean }
+ *   | { kind: 'print', ids: string[] }
+ *   | { kind: 'import' }
+ *   | { kind: 'places' }} Overlay
  */
 export default function App() {
   const bookApi = useBook();
@@ -55,19 +65,19 @@ export default function App() {
   const { isOnline } = useNetworkStatus();
   const [suggestions, updateSuggestions] = useStoredState(SUGGESTIONS_KEY, loadSuggestions, saveSuggestions);
 
-  const [overlay, setOverlay] = useState(null);
+  const [overlay, setOverlay] = useState(/** @type {Overlay | null} */ (null));
   const closeOverlay = () => setOverlay(null);
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
   const [searchKey, setSearchKey] = useState(0);
   const [sortMode, setSortMode] = useState(() => {
-    const saved = safeGet(SORT_KEY, 'attention');
+    const saved = safeGet(SORT_KEY) || 'attention';
     return SORT_CHOICES.some(([value]) => value === saved) ? saved : 'attention';
   });
-  const [activeFacility, setActiveFacility] = useState(null);
+  const [activeFacility, setActiveFacility] = useState(/** @type {string | null} */ (null));
   const [showVendors, setShowVendors] = useState(false);
-  const [undo, setUndo] = useState(null);
-  const [highlight, setHighlight] = useState(null);
+  const [undo, setUndo] = useState(/** @type {{ text: string, removed: { surgeons: Surgeon[], procedures: Procedure[] } } | null} */ (null));
+  const [highlight, setHighlight] = useState(/** @type {{ id: string } | null} */ (null));
   const [showDisclaimer, setShowDisclaimer] = useState(() => !safeGet(DISCLAIMER_KEY));
   const [todayVersion, setTodayVersion] = useState(0);
   const [updateReady, setUpdateReady] = useState(false);
@@ -241,7 +251,7 @@ export default function App() {
   const caseSurgeon = caseProcedure ? surgeonOf(caseProcedure) : null;
 
   const closeCase = () => {
-    if (overlay?.returnTo && caseProcedureId) flashProcedure(caseProcedureId);
+    if (overlay?.kind === 'case' && overlay.returnTo && caseProcedureId) flashProcedure(caseProcedureId);
     closeOverlay();
   };
 

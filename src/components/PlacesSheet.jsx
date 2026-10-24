@@ -94,7 +94,7 @@ function UnitRules({ place, entry, onSettings, onHandOverPublishing, onReplaceKe
 export default function PlacesSheet({ book, published = {}, onClose, onHandOff, onArchive, onDelete, onPublish, onSettings, onHandOverPublishing, onReplaceKey }) {
   const groups = groupsFor(book, false);
   const archived = groupsFor(book, true);
-  const [pendingDelete, setPendingDelete] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(/** @type {{ place: string, archived: boolean } | null} */ (null));
   const [message, setMessage] = useState('');
   const dialogRef = useDialog({ onClose });
   const run = async (action) => {

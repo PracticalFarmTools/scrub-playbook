@@ -243,6 +243,16 @@ describe('ImportCardModal', () => {
     expect(onImport.mock.calls[1][1].restore.extras.published).toEqual({});
   });
 
+  it('reads a chosen backup file into the restore preview', async () => {
+    const onImport = vi.fn(() => ({ success: true }));
+    const backup = toBackup({ version: 2, surgeons: [{ id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false }], procedures: [] });
+    render(<ImportCardModal book={{ surgeons: [], procedures: [] }} onClose={() => {}} onImport={onImport} />);
+    const file = new File([JSON.stringify(backup)], 'scrubplaybook-backup.json', { type: 'application/json' });
+    fireEvent.change(screen.getByLabelText('Or a backup file'), { target: { files: [file] } });
+    fireEvent.click(await screen.findByText('Restore my backup'));
+    expect(onImport.mock.calls[0][1].restore.restorable).toBe(true);
+  });
+
   it('refuses a file far larger than any book without reading it', () => {
     const onImport = vi.fn();
     const read = vi.spyOn(FileReader.prototype, 'readAsText');

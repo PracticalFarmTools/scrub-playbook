@@ -75,6 +75,12 @@ export function todayItem({ day = localDay(), startsAt = '', room = '', surgeonN
 /**
  * Tap a board line. A missing surgeon or procedure opens the editor.
  * The board room is not copied onto the card.
+ * @param {{ surgeons?: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure> }} book
+ * @param {{ surgeonName?: string, procedureName?: string }} item
+ * @returns {{ action: 'start-surgeon', surgeonName: string, procedureName: string }
+ *   | { action: 'choose', surgeons: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure>, closest?: boolean }
+ *   | { action: 'open', surgeon: import('./types').Surgeon, procedure: import('./types').Procedure }
+ *   | { action: 'start-procedure', surgeon: import('./types').Surgeon, procedureName: string }}
  */
 export function resolveTodayTap(book, item) {
   const surgeonName = (item?.surgeonName || '').trim();

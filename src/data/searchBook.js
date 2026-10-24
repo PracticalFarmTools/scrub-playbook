@@ -23,6 +23,11 @@ function blobProcedure(procedure) {
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
+/**
+ * @param {import('./types').Book} book
+ * @param {string} query
+ * @param {string | null} [facility]
+ */
 export function filterBook(book, query, facility = null) {
   const surgeons = (book?.surgeons || []).filter(s => !s.archived && (!facility || s.facility === facility));
   const allowed = new Set(surgeons.map(s => s.id));

@@ -47,16 +47,16 @@ export default function SurgeonCard({
   onCaseView,
   onSaveFirstCase,
 }) {
-  const [confirming, setConfirming] = useState(null);
+  const [confirming, setConfirming] = useState(/** @type {any} */ (null));
   const [editingDetails, setEditingDetails] = useState(false);
   const [name, setName] = useState(surgeon.name);
   const [place, setPlace] = useState(surgeon.facility || '');
   const [detailsError, setDetailsError] = useState('');
   const [editingFirst, setEditingFirst] = useState(false);
   const [firstDraft, setFirstDraft] = useState(['', '', '']);
-  const [phi, setPhi] = useState([]);
+  const [phi, setPhi] = useState(/** @type {Array<import('../data/types').PhiSignal>} */ ([]));
   const [phiNext, setPhiNext] = useState('Take that detail out, then save.');
-  const [flagging, setFlagging] = useState(null);
+  const [flagging, setFlagging] = useState(/** @type {any} */ (null));
   const [flagReason, setFlagReason] = useState('');
   const [openIds, setOpenIds] = useState(() => new Set());
   const isOpen = (id) => openIds.has(id) || highlightId === id || flagging === id || confirming === id || (autoOpen && procedures.length <= 3);

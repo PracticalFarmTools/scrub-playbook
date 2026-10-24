@@ -90,6 +90,10 @@
  * @typedef {Record<string, PublishedEntry>} Published
  *
  * @typedef {{ unitBookId: string, revision: number, at: string }} HandOverRecord
+ *
+ * @typedef {{ id: string, label: string }} PhiSignal A detail that looks like it identifies a patient.
+ *
+ * @typedef {{ id: string, startsAt: string, room: string, surgeonName: string, procedureName: string, day?: string }} TodayItem
  */
 
 export {};

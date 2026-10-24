@@ -30,7 +30,7 @@ function newestFirst(entries) {
 export function useAuditLog() {
   const [log, update] = useStoredState(AUDIT_KEY, loadLog, saveLog);
 
-  const addEntry = useCallback(({ action, surgeonName, user, note }) => {
+  const addEntry = useCallback((/** @type {{ action: string, surgeonName?: string, user?: string, note?: string }} */ { action, surgeonName, user, note }) => {
     const entry = {
       id: uid(),
       action,

@@ -15,10 +15,11 @@ export function startPwa() {
   });
 }
 
+/** @param {(ready: boolean) => void} listener @returns {() => void} */
 export function onUpdateReady(listener) {
   listeners.add(listener);
   if (ready) listener(true);
-  return () => listeners.delete(listener);
+  return () => { listeners.delete(listener); };
 }
 
 export function applyUpdate() {

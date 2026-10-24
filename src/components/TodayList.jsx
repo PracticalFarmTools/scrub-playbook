@@ -15,18 +15,18 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   const [today, setToday] = useState(localDay);
   const [offset, setOffset] = useState(0);
   const [draft, setDraft] = useState({ startsAt: '', room: '', surgeonName: '', procedureName: '' });
-  const [editing, setEditing] = useState(null);
-  const [phi, setPhi] = useState([]);
-  const [choice, setChoice] = useState(null);
+  const [editing, setEditing] = useState(/** @type {import('../data/types').TodayItem | null} */ (null));
+  const [phi, setPhi] = useState(/** @type {Array<import('../data/types').PhiSignal>} */ ([]));
+  const [choice, setChoice] = useState(/** @type {{ item: import('../data/types').TodayItem, surgeons: Array<any>, procedures?: Array<any>, closest?: boolean } | null} */ (null));
   const [pasting, setPasting] = useState(false);
   const [pasteText, setPasteText] = useState('');
-  const [pasteLines, setPasteLines] = useState(null);
+  const [pasteLines, setPasteLines] = useState(/** @type {Array<{ line: string, item: object, problems: string[] }> | null} */ (null));
   const activeDay = localDay(offset);
   const items = visibleDay(stored, activeDay);
-  const ready = items
-    .map(item => ({ item, result: resolveTodayTap(book, item) }))
-    .filter(entry => entry.result.action === 'open')
-    .map(entry => ({ item: entry.item, procedure: entry.result.procedure }));
+  const ready = items.flatMap(item => {
+    const result = resolveTodayTap(book, item);
+    return result.action === 'open' ? [{ item, procedure: result.procedure }] : [];
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setToday(localDay()), 60000);
@@ -47,8 +47,15 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
     setDraft({ startsAt: '', room: '', surgeonName: '', procedureName: '' });
   };
 
+  /** @param {'startsAt' | 'room' | 'surgeonName' | 'procedureName'} key */
+  const editField = (key) => (event) => {
+    const { value } = event.target;
+    setEditing(prev => prev && { ...prev, [key]: value });
+  };
+
   const saveEdit = (event) => {
     event.preventDefault();
+    if (!editing) return;
     const hits = findPhiSignals([editing.room, editing.surgeonName, editing.procedureName].join('\n'));
     if (hits.length) {
       setPhi(hits);
@@ -105,6 +112,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   };
 
   const pickSurgeon = (surgeon) => {
+    if (!choice) return;
     const result = resolveTodayTap({ surgeons: [surgeon], procedures: book.procedures }, choice.item);
     if (result.action === 'choose') setChoice({ item: choice.item, ...result });
     else {
@@ -174,12 +182,12 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
         <ul>
           {items.map(item => (
             <li key={item.id} className="border-t border-slate-100">
-              {editing?.id === item.id ? (
+              {editing && editing.id === item.id ? (
                 <form onSubmit={saveEdit} className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3">
-                  <input type="time" required value={editing.startsAt} onChange={e => setEditing({ ...editing, startsAt: e.target.value })} className={field} aria-label="Time" />
-                  <input required value={editing.room} onChange={e => setEditing({ ...editing, room: e.target.value })} className={field} aria-label="Room" />
-                  <input required value={editing.surgeonName} onChange={e => setEditing({ ...editing, surgeonName: e.target.value })} className={field} aria-label="Surgeon" />
-                  <input required value={editing.procedureName} onChange={e => setEditing({ ...editing, procedureName: e.target.value })} className={field} aria-label="Procedure" />
+                  <input type="time" required value={editing.startsAt} onChange={editField('startsAt')} className={field} aria-label="Time" />
+                  <input required value={editing.room} onChange={editField('room')} className={field} aria-label="Room" />
+                  <input required value={editing.surgeonName} onChange={editField('surgeonName')} className={field} aria-label="Surgeon" />
+                  <input required value={editing.procedureName} onChange={editField('procedureName')} className={field} aria-label="Procedure" />
                   <span className="flex gap-2">
                     <button type="submit" className="flex-1 min-h-11 rounded-lg bg-medical-600 text-white text-xs font-bold cursor-pointer">Save</button>
                     <button type="button" onClick={() => setEditing(null)} className="flex-1 min-h-11 rounded-lg bg-slate-100 text-xs font-bold cursor-pointer">Cancel</button>

@@ -11,10 +11,10 @@ const FOCUSABLE = [
  * Shared behavior for every overlay: focus moves in, Tab stays inside, Escape closes only the
  * top one, the page behind does not scroll, and focus goes back where it was. Without
  * `onClose`, Escape does nothing, for a notice that has to be answered.
- * @param {{ onClose?: () => void, initialFocus?: import('react').RefObject<HTMLElement> }} [options]
+ * @param {{ onClose?: () => void, initialFocus?: import('react').RefObject<HTMLElement | null> }} [options]
  */
 export function useDialog({ onClose, initialFocus } = {}) {
-  const ref = useRef(/** @type {HTMLElement | null} */ (null));
+  const ref = useRef(/** @type {HTMLDivElement | null} */ (null));
   const closeRef = useRef(onClose);
   // Read on first render: React's autoFocus moves focus into the dialog before effects run.
   const [opener] = useState(() => /** @type {HTMLElement | null} */ (globalThis.document?.activeElement ?? null));
