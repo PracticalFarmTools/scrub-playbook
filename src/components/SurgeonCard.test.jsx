@@ -127,6 +127,15 @@ describe('SurgeonCard', () => {
     expect(error.mock.calls.some(call => String(call[0]).includes('same key'))).toBe(false);
     error.mockRestore();
   });
+
+  it('opens earlier versions of a card, including a unit book card', () => {
+    const onHistory = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
+    const unitCard = { ...emptyProcedure('s1', { id: 'p1', name: 'Knee' }), unitBook: { id: 'u', revision: 2 } };
+    render(<SurgeonCard surgeon={surgeon} procedures={[unitCard]} staleDays={90} autoOpen onHistory={onHistory} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Earlier versions of Knee' }));
+    expect(onHistory).toHaveBeenCalledWith(unitCard);
+  });
 });
 
 describe('EmptyState', () => {

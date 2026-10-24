@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Plus, Share2, Stethoscope, Trash2 } from 'lucide-react';
+import { ChevronDown, History, Plus, Share2, Stethoscope, Trash2 } from 'lucide-react';
 import { findPhiInSurgeon, findPhiSignals } from '../data/phi';
 import { rowTrust, timeAgo, trustState } from '../data/trust';
 import { sourceLabel } from '../data/unitBook';
@@ -46,6 +46,7 @@ export default function SurgeonCard({
   onCopyToNotes,
   onCaseView,
   onSaveFirstCase,
+  onHistory,
 }) {
   const [confirming, setConfirming] = useState(/** @type {any} */ (null));
   const [editingDetails, setEditingDetails] = useState(false);
@@ -261,6 +262,9 @@ export default function SurgeonCard({
                         <button type="button" onClick={() => { setFlagReason(''); setFlagging(procedure.id); }} className="text-xs font-bold text-rose-700 bg-rose-50 rounded-lg px-3 min-h-11 cursor-pointer">Flag</button>
                       )}
                       <button type="button" onClick={() => onShare(surgeon, procedure)} className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer inline-flex items-center gap-1"><Share2 size={12} /> Share</button>
+                      {onHistory && (
+                        <button type="button" onClick={() => onHistory(procedure)} aria-label={`Earlier versions of ${procedure.name}`} className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer inline-flex items-center gap-1"><History size={12} /> Earlier versions</button>
+                      )}
                       <button type="button" aria-expanded={confirming === procedure.id} onClick={() => setConfirming(procedure.id)} className="min-h-11 px-2 text-xs font-bold text-slate-600 cursor-pointer">Delete case</button>
                     </>
                   )}

@@ -135,6 +135,25 @@ export function replacedText(version) {
   }
 }
 
+/** An earlier version is shown with no confirmations or flag: they were about a case it no longer describes. */
+export function asEarlier(procedure) {
+  return { ...stripConfirmation(procedure), disputed: false, reportNote: '' };
+}
+
+export function removedText(entry) {
+  switch (entry.removedBy) {
+    case 'unit-book': return 'Removed by a unit book update';
+    case 'restore-backup': return 'Removed when a backup was restored';
+    default: return 'Deleted on this phone';
+  }
+}
+
+export function versionTime(iso) {
+  const date = iso ? new Date(iso) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 /**
  * The current card with an earlier version's content. Confirmations are cleared because the case
  * they vouched for changed. Unit book cards change only when their publisher publishes.

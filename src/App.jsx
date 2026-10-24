@@ -16,6 +16,8 @@ import { daysSince, useBackup } from './hooks/useBackup';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { CANNOT_SAVE, usePublishing } from './hooks/usePublishing';
 import { useStoredState } from './hooks/useStoredState';
+import { useCardHistory } from './hooks/useCardHistory';
+import { deletedToRestore, forgetCard, updateHistory } from './data/history';
 import AppHeader from './components/AppHeader';
 import ConfirmNameModal from './components/ConfirmNameModal';
 import Disclaimer from './components/Disclaimer';
@@ -36,6 +38,8 @@ const ProcedureEditor = lazy(() => import('./components/ProcedureEditor'));
 const ShareCardModal = lazy(() => import('./components/ShareCardModal'));
 const PrintDay = lazy(() => import('./components/PrintDay'));
 const BackupKeyPrompt = lazy(() => import('./components/BackupKeyPrompt'));
+const CardHistorySheet = lazy(() => import('./components/CardHistorySheet'));
+const DeletedCardsSheet = lazy(() => import('./components/DeletedCardsSheet'));
 
 const WEEK_DAYS = 7;
 const UNDO_MS = 20000;
@@ -56,7 +60,9 @@ function plural(count, one, many) {
  *   | { kind: 'case', queue: string[], index: number, returnTo?: boolean }
  *   | { kind: 'print', ids: string[] }
  *   | { kind: 'import' }
- *   | { kind: 'places' }} Overlay
+ *   | { kind: 'places' }
+ *   | { kind: 'history', procedureId: string }
+ *   | { kind: 'deleted' }} Overlay
  */
 export default function App() {
   const bookApi = useBook();
@@ -64,6 +70,7 @@ export default function App() {
   const { log: auditLog, addEntry: addAudit, mergeLog } = useAuditLog();
   const { isOnline } = useNetworkStatus();
   const [suggestions, updateSuggestions] = useStoredState(SUGGESTIONS_KEY, loadSuggestions, saveSuggestions);
+  const { history: cardHistory } = useCardHistory();
 
   const [overlay, setOverlay] = useState(/** @type {Overlay | null} */ (null));
   const closeOverlay = () => setOverlay(null);
@@ -172,6 +179,34 @@ export default function App() {
 
   const surgeonOf = (procedure) => book.surgeons.find(surgeon => surgeon.id === procedure?.surgeonId) || null;
 
+  const restoreVersion = (procedure, version) => {
+    if (!bookApi.restoreVersion(procedure.id, version)) return;
+    addAudit({ action: 'Earlier version brought back', surgeonName: surgeonOf(procedure)?.name || '', note: procedure.name });
+    setNotice(`The earlier version of ${procedure.name} is back. It is unconfirmed until someone is in that case.`);
+    closeOverlay();
+    flashProcedure(procedure.id);
+  };
+
+  const forgetHistory = (procedure) => {
+    updateHistory(current => forgetCard(current, procedure.id));
+    addAudit({ action: 'Card history cleared', surgeonName: surgeonOf(procedure)?.name || '', note: procedure.name });
+    closeOverlay();
+  };
+
+  const bringBackDeleted = (entry) => {
+    const result = bookApi.restoreRemoved(deletedToRestore(book, entry));
+    if (!result.procedures) {
+      setNotice(`${entry.procedure.name} could not come back. Its surgeon is no longer on this phone.`);
+      return;
+    }
+    addAudit({ action: 'Deleted card brought back', surgeonName: entry.surgeonName, note: entry.procedure.name });
+    setNotice(`${entry.procedure.name} is back in your book, unconfirmed.`);
+    closeOverlay();
+    setActiveFacility(null);
+    clearSearch();
+    flashProcedure(entry.procedure.id);
+  };
+
   const confirmCard = (procedure, name) => {
     const options = trustFor(procedure);
     const tech = bookApi.confirmProcedure(procedure.id, name, { mode: options.mode });
@@ -249,6 +284,7 @@ export default function App() {
   const caseProcedureId = overlay?.kind === 'case' ? overlay.queue[overlay.index] : null;
   const caseProcedure = caseProcedureId ? book.procedures.find(item => item.id === caseProcedureId) : null;
   const caseSurgeon = caseProcedure ? surgeonOf(caseProcedure) : null;
+  const historyProcedure = overlay?.kind === 'history' ? book.procedures.find(item => item.id === overlay.procedureId) || null : null;
 
   const closeCase = () => {
     if (overlay?.kind === 'case' && overlay.returnTo && caseProcedureId) flashProcedure(caseProcedureId);
@@ -299,6 +335,7 @@ export default function App() {
       addAudit({ action: 'First-case notes edited', surgeonName: surgeon.name });
     },
     onCaseView: (s, procedure) => openCases([procedure.id], false),
+    onHistory: surgeon.demo ? undefined : (procedure) => setOverlay({ kind: 'history', procedureId: procedure.id }),
     onCopyToNotes: (id) => {
       const result = bookApi.copyToNotes(id);
       if (result.status === 'missing') return;
@@ -411,6 +448,14 @@ export default function App() {
           </div>
         )}
 
+        {cardHistory && cardHistory.deleted.length > 0 && (
+          <div className="mt-8 flex justify-center">
+            <button type="button" onClick={() => setOverlay({ kind: 'deleted' })} className="min-h-11 px-4 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 cursor-pointer">
+              Recently deleted cards ({cardHistory.deleted.length})
+            </button>
+          </div>
+        )}
+
         {auditLog.length > 0 && (
           <div className="mt-8"><RecentActivity log={auditLog} /></div>
         )}
@@ -500,6 +545,19 @@ export default function App() {
             trustFor={trustFor}
             onDone={donePrinting}
           />
+        )}
+        {overlay?.kind === 'history' && historyProcedure && surgeonOf(historyProcedure) && (
+          <CardHistorySheet
+            surgeon={/** @type {Surgeon} */ (surgeonOf(historyProcedure))}
+            procedure={historyProcedure}
+            history={cardHistory}
+            onRestore={(version) => restoreVersion(historyProcedure, version)}
+            onForget={() => forgetHistory(historyProcedure)}
+            onClose={closeOverlay}
+          />
+        )}
+        {overlay?.kind === 'deleted' && (
+          <DeletedCardsSheet history={cardHistory} onBringBack={bringBackDeleted} onClose={closeOverlay} />
         )}
         {backup.keyPrompt && <BackupKeyPrompt {...backup.keyPrompt} />}
       </Suspense>
