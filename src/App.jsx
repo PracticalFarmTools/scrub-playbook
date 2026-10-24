@@ -199,6 +199,7 @@ export default function App() {
       setNotice(`${entry.procedure.name} could not come back. Its surgeon is no longer on this phone.`);
       return;
     }
+    if (undo?.removed.procedures.some(procedure => procedure.id === entry.procedure.id)) setUndo(null);
     addAudit({ action: 'Deleted card brought back', surgeonName: entry.surgeonName, note: entry.procedure.name });
     setNotice(`${entry.procedure.name} is back in your book, unconfirmed.`);
     closeOverlay();
@@ -577,7 +578,7 @@ export default function App() {
           onSubmit={(name) => confirmCard(overlay.procedure, name)}
         />
       )}
-      {undo && (
+      {undo && overlay?.kind !== 'deleted' && (
         <div role="status" className="fixed inset-x-0 bottom-4 z-[70] flex justify-center px-4 pointer-events-none">
           <div className="pointer-events-auto max-w-md w-full rounded-2xl bg-slate-900 text-white shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-sm">{undo.text}</p>

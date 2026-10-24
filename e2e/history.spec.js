@@ -57,3 +57,17 @@ test('a deleted card stays in Recently deleted after the undo is gone, and comes
   await expect(page.getByText('Right total knee is back in your book, unconfirmed.')).toBeVisible()
   await expect(page.getByRole('button', { name: /Recently deleted cards/ })).toHaveCount(0)
 })
+
+test('bringing a card back from Recently deleted takes away its undo', async ({ page }) => {
+  await resetPhone(page)
+  await page.getByRole('button', { name: /^Right total knee/ }).click()
+  await page.getByRole('button', { name: 'Delete case' }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  const undo = page.getByRole('button', { name: 'Undo' })
+  await expect(undo).toBeVisible()
+  await page.getByRole('button', { name: 'Recently deleted cards (1)' }).click()
+  await expect(undo).toBeHidden()
+  await page.getByRole('button', { name: 'Bring back Right total knee · Dr. Ada Chen' }).click()
+  await expect(page.getByText('Right total knee is back in your book, unconfirmed.')).toBeVisible()
+  await expect(undo).toBeHidden()
+})
