@@ -8,6 +8,7 @@ import { placeIncomingCard } from '../data/incoming';
 import { mergeBackup, restoreBackup } from '../data/backup';
 import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
+import { recordBookChange, withEarlierContent } from '../data/history';
 import { applySave, clearConfirmation, personId, stripConfirmation, withConfirmation } from '../data/trust';
 
 export const UNREADABLE_KEY = 'scrubplaybook_book_unreadable';
@@ -68,6 +69,10 @@ export function useBook() {
   const quietWrite = useRef(false);
   const saveSeq = useRef(0);
   const channel = useRef(/** @type {{ post: (key: string) => void, close: () => void } | null} */ (null));
+  // The book as last saved or loaded here, so each change this tab makes can keep what it replaced.
+  const savedBook = useRef(book);
+  // Why the book became `book`; any other book is an edit on this phone.
+  const changeReason = useRef(/** @type {{ book: any, reason: import('../data/history').ChangeReason } | null} */ (null));
 
   useEffect(() => {
     let alive = true;
@@ -76,6 +81,7 @@ export function useBook() {
       skipSave.current = result.unreadable || !result.needsWrite;
       quietWrite.current = result.needsWrite;
       bookRef.current = result.book;
+      savedBook.current = result.book;
       setBook(result.book);
       setUnreadable(result.unreadable);
       setLoaded(true);
@@ -93,6 +99,7 @@ export function useBook() {
         const next = refreshSamples(migrateBook(value));
         skipSave.current = true;
         bookRef.current = next;
+        savedBook.current = next;
         setBook(next);
       } catch {
         /* keep this tab's copy */
@@ -107,13 +114,20 @@ export function useBook() {
     if (!loaded) return;
     if (skipSave.current) {
       skipSave.current = false;
+      savedBook.current = book;
       return;
     }
     const counted = !quietWrite.current;
     quietWrite.current = false;
+    const before = savedBook.current;
+    const marked = changeReason.current;
+    const reason = marked && marked.book === book ? marked.reason : 'edit';
+    savedBook.current = book;
     const seq = ++saveSeq.current;
     writeValue(BOOK_KEY, book).then(result => {
+      if (result.ok && before !== book) recordBookChange(before, book, { reason });
       if (seq !== saveSeq.current) return;
+      if (!result.ok) savedBook.current = before;
       if (result.ok) {
         safeRemove(LEGACY_STORAGE_KEY);
         if (counted && book.surgeons.some(s => !s.demo)) safeSet(CHANGES_KEY, String((Number(safeGet(CHANGES_KEY, '0')) || 0) + 1));
@@ -304,6 +318,7 @@ export function useBook() {
   const importUnitBook = useCallback((file, options = {}) => {
     const result = applyUnitBook(bookRef.current, file, options);
     if (result.status === 'updated') {
+      changeReason.current = { book: result.book, reason: 'unit-book' };
       bookRef.current = result.book;
       setBook(result.book);
     }
@@ -325,6 +340,7 @@ export function useBook() {
       result = options.surgeonId
         ? placeIncomingCard(prev, incoming, { surgeonId: options.surgeonId })
         : mergeBackup(prev, incoming);
+      changeReason.current = { book: result.book, reason: 'import' };
       return result.book;
     });
     return result;
@@ -332,6 +348,7 @@ export function useBook() {
 
   const restoreOwnBackup = useCallback((incoming) => {
     const result = restoreBackup(bookRef.current, incoming);
+    changeReason.current = { book: result.book, reason: 'restore-backup' };
     bookRef.current = result.book;
     setBook(result.book);
     return result;
@@ -341,6 +358,18 @@ export function useBook() {
     bookRef.current = next;
     setBook(next);
   }, []);
+
+  /** Brings back an earlier version of one of this person's own cards, unconfirmed. */
+  const restoreVersion = useCallback((procedureId, version) => {
+    const current = bookRef.current.procedures.find(p => p.id === procedureId);
+    const next = current && withEarlierContent(current, version);
+    if (!next) return false;
+    const saved = { ...next, updatedAt: new Date().toISOString() };
+    const updated = { ...bookRef.current, procedures: bookRef.current.procedures.map(p => p.id === procedureId ? saved : p) };
+    changeReason.current = { book: updated, reason: 'earlier-version' };
+    commit(updated);
+    return true;
+  }, [commit]);
 
   const replaceProcedure = useCallback((procedure) => {
     setBook(prev => ({
@@ -375,6 +404,7 @@ export function useBook() {
     replaceProcedure,
     replaceBook,
     restoreRemoved,
+    restoreVersion,
     newProcedure: emptyProcedure,
   };
 }
