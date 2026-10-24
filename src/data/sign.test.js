@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalJson, generateSigningKey, keyFingerprint, signFile, verifyFile } from './sign';
 import { emptyBlocks, emptyProcedure } from './schema';
-import { parseImport } from './share';
+import { parseImport } from './incoming';
 import { trustState } from './trust';
 import {
   applyUnitBook, changedSections, checkHandover, checkUnitFile, dictationOff, handOverPublishing, isRetiredUnitBook, publishUnitBook,

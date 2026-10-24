@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { applyUnitBook, checkUnitFile, handOverPublishing, publishUnitBook, replacePublishingKey } from '../data/unitBook';
 import { PUBLISHED_KEY, emptyBlocks, emptyProcedure } from '../data/schema';
-import { shareMessage, toBackup } from '../data/share';
+import { shareMessage } from '../data/share';
+import { toBackup } from '../data/backup';
 import { lockPublished } from '../data/keyLock';
 import ImportCardModal from './ImportCardModal';
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { emptyBlocks, emptyProcedure } from './schema';
-import { importPreviewText, mergeBackup, parseImport, restoreBackup, restoreExtras, toBackup, toPlacePack } from './share';
+import { importPreviewText, parseImport } from './incoming';
+import { mergeBackup, restoreBackup, restoreExtras, toBackup, toPlacePack } from './backup';
 
 const surgeon = (id, extra = {}) => ({ id, name: `Dr. ${id}`, specialty: 'Orthopedics', facility: 'Main', demo: false, createdAt: '2026-09-01T00:00:00.000Z', ...extra });
 const procedure = (id, surgeonId, extra = {}) => emptyProcedure(surgeonId, {

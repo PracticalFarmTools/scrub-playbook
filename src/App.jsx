@@ -6,7 +6,7 @@ import {
 } from './data/schema';
 import { personId, rowTrust, trustState, withConfirmation } from './data/trust';
 import { SORT_CHOICES, facilityLabels, filterBook, sortSurgeons } from './data/searchBook';
-import { parseImport } from './data/share';
+import { parseImport } from './data/incoming';
 import { dictationOff, takeOverPublishing, trustOptionsFor, unitResultText } from './data/unitBook';
 import { closeSuggestion, loadSuggestions, openSuggestion, recordSuggestion, saveSuggestions } from './data/suggestions';
 import { needsHomeScreen, safeGet, safeSet } from './data/storage';

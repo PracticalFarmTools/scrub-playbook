@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { boardProblemText, cleanAliases, matchSurgeons, parseBoard, personMatch, procedureMatch, procedureTextMatch } from './boardMatch';
 import { emptyProcedure } from './schema';
 import { findPhiInProcedure } from './phi';
-import { parseImport, shareMessage } from './share';
+import { shareMessage } from './share';
+import { parseImport } from './incoming';
 import { resolveTodayTap } from './today';
 
 describe('surgeon names on the board', () => {

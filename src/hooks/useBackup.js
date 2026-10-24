@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CHANGES_KEY, LAST_EXPORT_KEY } from '../data/schema';
 import { keyPlaces, leaveKeysOut, lockPublished } from '../data/keyLock';
 import { findPhiInBook, phiFoundText } from '../data/phi';
-import { restoreExtras, toBackup } from '../data/share';
+import { restoreExtras, toBackup } from '../data/backup';
 import { safeGet, safeSet } from '../data/storage';
 import { loadToday, localDay, saveToday } from '../data/today';
 import { readHandedOver, readPublished } from '../data/unitBook';
