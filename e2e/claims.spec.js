@@ -56,7 +56,7 @@ test('a full session sends nothing anywhere: every request is a GET for the appâ
   expect(outside, outside.join('\n')).toEqual([])
 })
 
-test('every screen passes an automated WCAG 2.2 AA scan', async ({ page }) => {
+test('the home list, a card, the case view, the editor, and Share pass an automated WCAG 2.2 AA scan', async ({ page }) => {
   await resetPhone(page)
   await expectAccessible(page, 'home')
 
@@ -64,22 +64,26 @@ test('every screen passes an automated WCAG 2.2 AA scan', async ({ page }) => {
   await expectAccessible(page, 'open card')
 
   await page.getByRole('button', { name: 'Case view' }).click()
-  const caseView = page.getByRole('dialog', { name: /Dr\. Ada Chen/ })
-  await expect(caseView).toBeVisible()
+  await expect(page.getByRole('dialog', { name: /Dr\. Ada Chen/ })).toBeVisible()
   await expectAccessible(page, 'case view', '[role="dialog"]')
   await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
-  const editor = page.getByRole('dialog').first()
-  await expect(editor).toBeVisible()
+  await expect(page.getByRole('dialog').first()).toBeVisible()
   await expectAccessible(page, 'editor', '[role="dialog"]')
-  await page.getByLabel('Position', { exact: true }).fill('Supine')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: /^Share/ }).click()
   await expect(page.getByRole('dialog', { name: 'Share procedure' })).toBeVisible()
   await expectAccessible(page, 'share', '[role="dialog"]')
-  await page.keyboard.press('Escape')
+})
+
+test('Earlier versions, Recently deleted, Places, Import, and Add surgeon pass an automated WCAG 2.2 AA scan', async ({ page }) => {
+  await resetPhone(page)
+  await openCard(page)
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  await page.getByLabel('Position', { exact: true }).fill('Supine')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
 
   await page.getByRole('button', { name: 'Earlier versions of Right total knee' }).click()
   const history = page.getByRole('dialog', { name: 'Earlier versions' })
