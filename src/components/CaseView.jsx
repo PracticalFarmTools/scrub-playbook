@@ -1,25 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { findPhiSignals } from '../data/phi';
-import { normalizeBlocks } from '../data/schema';
+import { CASE_DARK_KEY, normalizeBlocks } from '../data/schema';
 import { suggestionText } from '../data/share';
 import { pullTargets } from '../data/caseView';
 import { loadPull, savePull } from '../data/pull';
+import { safeGet, safeSet } from '../data/storage';
 import { readTechName } from '../hooks/useBook';
 import { useDialog } from '../hooks/useDialog';
 import CaseBody from './CaseBody';
 import PhiPause from './PhiPause';
 
-const DARK_KEY = 'scrubplaybook_case_dark';
-
 function storedDark() {
-  try {
-    const stored = localStorage.getItem(DARK_KEY);
-    if (stored === '1') return true;
-    if (stored === '0') return false;
-  } catch {
-    /* follow the phone */
-  }
+  const stored = safeGet(CASE_DARK_KEY);
+  if (stored === '1') return true;
+  if (stored === '0') return false;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
 
@@ -170,7 +165,7 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
   };
   const setDarkMode = (next) => {
     setDark(next);
-    try { localStorage.setItem(DARK_KEY, next ? '1' : '0'); } catch { /* keep the choice for this view */ }
+    safeSet(CASE_DARK_KEY, next ? '1' : '0');
   };
 
   const confirmCase = (event) => {

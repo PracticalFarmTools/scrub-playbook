@@ -1,4 +1,4 @@
-import { BOOK_VERSION, PUBLISHED_KEY, STALE_AFTER_DAYS, normalizeBlocks, uid } from './schema';
+import { BOOK_VERSION, HANDED_OVER_KEY, PUBLISHED_KEY, STALE_AFTER_DAYS, normalizeBlocks, uid } from './schema';
 import { inPlaceGroup } from './places';
 import { generateSigningKey, keyFingerprint, keysMatch, signFile, verifyFile } from './sign';
 import { safeJson, safeSet } from './storage';
@@ -25,6 +25,16 @@ export function readPublished() {
 
 export function savePublished(published) {
   return safeSet(PUBLISHED_KEY, JSON.stringify(published || {}));
+}
+
+/** Places this phone handed over, so an older backup does not make it a publisher again. */
+export function readHandedOver() {
+  const value = safeJson(HANDED_OVER_KEY, {});
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+export function recordHandedOver(place, unitBookId, revision, at = new Date().toISOString()) {
+  return safeSet(HANDED_OVER_KEY, JSON.stringify({ ...readHandedOver(), [place]: { unitBookId, revision, at } }));
 }
 
 export function unitRevision(book, unitBookId) {

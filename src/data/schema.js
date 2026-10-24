@@ -12,6 +12,9 @@ export const CHANGES_KEY = 'scrubplaybook_changes_since_export';
 export const LAST_EXPORT_KEY = 'scrubplaybook_last_export';
 export const HOME_SCREEN_KEY = 'scrubplaybook_home_screen_dismissed';
 export const SORT_KEY = 'scrubplaybook_sort';
+export const AUDIT_KEY = 'scrubplaybook_audit';
+export const DISCLAIMER_KEY = 'scrubplaybook_disclaimer_seen';
+export const CASE_DARK_KEY = 'scrubplaybook_case_dark';
 
 export const STALE_AFTER_DAYS = 90;
 export const LINK_FRESH_DAYS = 180;

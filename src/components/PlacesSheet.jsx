@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { countLine, placeKey } from '../data/places';
 import { STALE_DAY_CHOICES, cleanSettings } from '../data/unitBook';
 import { useDialog } from '../hooks/useDialog';
+import { slugify } from '../utils/download';
 
 function groupsFor(book, archived) {
   const surgeons = (book?.surgeons || []).filter(surgeon => !surgeon.demo && Boolean(surgeon.archived) === archived);
@@ -36,7 +37,7 @@ function UnitRules({ place, entry, onSettings, onHandOverPublishing, onReplaceKe
   const settings = cleanSettings(entry?.settings);
   const [replacing, setReplacing] = useState(false);
   const change = (patch) => onSettings(place, { ...settings, ...patch });
-  const id = `unit-rules-${place.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  const id = `unit-rules-${slugify(place)}`;
   return (
     <details className="rounded-lg bg-slate-50 px-3">
       <summary className="text-xs font-bold text-slate-700 cursor-pointer min-h-11 flex items-center">

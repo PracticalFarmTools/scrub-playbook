@@ -1,5 +1,5 @@
 import { TODAY_KEY, uid } from './schema';
-import { safeSet } from './storage';
+import { safeJson, safeSet } from './storage';
 import { matchSurgeons, procedureMatch } from './boardMatch';
 
 export function localDay(offsetDays = 0, date = new Date()) {
@@ -43,15 +43,7 @@ function convertToday(stored, today) {
 }
 
 export function loadToday(source, today = localDay()) {
-  if (source === undefined) {
-    try {
-      const raw = localStorage.getItem(TODAY_KEY);
-      return convertToday(raw ? JSON.parse(raw) : null, today);
-    } catch {
-      return emptyToday();
-    }
-  }
-  return convertToday(source, today);
+  return convertToday(source === undefined ? safeJson(TODAY_KEY, null) : source, today);
 }
 
 export function visibleDay(stored, day) {
