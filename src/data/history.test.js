@@ -63,6 +63,19 @@ describe('recordChanges', () => {
     expect(history.deleted).toHaveLength(0);
   });
 
+  it('keeps nothing of a deleted place, including cards deleted from it before', () => {
+    const other = { ...surgeon, id: 't', name: 'Dr. Bo Park', facility: 'North' };
+    const a = card();
+    const b = card({ id: 'q', name: 'Left TKA' });
+    const c = card({ id: 'r', surgeonId: 't', name: 'Hip' });
+    const full = { version: 2, surgeons: [surgeon, other], procedures: [a, b, c] };
+    let { history } = recordChanges(emptyHistory(), full, { ...full, procedures: [withPosition(a, 'x'), c] });
+    expect(history.deleted).toHaveLength(1);
+    expect(history.cards.p).toHaveLength(1);
+    ({ history } = recordChanges(history, { ...full, procedures: [withPosition(a, 'x'), c] }, { version: 2, surgeons: [other], procedures: [c] }, { reason: 'delete-place' }));
+    expect(history).toEqual(emptyHistory());
+  });
+
   it('keeps no sample cards', () => {
     const sample = card({ demo: true });
     const { changed } = recordChanges(emptyHistory(), book(sample), book(withPosition(sample, 'x')));

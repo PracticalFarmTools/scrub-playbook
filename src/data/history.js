@@ -11,7 +11,7 @@ export const DELETED_KEEP_DAYS = 30;
 export const DELETED_MAX = 50;
 
 /**
- * @typedef {'edit' | 'unit-book' | 'restore-backup' | 'import' | 'earlier-version' | 'deleted'} ChangeReason
+ * @typedef {'edit' | 'unit-book' | 'restore-backup' | 'import' | 'earlier-version' | 'deleted' | 'delete-place'} ChangeReason
  * @typedef {object} CardVersion A card as it was before something replaced it.
  * @property {string} id
  * @property {import('./types').Procedure} procedure
@@ -71,7 +71,8 @@ function pruneDeleted(deleted, at) {
 
 /**
  * Adds the versions that `after` replaced in `before`: every card whose content changed, and every card
- * that is gone. Confirming or flagging a card is not a new version. Sample cards are not kept.
+ * that is gone. Confirming or flagging a card is not a new version. Sample cards are not kept. Deleting a
+ * place keeps nothing of its cards, because that is how someone leaving a hospital removes its notes.
  * @param {History} history
  * @param {import('./types').Book} before
  * @param {import('./types').Book} after
@@ -89,6 +90,7 @@ export function recordChanges(history, before, after, { at = new Date().toISOStr
     const surgeon = surgeons.get(procedure.surgeonId);
     const now = nowById.get(procedure.id);
     if (!now) {
+      if (reason === 'delete-place') continue;
       deleted = [{ ...versionOf(procedure, surgeon, { at, reason: 'deleted' }), removedBy: reason, ...(surgeon ? { surgeon } : {}) }, ...deleted];
       changed = true;
     } else if (!sameContent(procedure, now)) {
@@ -98,9 +100,13 @@ export function recordChanges(history, before, after, { at = new Date().toISOStr
       changed = true;
     }
   }
-  const back = deleted.filter(item => nowById.has(item.procedure.id));
-  if (back.length) {
-    deleted = deleted.filter(item => !nowById.has(item.procedure.id));
+  const surgeonsNow = new Set((after?.surgeons || []).map(surgeon => surgeon.id));
+  const placeGone = reason === 'delete-place'
+    ? new Set((before?.surgeons || []).filter(surgeon => !surgeonsNow.has(surgeon.id)).map(surgeon => surgeon.id))
+    : new Set();
+  const dropped = deleted.filter(item => nowById.has(item.procedure.id) || placeGone.has(item.procedure.surgeonId));
+  if (dropped.length) {
+    deleted = deleted.filter(item => !dropped.includes(item));
     changed = true;
   }
   const pruned = pruneDeleted(deleted, at);

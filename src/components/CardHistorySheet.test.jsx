@@ -67,12 +67,18 @@ describe('DeletedCardsSheet', () => {
   it('lists a deleted card with what removed it and brings it back', () => {
     const { history } = recordChanges(emptyHistory(), book(withPosition(card(), 'Supine')), book());
     const onBringBack = vi.fn();
-    render(<DeletedCardsSheet history={history} onBringBack={onBringBack} onClose={vi.fn()} />);
+    const onRemove = vi.fn();
+    render(<DeletedCardsSheet history={history} onBringBack={onBringBack} onRemove={onRemove} onClose={vi.fn()} />);
     expect(screen.getByText('Right TKA · Dr. Amy Chen')).toBeTruthy();
     expect(screen.getByText(/Deleted on this phone/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'View Right TKA · Dr. Amy Chen' }));
     expect(screen.getByText('Supine')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Bring back Right TKA · Dr. Amy Chen' }));
     expect(onBringBack).toHaveBeenCalledWith(history.deleted[0]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Right TKA · Dr. Amy Chen for good' }));
+    expect(onRemove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }));
+    expect(onRemove).toHaveBeenCalledWith(history.deleted[0]);
   });
 });

@@ -557,7 +557,15 @@ export default function App() {
           />
         )}
         {overlay?.kind === 'deleted' && (
-          <DeletedCardsSheet history={cardHistory} onBringBack={bringBackDeleted} onClose={closeOverlay} />
+          <DeletedCardsSheet
+            history={cardHistory}
+            onBringBack={bringBackDeleted}
+            onRemove={(entry) => {
+              updateHistory(current => forgetCard(current, entry.procedure.id));
+              addAudit({ action: 'Deleted card removed for good', surgeonName: entry.surgeonName, note: entry.procedure.name });
+            }}
+            onClose={closeOverlay}
+          />
         )}
         {backup.keyPrompt && <BackupKeyPrompt {...backup.keyPrompt} />}
       </Suspense>

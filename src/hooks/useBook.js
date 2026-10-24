@@ -263,6 +263,7 @@ export function useBook() {
     const prev = bookRef.current;
     const next = deletePlace(prev, place, options);
     const left = new Set(next.surgeons.map(s => s.id));
+    changeReason.current = { book: next, reason: 'delete-place' };
     commit(next);
     return {
       surgeons: prev.surgeons.filter(s => !left.has(s.id)),

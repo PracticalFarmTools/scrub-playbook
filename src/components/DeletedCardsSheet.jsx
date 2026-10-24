@@ -8,12 +8,14 @@ import ProcedureGlance from './ProcedureGlance';
  * @param {{
  *   history: import('../data/history').History | null,
  *   onBringBack: (entry: import('../data/history').CardVersion) => void,
+ *   onRemove: (entry: import('../data/history').CardVersion) => void,
  *   onClose: () => void,
  * }} props
  */
-export default function DeletedCardsSheet({ history, onBringBack, onClose }) {
+export default function DeletedCardsSheet({ history, onBringBack, onRemove, onClose }) {
   const dialogRef = useDialog({ onClose });
   const [viewing, setViewing] = useState(/** @type {string | null} */ (null));
+  const [removing, setRemoving] = useState(/** @type {string | null} */ (null));
   const deleted = history?.deleted || [];
 
   return (
@@ -59,8 +61,26 @@ export default function DeletedCardsSheet({ history, onBringBack, onClose }) {
                         >
                           Bring back
                         </button>
+                        <button
+                          type="button"
+                          aria-expanded={removing === entry.id}
+                          aria-label={`Remove ${title} for good`}
+                          onClick={() => setRemoving(removing === entry.id ? null : entry.id)}
+                          className="min-h-11 px-2 text-xs font-bold text-slate-600 cursor-pointer"
+                        >
+                          Remove for good
+                        </button>
                       </div>
                     </div>
+                    {removing === entry.id && (
+                      <div role="alert" className="px-3 py-2.5 bg-rose-50 border-t border-rose-100 text-sm text-rose-900 space-y-2">
+                        <p>Remove this card and its earlier versions from this phone? This cannot be undone.</p>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => { setRemoving(null); onRemove(entry); }} className="min-h-11 px-4 rounded-xl bg-rose-700 text-white text-sm font-bold cursor-pointer">Remove</button>
+                          <button type="button" onClick={() => setRemoving(null)} className="min-h-11 px-4 rounded-xl bg-white border border-rose-200 text-rose-800 text-sm font-bold cursor-pointer">Cancel</button>
+                        </div>
+                      </div>
+                    )}
                     {viewing === entry.id && (
                       <div className="border-t border-slate-100">
                         <p className="px-3 py-2 bg-slate-800 text-white text-xs font-bold uppercase tracking-wider">Deleted card · not in your book</p>
