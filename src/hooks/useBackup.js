@@ -90,7 +90,8 @@ export function useBackup({ book, bookApi, auditLog, addAudit, mergeLog, suggest
       backup.extras || {},
       { today: localDay(), handedOver: readHandedOver() },
     );
-    updatePublished(() => merged.published);
+    const keptPublishing = updatePublished(() => merged.published);
+    if (!keptPublishing) updatePublished(current => current);
     saveToday(merged.today);
     updateSuggestions(() => merged.suggestions);
     mergeLog(backup.extras?.log || []);
@@ -98,9 +99,11 @@ export function useBackup({ book, bookApi, auditLog, addAudit, mergeLog, suggest
     if (backup.exportedAt && (!lastExportAt || backup.exportedAt > lastExportAt)) markExported(backup.exportedAt);
     addAudit({ action: 'Backup restored', surgeonName: `${result.added} added`, note: `${result.updated} updated, ${result.kept} kept` });
     const publishing = keyPlaces(merged.published).filter(place => !before[place]?.privateKey);
-    const again = publishing.length
-      ? ` This phone publishes ${publishing.join(', ')} again. Only one phone should publish each place: if another phone still publishes ${publishing.length === 1 ? 'it' : 'them'}, hand over from that phone instead.`
-      : '';
+    const again = !publishing.length
+      ? ''
+      : keptPublishing
+        ? ` This phone publishes ${publishing.join(', ')} again. Only one phone should publish each place: if another phone still publishes ${publishing.length === 1 ? 'it' : 'them'}, hand over from that phone instead.`
+        : ` Publishing for ${publishing.join(', ')} did not come back: this phone could not save it. Free some space, or leave private browsing, and restore again.`;
     setNotice(`Backup restored: ${result.added} added, ${result.updated} updated from the backup, ${result.kept} already current. Confirmations, the board, and activity came back with it.${again}`);
     return { success: true, imported: result.added, skipped: result.kept };
   };

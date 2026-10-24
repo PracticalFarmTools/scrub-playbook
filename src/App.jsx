@@ -14,7 +14,7 @@ import { UNREADABLE_KEY, useBook } from './hooks/useBook';
 import { useAuditLog } from './hooks/useAuditLog';
 import { daysSince, useBackup } from './hooks/useBackup';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
-import { usePublishing } from './hooks/usePublishing';
+import { CANNOT_SAVE, usePublishing } from './hooks/usePublishing';
 import { useStoredState } from './hooks/useStoredState';
 import AppHeader from './components/AppHeader';
 import ConfirmNameModal from './components/ConfirmNameModal';
@@ -185,8 +185,11 @@ export default function App() {
       if (options.handover) {
         const result = takeOverPublishing(book, options.handover, { fingerprint: options.fingerprint });
         if (!result.entry) return { success: false, error: unitResultText(result.place, result) };
+        if (!publishing.update(current => ({ ...current, [result.place]: result.entry }))) {
+          publishing.update(current => current);
+          return { success: false, error: `Publishing for ${result.place} was not taken over. ${CANNOT_SAVE}` };
+        }
         bookApi.replaceBook(result.book);
-        publishing.update(current => ({ ...current, [result.place]: result.entry }));
         addAudit({ action: 'Publishing taken over', surgeonName: result.place, note: `Revision ${result.entry.revision}` });
         setNotice(`You now publish the unit book for ${result.place}. Its cards are your notes. Delete the hand-over file.`);
         return { success: true, imported: 0, skipped: 0 };

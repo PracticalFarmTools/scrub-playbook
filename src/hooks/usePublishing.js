@@ -15,6 +15,22 @@ function placePhi(book, place, archived) {
   return findPhiInBook(book, book.surgeons.filter(surgeon => inPlaceGroup(surgeon, place, archived)).map(surgeon => surgeon.id));
 }
 
+function withEntry(published, place, entry) {
+  const next = { ...published };
+  if (entry) next[place] = entry;
+  else delete next[place];
+  return next;
+}
+
+/** Puts back the entry from before a publish, keeping unit rules another tab saved meanwhile. */
+function rollBack(published, place, before, written) {
+  const settings = published[place]?.settings;
+  if (!settings || JSON.stringify(settings) === JSON.stringify(written.settings)) return withEntry(published, place, before);
+  return withEntry(published, place, { ...(before || {}), settings });
+}
+
+export const CANNOT_SAVE = 'This phone could not save its publishing record. Free some space, or leave private browsing, and try again.';
+
 /**
  * Hand-offs and unit book publishing for each place. Every change starts from what is stored now, and
  * signing runs under one lock, so two open tabs never publish the same place under two keys.
@@ -44,12 +60,20 @@ export function usePublishing({ book, addAudit, setNotice }) {
       throw err;
     }
     const { file, fingerprint } = signed;
+    const before = readPublished()[place];
+    // The revision and key are kept before the file leaves, so a file that went out is never followed
+    // by a repeated revision or a new key that staff phones would refuse.
+    const written = signed.published[place];
+    const kept = update(current => withEntry(current, place, { ...written, settings: current[place]?.settings || written.settings }));
+    if (!kept) {
+      update(current => rollBack(current, place, before, written));
+      return { message: `${place} was not published. ${CANNOT_SAVE}` };
+    }
     const outcome = await shareFile(`scrubplaybook-unit-${slugify(place)}-r${file.revision}.json`, file);
-    if (outcome === 'cancelled') return { message: `${place} was not published. The next file is still revision ${file.revision}.` };
-    update(current => ({
-      ...current,
-      [place]: { ...signed.published[place], settings: current[place]?.settings || signed.published[place].settings },
-    }));
+    if (outcome === 'cancelled') {
+      update(current => rollBack(current, place, before, written));
+      return { message: `${place} was not published. The next file is still revision ${file.revision}.` };
+    }
     addAudit({ action: 'Unit book published', surgeonName: place, note: `Revision ${file.revision}` });
     setNotice(`Published ${place} as unit book revision ${file.revision}.`);
     return { message: `Published ${place} as unit book revision ${file.revision}. Publisher key ${fingerprint}.` };
@@ -62,20 +86,21 @@ export function usePublishing({ book, addAudit, setNotice }) {
     if (result.error) return { message: `This phone does not publish ${place}.` };
     const outcome = await shareFile(`scrubplaybook-publisher-${slugify(place)}-r${result.revision}.json`, result.file);
     if (outcome === 'cancelled') return { message: `Publishing for ${place} was not handed over. This phone still publishes it.` };
-    update(current => {
-      const next = { ...current };
-      delete next[place];
-      return next;
-    });
-    recordHandedOver(place, result.file.unitFile.unitBookId, result.revision);
+    const removed = update(current => withEntry(current, place, null));
+    const recorded = recordHandedOver(place, result.file.unitFile.unitBookId, result.revision);
     addAudit({ action: 'Publishing handed over', surgeonName: place, note: `Revision ${result.revision}` });
-    return {
-      message: `Hand-over file for ${place} is ready with revision ${result.revision}. Send it only to the next publisher. This phone no longer publishes ${place}; your cards stay as your notes.`,
-    };
+    const ready = `Hand-over file for ${place} is ready with revision ${result.revision}. Send it only to the next publisher.`;
+    if (!removed || !recorded) {
+      return { message: `${ready} This phone could not save that it handed over, so it may offer to publish ${place} again after a restart. Do not publish ${place} from this phone again.` };
+    }
+    return { message: `${ready} This phone no longer publishes ${place}; your cards stay as your notes.` };
   });
 
   const replaceKey = (place) => withLock(PUBLISHING_LOCK, () => {
-    update(current => replacePublishingKey(current, place));
+    if (!update(current => replacePublishingKey(current, place))) {
+      update(current => current);
+      return { message: `The key for ${place} was not replaced. ${CANNOT_SAVE}` };
+    }
     addAudit({ action: 'Publishing key replaced', surgeonName: place });
     return {
       message: `The key for ${place} is replaced. Publish ${place} now and send the file to every staff phone; each one is asked to switch to the new unit book. Tell staff the new publisher key shown after you publish. Then save a new locked backup and delete older backups, which still hold the old key.`,
