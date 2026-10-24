@@ -57,12 +57,18 @@ export async function importFile(page, path) {
 }
 
 /**
- * Every test fails on a script error or a console error, which is how Chromium reports
- * a Content Security Policy violation.
+ * Every test fails on a script error, a console error, or a Content Security Policy violation,
+ * which each browser engine reports through `securitypolicyviolation`.
  */
 export const test = base.extend({
   page: async ({ page }, use) => {
     const problems = []
+    await page.exposeBinding('__reportCspViolation', (_source, text) => { problems.push(`CSP violation: ${text}`) })
+    await page.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', event => {
+        window.__reportCspViolation(`${event.effectiveDirective} blocked ${event.blockedURI || 'inline'}`)
+      })
+    })
     page.on('pageerror', error => problems.push(`page error: ${error.message}`))
     page.on('console', message => {
       if (message.type() === 'error') problems.push(`console error: ${message.text()}`)
