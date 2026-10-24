@@ -133,7 +133,7 @@ describe('SurgeonCard', () => {
     const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: [] };
     const unitCard = { ...emptyProcedure('s1', { id: 'p1', name: 'Knee' }), unitBook: { id: 'u', revision: 2 } };
     render(<SurgeonCard surgeon={surgeon} procedures={[unitCard]} staleDays={90} autoOpen onHistory={onHistory} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Earlier versions of Knee' }));
+    fireEvent.click(screen.getByRole('button', { name: 'History of Knee' }));
     expect(onHistory).toHaveBeenCalledWith(unitCard);
   });
 });

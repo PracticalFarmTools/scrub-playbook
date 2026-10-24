@@ -8,6 +8,7 @@ import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
 import { STATUS_CLASS } from './statusStyle';
 import { followUpText, suggestionState } from '../data/suggestions';
+import { EditTrailLine } from './EditTrail';
 
 function statusLabel(state) {
   if (state.status === CARD_STATUS.CONFIRMED) {
@@ -71,6 +72,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         {statusLabel(state)}
         {state.names?.length > 0 && <span className="font-medium opacity-80"> · {state.names.join(', ')}</span>}
       </div>
+      {!procedure.demo && !surgeon?.demo && <EditTrailLine procedure={procedure} className="mx-5 mb-3" />}
       {procedure.unitBook?.changes?.length > 0 && (
         <p className="mx-5 mb-3 rounded-lg bg-medical-50 border border-medical-200 px-3 py-2 text-sm text-medical-900">
           {procedure.unitBook.changes.includes('New card')

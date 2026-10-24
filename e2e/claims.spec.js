@@ -41,7 +41,7 @@ test('a full session sends nothing anywhere: every request is a GET for the appâ
   await expect(page.getByRole('dialog', { name: 'Share procedure' })).toBeVisible()
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: 'Earlier versions of Right total knee' }).click()
+  await page.getByRole('button', { name: 'History of Right total knee' }).click()
   await page.keyboard.press('Escape')
 
   await savedFile(page, () => page.getByRole('button', { name: 'Export backup' }).click(), testInfo)
@@ -78,15 +78,15 @@ test('the home list, a card, the case view, the editor, and Share pass an automa
   await expectAccessible(page, 'share', '[role="dialog"]')
 })
 
-test('Earlier versions, Recently deleted, Places, Import, and Add surgeon pass an automated WCAG 2.2 AA scan', async ({ page }) => {
+test('Card history, Recently deleted, Places, Import, and Add surgeon pass an automated WCAG 2.2 AA scan', async ({ page }) => {
   await resetPhone(page)
   await openCard(page)
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await page.getByLabel('Position', { exact: true }).fill('Supine')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
 
-  await page.getByRole('button', { name: 'Earlier versions of Right total knee' }).click()
-  const history = page.getByRole('dialog', { name: 'Earlier versions' })
+  await page.getByRole('button', { name: 'History of Right total knee' }).click()
+  const history = page.getByRole('dialog', { name: 'Card history' })
   await history.getByRole('button', { name: 'View earlier version 1' }).click()
   await expectAccessible(page, 'earlier versions', '[role="dialog"]')
   await page.keyboard.press('Escape')

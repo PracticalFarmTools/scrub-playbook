@@ -269,9 +269,9 @@ export default function App() {
     setOverlay({ kind: 'editor', surgeon, procedure: emptyProcedure(surgeon.id, { name: procedureName || '' }) });
   };
 
-  const saveProcedure = (procedure) => {
-    bookApi.saveProcedure(procedure);
-    addAudit({ action: 'Procedure saved', surgeonName: surgeonOf(procedure)?.name || '', note: procedure.name });
+  const saveProcedure = (procedure, options = {}) => {
+    bookApi.saveProcedure(procedure, options);
+    addAudit({ action: 'Procedure saved', surgeonName: surgeonOf(procedure)?.name || '', note: procedure.name, user: options.by });
   };
 
   const openCases = (ids, returnTo) => {

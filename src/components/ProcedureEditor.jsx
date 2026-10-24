@@ -10,6 +10,7 @@ import SearchableDropdown from './SearchableDropdown';
 import MicButton from './MicButton';
 import PhiPause from './PhiPause';
 import { useDialog } from '../hooks/useDialog';
+import { readTechName } from '../hooks/useBook';
 
 const LAYERS = ['Skin', 'Subcutaneous', 'Fascia', 'Deep', 'Unspecified'];
 const APPROACHES = ['Anterior', 'Posterior', 'Lateral', 'Open', 'Laparoscopic', 'Robotic', 'Endoscopic', 'Arthroscopic', 'Percutaneous'];
@@ -62,6 +63,9 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
   const [aliasText, setAliasText] = useState(start.aliases);
   const [leaving, setLeaving] = useState(false);
   const nameRef = useRef(/** @type {HTMLInputElement | null} */ (null));
+  const [signer, setSigner] = useState(readTechName);
+  const [signerMissing, setSignerMissing] = useState(false);
+  const signerRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const [sutureName, setSutureName] = useState(SUTURE_LIBRARY[0].name);
   const [sutureSize, setSutureSize] = useState('3-0');
   const [needle, setNeedle] = useState('CT-1');
@@ -96,6 +100,11 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
   const setBlocks = (next) => setDraft(d => ({ ...d, blocks: { ...d.blocks, ...next } }));
 
   const save = () => {
+    if (!signer.trim()) {
+      setSignerMissing(true);
+      signerRef.current?.focus();
+      return;
+    }
     const aliases = cleanAliases(aliasText);
     const hits = findPhiInProcedure({ ...draft, aliases });
     if (hits.length) {
@@ -109,7 +118,7 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
       approach: (draft.approach || '').trim().slice(0, 60),
       aliases,
       blocks: { ...draft.blocks, steps, instruments: cleanInstruments(draft.blocks.instruments) },
-    });
+    }, { by: signer.trim() });
     onClose();
   };
 
@@ -393,7 +402,24 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
           )}
         </div>
 
-        <div className="shrink-0 border-t border-slate-100 px-5 py-4">
+        <div className="shrink-0 border-t border-slate-100 px-5 py-3 space-y-2">
+          <div>
+            <label htmlFor="procedure-signer" className={label}>Your name</label>
+            <input
+              ref={signerRef}
+              id="procedure-signer"
+              value={signer}
+              maxLength={80}
+              autoComplete="name"
+              aria-invalid={signerMissing && !signer.trim()}
+              aria-describedby="procedure-signer-help"
+              onChange={e => { setSigner(e.target.value); setSignerMissing(false); }}
+              className={input}
+            />
+            <p id="procedure-signer-help" role={signerMissing ? 'alert' : undefined} className={`text-xs mt-1 ${signerMissing ? 'text-rose-700 font-semibold' : 'text-slate-600'}`}>
+              {signerMissing ? 'Type your name to save. It is signed with this change.' : 'Signed with this change by this phone, so others can see who changed the card.'}
+            </p>
+          </div>
           <button type="button" onClick={save} className="w-full py-3 rounded-xl bg-medical-600 text-white font-bold text-sm cursor-pointer">Save procedure</button>
         </div>
       </div>

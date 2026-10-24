@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
+import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { emptyBlocks, emptyProcedure } from '../data/schema';
 import { emptyHistory, recordChanges } from '../data/history';
+import { addSignedEdit } from '../data/editTrail';
 import CardHistorySheet from './CardHistorySheet';
 import DeletedCardsSheet from './DeletedCardsSheet';
 
@@ -54,6 +56,30 @@ describe('CardHistorySheet', () => {
     expect(onForget).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Clear history'));
     expect(onForget).toHaveBeenCalled();
+  });
+
+  it('lists signed changes newest first, and says when the card changed after the last one', async () => {
+    const first = card();
+    const made = { ...first, trail: await addSignedEdit(first, { by: 'Jordan Ames', action: 'created' }) };
+    const edited = withPosition(made, 'Supine');
+    edited.trail = await addSignedEdit(edited, { by: 'Alex Rivera', action: 'edited' });
+    render(<CardHistorySheet surgeon={surgeon} procedure={edited} history={emptyHistory()} onRestore={vi.fn()} onForget={vi.fn()} onClose={vi.fn()} />);
+    const list = await screen.findByRole('list', { name: 'Signed changes, newest first' });
+    const items = within(list).getAllByRole('listitem');
+    expect(items.map(item => item.querySelector('p')?.textContent)).toEqual(['Edited the card · Alex Rivera', 'Made the card · Jordan Ames']);
+    expect(items[0].textContent).toMatch(/this phone$/);
+    expect(screen.getByText(/^Last change signed by/).textContent).toMatch(/Alex Rivera .* this phone$/);
+    expect(await screen.findByText(/^This phone signs as [0-9A-F]{4}-/)).toBeTruthy();
+    cleanup();
+
+    render(<CardHistorySheet surgeon={surgeon} procedure={withPosition(edited, 'Prone')} history={emptyHistory()} onRestore={vi.fn()} onForget={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(/^Changed after the last signed change \(Alex Rivera,/)).toBeTruthy();
+    cleanup();
+
+    const forged = { ...edited, trail: [edited.trail[0], { ...edited.trail[1], by: 'Dr. Amy Chen' }] };
+    render(<CardHistorySheet surgeon={surgeon} procedure={forged} history={emptyHistory()} onRestore={vi.fn()} onForget={vi.fn()} onClose={vi.fn()} />);
+    expect(await screen.findByText(/^A signed record on this card does not check out/)).toBeTruthy();
+    expect(screen.getByText(/does not check out$/)).toBeTruthy();
   });
 
   it('says when there is nothing yet', () => {

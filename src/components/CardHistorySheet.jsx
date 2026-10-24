@@ -4,6 +4,7 @@ import { VERSIONS_PER_CARD, asEarlier, cardVersions, replacedText, versionTime }
 import { sameContent } from '../data/trust';
 import { useDialog } from '../hooks/useDialog';
 import ProcedureGlance from './ProcedureGlance';
+import { SignedChanges } from './EditTrail';
 
 /**
  * @param {{
@@ -28,12 +29,14 @@ export default function CardHistorySheet({ surgeon, procedure, history, onRestor
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="history-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90dvh] flex flex-col focus:outline-none">
         <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-2 bg-gradient-to-r from-medical-700 to-medical-800">
           <div className="min-w-0">
-            <p id="history-title" className="text-white font-bold text-sm flex items-center gap-2"><History size={16} /> Earlier versions</p>
+            <p id="history-title" className="text-white font-bold text-sm flex items-center gap-2"><History size={16} /> Card history</p>
             <p className="text-medical-100 text-xs truncate">{surgeon.name} · {procedure.name}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="tap-icon text-medical-100 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto min-h-0">
+          <SignedChanges procedure={procedure} />
+          <h3 className="text-sm font-bold text-slate-900 pt-2 border-t border-slate-100">Earlier versions</h3>
           <p className="text-sm text-slate-600">
             The last {VERSIONS_PER_CARD} versions of this card stay on this phone. They are not shared, published, or put in backups.
           </p>
@@ -47,7 +50,7 @@ export default function CardHistorySheet({ surgeon, procedure, history, onRestor
             <p className="text-sm text-slate-500">No earlier versions yet. When this card changes, the version it replaced shows here.</p>
           )}
           {versions.length > 0 && (
-            <ol className="space-y-3">
+            <ol aria-label="Earlier versions, newest first" className="space-y-3">
               {versions.map((version, index) => {
                 const saved = versionTime(version.savedAt);
                 const same = sameContent(version.procedure, procedure);

@@ -12,14 +12,14 @@ test('an edited card keeps its earlier version, which can be read and brought ba
   await page.getByLabel('Position', { exact: true }).fill('Supine, bump under the hip')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.locator('#procedure-p').getByText('Supine, bump under the hip')).toBeVisible()
-  const sheet = page.getByRole('dialog', { name: 'Earlier versions' })
-  await page.getByRole('button', { name: 'Earlier versions of Right total knee' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Card history' })
+  await page.getByRole('button', { name: 'History of Right total knee' }).click()
   await expect(sheet.getByText('Changed after it: Position.')).toBeVisible()
   await page.keyboard.press('Escape')
 
   await page.reload()
   await openCard(page)
-  await page.getByRole('button', { name: 'Earlier versions of Right total knee' }).click()
+  await page.getByRole('button', { name: 'History of Right total knee' }).click()
   await expect(sheet.getByText('Changed after it: Position.')).toBeVisible()
   await expect(sheet.getByText(/by an edit on this phone\./)).toBeVisible()
 
@@ -34,9 +34,9 @@ test('an edited card keeps its earlier version, which can be read and brought ba
   await expect(page.getByText(/The earlier version of Right total knee is back/)).toBeVisible()
   await expect(page.locator('#procedure-p').getByText('Supine, bump under the hip')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Earlier versions of Right total knee' }).click()
+  await page.getByRole('button', { name: 'History of Right total knee' }).click()
   await expect(sheet.getByText(/by bringing back an earlier version\./)).toBeVisible()
-  await expect(sheet.getByRole('listitem')).toHaveCount(2)
+  await expect(sheet.getByRole('list', { name: 'Earlier versions, newest first' }).getByRole('listitem')).toHaveCount(2)
 })
 
 test('a deleted card stays in Recently deleted after the undo is gone, and comes back with its surgeon', async ({ page }) => {

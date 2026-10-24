@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import ProcedureEditor from './ProcedureEditor';
+import { TECH_NAME_KEY } from '../data/schema';
 
-afterEach(cleanup);
+beforeEach(() => localStorage.setItem(TECH_NAME_KEY, 'Alex Rivera'));
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 const surgeon = { id: 's1', name: 'Dr. Ada Lin', specialty: 'Orthopedics', facility: 'Main' };
 const partial = {
@@ -36,6 +41,32 @@ describe('ProcedureEditor', () => {
     expect(saved.blocks.position.text).toBe('Supine');
     expect(saved.blocks.room).toBeTruthy();
     expect(saved.blocks.steps).toEqual([]);
+  });
+
+  it('saves under the name typed, and will not save without one', () => {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    localStorage.removeItem(TECH_NAME_KEY);
+    render(<ProcedureEditor surgeon={surgeon} procedure={partial} onClose={onClose} onSave={onSave} />);
+    const name = screen.getByLabelText('Your name');
+    expect(name.value).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toBe('Type your name to save. It is signed with this change.');
+    expect(document.activeElement).toBe(name);
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    fireEvent.change(name, { target: { value: '  Jordan Ames ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    expect(onSave.mock.calls[0][1]).toEqual({ by: 'Jordan Ames' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts with the name this phone last used', () => {
+    const onSave = vi.fn();
+    render(<ProcedureEditor surgeon={surgeon} procedure={partial} onClose={() => {}} onSave={onSave} />);
+    expect(screen.getByLabelText('Your name').value).toBe('Alex Rivera');
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][1]).toEqual({ by: 'Alex Rivera' });
   });
 
   it('closes on Escape', () => {

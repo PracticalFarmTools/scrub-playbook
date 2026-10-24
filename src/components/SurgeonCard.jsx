@@ -263,7 +263,7 @@ export default function SurgeonCard({
                       )}
                       <button type="button" onClick={() => onShare(surgeon, procedure)} className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer inline-flex items-center gap-1"><Share2 size={12} /> Share</button>
                       {onHistory && (
-                        <button type="button" onClick={() => onHistory(procedure)} aria-label={`Earlier versions of ${procedure.name}`} className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer inline-flex items-center gap-1"><History size={12} /> Earlier versions</button>
+                        <button type="button" onClick={() => onHistory(procedure)} aria-label={`History of ${procedure.name}`} className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 min-h-11 cursor-pointer inline-flex items-center gap-1"><History size={12} /> History</button>
                       )}
                       <button type="button" aria-expanded={confirming === procedure.id} onClick={() => setConfirming(procedure.id)} className="min-h-11 px-2 text-xs font-bold text-slate-600 cursor-pointer">Delete case</button>
                     </>
