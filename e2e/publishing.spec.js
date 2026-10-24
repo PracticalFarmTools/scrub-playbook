@@ -100,3 +100,30 @@ test('after a key replacement, staff switch once and the old unit book is refuse
   await expect(dialog.getByRole('alert')).toBeVisible()
   await expect(dialog.getByRole('button', { name: /Add unit book|Switch to this unit book/ })).toHaveCount(0)
 })
+
+test('a phone that cannot save its publishing record sends nothing, then continues the same unit book', async ({ page }, testInfo) => {
+  await resetPhone(page)
+  const first = await publish(page, testInfo, 'first.json')
+
+  await page.evaluate(() => {
+    const setItem = Storage.prototype.setItem
+    window.__restoreSetItem = () => { Storage.prototype.setItem = setItem }
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'scrubplaybook_published') throw new DOMException('full', 'QuotaExceededError')
+      return setItem.call(this, key, value)
+    }
+  })
+  let downloads = 0
+  page.on('download', () => { downloads += 1 })
+  const sheet = await openPlaces(page)
+  await sheet.getByRole('button', { name: 'Publish as unit book' }).click()
+  await expect(sheet.getByRole('status')).toHaveText('Main was not published. This phone could not save its publishing record. Free some space, or leave private browsing, and try again.')
+  expect(downloads).toBe(0)
+  expect((await published(page)).Main.revision).toBe(1)
+
+  await page.evaluate(() => window.__restoreSetItem())
+  await page.keyboard.press('Escape')
+  const next = await publish(page, testInfo, 'next.json')
+  expect(next.data.revision).toBe(2)
+  expect(next.data.publicKey).toEqual(first.data.publicKey)
+})
