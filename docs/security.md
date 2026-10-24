@@ -36,7 +36,7 @@ Every response carries these headers (`vercel.json`; the local preview server se
 
 ## Authentication and integrity
 
-**How do users sign in?** They do not. Each phone's book belongs to the person holding the phone. A typed name labels confirmations and activity; it is not an identity check.
+**How do users sign in?** They do not. Each phone's book belongs to the person holding the phone. A typed name labels confirmations, activity, and signed changes; it is not an identity check.
 
 **How does a unit trust a shared unit book?** The publisher's phone makes an ECDSA P-256 key the first time it publishes a place, and signs every revision with it (SHA-256 over canonical JSON, `sign.js`). A staff phone remembers the publisher key from the first revision it accepts and refuses later files for that unit book that are unsigned, changed after signing, signed by a different key, or older than what it has (`unitBook.js`).
 
@@ -53,6 +53,32 @@ A phone that handed publishing over remembers it, so restoring one of its older 
 
 **Can a wrong edit be undone?** Each phone keeps the last 10 versions of every card and the cards deleted in the last 30 days, up to 50, in IndexedDB (`history.js`). A version records when it was saved, when it was replaced, and by what: an edit, a unit book revision, a restored backup, an import, or bringing back an earlier version. Confirming or flagging a card is not a new version. A person can read any earlier version, and bring one of their own cards back; the card comes back unconfirmed, and the version it replaced is kept, so bringing back is itself reversible. A unit book card's versions can be read but not brought back, because only the publisher changes it. Earlier versions are never shared, published, or put in a backup. Deleting a place keeps none of its cards (`history.test.js`, `e2e/history.spec.js`).
 
+**Who changed a card, and can that be trusted?** A new card, and every saved change to what a card says (its name, approach, board names, sections, and official-card pointer), adds a signed record to the card itself (`editTrail.js`). The editor will not save without a name. Each record holds:
+
+- the name typed in the editor;
+- the time;
+- the kind of change: made, edited, copied into notes, or an earlier version brought back;
+- a SHA-256 hash of the card's content after the change, and a hash of the record before it;
+- an ECDSA P-256 signature over all of that, with the phone's public key.
+
+Each phone makes its own signing key the first time it saves a card. In IndexedDB the private key is stored as a key the browser will not export (`extractable: false`). A browser without IndexedDB keeps it in localStorage as text. The key is never in a backup, a shared card, a hand-off, or a unit book, so a backup restored on a new phone signs later changes under the new phone's key.
+
+The last 10 records travel with the card in backups, hand-offs, and unit books, and a shared card carries the newest one. Any phone that has the card checks every record and shows one of these:
+
+- **Last change signed by [name] · [time] · this phone**, or the other phone's key fingerprint.
+- **Changed after the last signed change**: the content no longer matches the newest record. It was edited outside the app, or on a phone that could not sign.
+- **Does not check out**: a record's name, time, kind, hash, or signature was altered, or a record was taken out of the middle or moved (`editTrail.test.js`, `e2e/signing.spec.js`).
+
+Confirmations and flags are not signed changes. They keep their typed name and time, as before.
+
+What a record does not prove:
+
+- **Who held the phone.** The name is typed, not verified. A record shows which phone saved the change and that the record has not been altered since.
+- **That records were not removed.** Someone can remove every record, which leaves the card reading "No signed changes yet," or replace them with records signed by another phone. Those then show that phone's fingerprint, so telling them apart means knowing which fingerprint belongs to whom, the same way staff compare a unit book key.
+- **A regulated signature.** It is not an electronic signature under 21 CFR Part 11 or under a hospital's identity system. Signatures tied to verified people need accounts and a server, which the app does not have.
+
+Records older than the last 10 are dropped, and the history then says only the last 10 stay on the card.
+
 **What if a signing key leaks?** The publisher uses **Replace the publishing key**, which drops the key and unit book id on that phone and keeps the unit rules (`replacePublishingKey`). The next publish starts a new unit book under a new key. A staff phone that imports it is told its surgeons come from an earlier unit book, shown the new key to compare with the one the publisher announced, and asked before it switches. Switching removes the cards and surgeons only the earlier unit book had, and keeps the person's own copies as editable notes. After the switch it refuses every file from the old unit book (`isRetiredUnitBook`). The publisher's phone remembers the retired unit book, so restoring an older backup cannot bring the old key back, and restore never swaps the unit book a phone publishes for a different one (`restoreExtras`). Until a staff phone switches, it still trusts the old key. The full steps are playbook 3 in `docs/incident-response.md`.
 
 **How does a staff phone know the first key is right?** It trusts the key on the first file it accepts for a unit book. The import sheet says so on that first file and shows the key. The publisher announces the key fingerprint in person or on the unit's board, and staff compare it before adding the unit book (`docs/governance.md`).
@@ -63,11 +89,11 @@ A phone that handed publishing over remembers it, so restoring one of its older 
 
 **Encryption in transit?** The app is served over HTTPS with HSTS. Cards move between people over whatever channel they choose (Messages, email, AirDrop, a file). Unit books and hand-over files are signed, not encrypted; they hold no patient information.
 
-**Retention and deletion?** Data stays until the person deletes it, removes the app, or clears the site's data. Earlier versions keep the last 10 per card; a deleted card is kept 30 days unless the person removes it for good, and nothing is kept of a deleted place. Recent activity keeps the newest 100 entries. Suggestions keep the newest 200. The board drops past days when it loads. Unit policy should say when a departing tech exports or deletes their book (`docs/governance.md`).
+**Retention and deletion?** Data stays until the person deletes it, removes the app, or clears the site's data. Earlier versions keep the last 10 per card, and so do signed changes, which go wherever the card goes; a deleted card is kept 30 days unless the person removes it for good, and nothing is kept of a deleted place. Recent activity keeps the newest 100 entries. Suggestions keep the newest 200. The board drops past days when it loads. Unit policy should say when a departing tech exports or deletes their book (`docs/governance.md`).
 
 **Backups?** The person exports a JSON file; the app reminds them weekly or after 20 changes. Where that file goes (Files, iCloud Drive, a managed drive) is a device and unit policy decision.
 
-**Audit trail?** Each phone keeps its own recent activity: cards saved, deleted, flagged, flags cleared, suggestions sent and closed, places handed off, unit books published, handed over, and taken over, backups restored, earlier versions and deleted cards brought back or cleared, and whether a publisher's backup locked the key or left it out. There is no central log because there is no central system.
+**Audit trail?** Each phone keeps its own recent activity: cards saved, deleted, flagged, flags cleared, suggestions sent and closed, places handed off, unit books published, handed over, and taken over, backups restored, earlier versions and deleted cards brought back or cleared, and whether a publisher's backup locked the key or left it out. That log stays on the phone. What travels with a card is its signed changes: who saved each of its last 10 changes, when, and on which phone, in a form another phone can check. There is no central log because there is no central system.
 
 ## Software supply chain
 

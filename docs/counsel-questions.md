@@ -29,17 +29,18 @@ Questions to put to the operator's counsel and to a hospital's legal, privacy, a
 ## Workforce information
 
 13. **Staff names.** Cards can name people in the room with their role and glove size, and confirmations and activity carry typed names. Do employee privacy rules, state privacy laws, or labor agreements limit this? The app does not score or rank individual techs.
-14. **Union and monitoring rules.** Could recent activity (who confirmed or flagged a card, and when) be seen as monitoring? The log stays on each person's own phone.
+14. **Union and monitoring rules.** Could recent activity (who confirmed or flagged a card, and when) be seen as monitoring? The log stays on each person's own phone. Signed changes do travel: each card carries the typed name, time, and phone key of its last 10 saved changes into backups, hand-offs, unit books, and (the newest one) shared cards.
+15. **What a signed change is.** A card's signed changes show which phone saved each change and that the record was not altered; the name is typed, not verified (`docs/security.md`). Please confirm the app should not call this an electronic signature, and whether a hospital that uses the cards in any regulated record would need 21 CFR Part 11 or its own identity system instead.
 
 ## Product names
 
-15. **Trademarks and links.** The app names manufacturers and products to identify them and links to their own pages. It copies no instructions for use. Please confirm this is acceptable use, and whether any manufacturer relationship needs a disclosure.
+16. **Trademarks and links.** The app names manufacturers and products to identify them and links to their own pages. It copies no instructions for use. Please confirm this is acceptable use, and whether any manufacturer relationship needs a disclosure.
 
 ## Accessibility
 
-16. **Which rules apply?** HHS's 2024 Section 504 rule and DOJ's 2024 ADA Title II rule adopt WCAG 2.1 AA for web content and mobile apps, with compliance dates in 2026 and 2027 depending on the entity's size. Does either rule reach this app when a hospital adopts it for staff, and do state laws add anything? Please confirm the current dates. `docs/accessibility.md` has the current state.
+17. **Which rules apply?** HHS's 2024 Section 504 rule and DOJ's 2024 ADA Title II rule adopt WCAG 2.1 AA for web content and mobile apps, with compliance dates in 2026 and 2027 depending on the entity's size. Does either rule reach this app when a hospital adopts it for staff, and do state laws add anything? Please confirm the current dates. `docs/accessibility.md` has the current state.
 
 ## Operator
 
-17. **Entity, privacy notice, and terms.** Fill in the bracketed parts of `docs/privacy.md` and `docs/terms.md`: operator name, contact, host log retention, governing law, and any liability cap.
-18. **State privacy laws.** The operator receives only host request logs. Do any state consumer privacy or consumer health data laws still apply, given the app is for working staff and holds no health data about consumers?
+18. **Entity, privacy notice, and terms.** Fill in the bracketed parts of `docs/privacy.md` and `docs/terms.md`: operator name, contact, host log retention, governing law, and any liability cap.
+19. **State privacy laws.** The operator receives only host request logs. Do any state consumer privacy or consumer health data laws still apply, given the app is for working staff and holds no health data about consumers?

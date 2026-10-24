@@ -15,7 +15,9 @@ Each surgeon can carry three first-case lines for someone who has never worked w
 
 A product name links to that product’s page on the company’s site when the address has been checked. Otherwise the app offers the company page, and it does not pretend the company page is the product. Manufacturer documents are not copied into the app.
 
-Every card keeps its last 10 versions on this phone. **Earlier versions** on a card shows each one, when it was saved, what replaced it, and what changed; your own card can go back to one, unconfirmed, and the version it replaced is kept so that can be undone too. **Recently deleted** keeps a deleted card for 30 days. Earlier versions are never shared or put in backups, and deleting a place keeps nothing of it.
+Every saved change to a card is signed. The editor asks for your name, and the card records who saved each of its last 10 changes, when, and on which phone, signed with a key the phone makes and does not let out (`editTrail.js`). The records travel with the card in backups, hand-offs, and unit books, and a shared card carries the newest one. Any phone that has the card shows who signed its last change, and says so when the card was changed after that or a record was altered. The name is typed, not verified: a record proves which phone saved the change and that nothing in it changed since, not who held the phone (`docs/security.md`).
+
+Every card keeps its last 10 versions on this phone. **History** on a card lists its signed changes and shows each earlier version, when it was saved, what replaced it, and what changed; your own card can go back to one, unconfirmed, and the version it replaced is kept so that can be undone too. **Recently deleted** keeps a deleted card for 30 days. Earlier versions are never shared or put in backups, and deleting a place keeps nothing of it.
 
 Anything that looks like a patient detail, a lot number, or a serial number pauses the save, the share, the import, and the suggestion. The pause is a check, not a promise that nothing slips through.
 
@@ -70,6 +72,6 @@ The footer shows the version from `package.json` and the build date, and each ba
 ## Code layout
 
 - `src/data`: the book and everything that does not draw: `share.js` (the card text a tech sends), `incoming.js` (reading what arrives), `backup.js` (backups and hand-offs), `unitBook.js` and `sign.js` (unit books), `keyLock.js` (locked keys), `boardMatch.js` and `today.js` (the board).
-- `src/hooks`: `useBook` (the book in IndexedDB, synced across tabs), `useCardHistory` (earlier versions, from `src/data/history.js`), `usePublishing`, `useBackup`, `useAuditLog`, `useStoredState`, and `useDialog` (shared overlay behavior).
+- `src/hooks`: `useBook` (the book in IndexedDB, synced across tabs), `useCardHistory` (earlier versions, from `src/data/history.js`), `useTrailCheck` (a card's signed changes, from `src/data/editTrail.js`), `usePublishing`, `useBackup`, `useAuditLog`, `useStoredState`, and `useDialog` (shared overlay behavior).
 - `src/components`: the screens. `App.jsx` holds one overlay at a time.
 - `e2e`: the browser tests.

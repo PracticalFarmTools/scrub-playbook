@@ -14,13 +14,13 @@ Who: every tech, nurse, and traveler who will use the app. Travelers take it on 
 
 **Hands on (12 minutes)**
 
-1. Type your name when the app asks. It labels your confirmations and activity on this phone.
+1. Type your name when the app asks. It labels your confirmations and activity on this phone, and it is signed into every card change you save.
 2. Today: tap **Paste the board**, paste three lines from the board (time, room, surgeon, procedure; no patient names), tap **Read the lines**, then **Add 3 lines to today**. Open a matched card from the list.
 3. In the case view, find the trays and sutures, switch **Dark** on and off, and use **Previous** and **Next**.
 4. After the case: tap **I was in this case** to confirm, or **Flag** with what did not match.
 5. If the official card is wrong, tap **Suggest a card change**, write what the card says, what you saw, and the change, and send it. Tap **I sent it** once it has gone.
-6. Edit a card, change one tray, and tap **Save procedure**. Try leaving without saving and see the app ask first.
-   Then tap **Earlier versions** on that card, view the version before your change, and bring it back. See that the card is unconfirmed again.
+6. Edit a card, change one tray, check that **Your name** is yours, and tap **Save procedure**. Try leaving without saving and see the app ask first.
+   See the card say **Last change signed by** your name. Then tap **History** on that card: your change is under **Signed changes**. View the version before your change and bring it back. See that the card is unconfirmed again.
 7. Share a procedure with the person next to you, and import theirs with **Import**. See that it arrives unconfirmed.
 8. Tap **Export backup** and save the file where your phone keeps files.
 

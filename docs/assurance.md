@@ -8,13 +8,14 @@ GitHub Actions runs all of these on every push and pull request (`.github/workfl
 
 | Claim | Check |
 | --- | --- |
-| Nothing in the book is uploaded | A browser session edits a card, confirms it, opens the case view, the share sheet, and earlier versions, exports a backup, and reloads. Every request it makes must be a GET for the app's own files with no body (`e2e/claims.spec.js`). |
+| Nothing in the book is uploaded | A browser session edits a card, confirms it, opens the case view, the share sheet, and the card history, exports a backup, and reloads. Every request it makes must be a GET for the app's own files with no body (`e2e/claims.spec.js`). |
 | No outside code, fonts, images, or connections | Every browser test fails on any Content Security Policy violation, in all three browser engines (`e2e/fixtures.js`). The production headers are checked on the first response (`e2e/app.spec.js`). |
 | It works on iPhone, Android, and other browsers | Every browser test runs on WebKit as an iPhone 14, the engine inside every iPhone browser; on Chromium as a Pixel 7; and on Firefox at phone width (`playwright.config.js`). |
-| Every screen meets WCAG 2.2 AA, as far as a scan can tell | An axe-core scan of the home list, an open card, the case view, the editor, Share, Earlier versions, Places, Import, Add surgeon, and Recently deleted, in all three engines (`e2e/claims.spec.js`). An automated scan finds about a third of accessibility problems; the rest need people (`accessibility.md`). |
+| Every screen meets WCAG 2.2 AA, as far as a scan can tell | An axe-core scan of the home list, an open card, the case view, the editor, Share, Card history, Places, Import, Add surgeon, and Recently deleted, in all three engines (`e2e/claims.spec.js`). An automated scan finds about a third of accessibility problems; the rest need people (`accessibility.md`). |
 | Patient details pause a save, share, or import | Unit tests of the pattern check and of every place it runs (`phi.test.js` and the component tests). |
 | A unit book cannot be forged or rolled back | Signature, key, and revision tests (`sign.test.js`, `restore.test.js`, `e2e/publishing.spec.js`). |
 | A mistake can be undone | Earlier versions and Recently deleted, in unit, component, and browser tests (`history.test.js`, `CardHistorySheet.test.jsx`, `e2e/history.spec.js`). |
+| Who last changed a card travels with it, and an altered record is caught | Unit tests that change a record's name, time, kind, or signature, take one out of the middle, reorder them, or change the card after the last one (`editTrail.test.js`); hook tests that a save, a copy, and bringing back a version sign and an import does not (`useBook.test.jsx`); and a browser test that exports a backup, alters the card or a record in the file, and restores it on a new phone in all three engines (`e2e/signing.spec.js`). What a record cannot prove is in `security.md`. |
 | No known vulnerable runtime dependency | `npm audit --omit=dev` fails on a moderate or worse advisory. Dependabot proposes updates weekly. |
 | What ships to the phone is listed | A CycloneDX software bill of materials is generated on every run and kept 90 days as the `sbom` artifact. The packages marked `required` are what ship. |
 | The code does what its types say | Lint and a TypeScript check with null checks over all of `src`. |

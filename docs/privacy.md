@@ -14,7 +14,7 @@ Your book (surgeons, procedures, the board, confirmations, flags, suggestions, a
 
 Your phone also keeps the last 10 versions of each card and the cards you deleted in the last 30 days, so a mistake can be undone. They stay on your phone and are not in what you share or in your backups.
 
-The name you type when you confirm a card or flag one is stored with that card on your phone and goes into your backups. Names of people you add under "People in the room" are stored with that card and travel with it when you share it.
+The name you type when you confirm a card or flag one is stored with that card on your phone and goes into your backups. The name you type when you save a card is signed into the card with the time and a key your phone makes, so others can see who changed it. The last 10 of those go with the card in your backups, hand-offs, and unit books, and the newest goes with a card you share. Names of people you add under "People in the room" are stored with that card and travel with it when you share it.
 
 ## What we receive
 
