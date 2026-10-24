@@ -76,7 +76,7 @@ describe('DeletedCardsSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bring back Right TKA · Dr. Amy Chen' }));
     expect(onBringBack).toHaveBeenCalledWith(history.deleted[0]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Right TKA · Dr. Amy Chen for good' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove for good: Right TKA · Dr. Amy Chen' }));
     expect(onRemove).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Remove', exact: true }));
     expect(onRemove).toHaveBeenCalledWith(history.deleted[0]);

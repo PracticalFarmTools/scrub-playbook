@@ -64,7 +64,7 @@ export default function DeletedCardsSheet({ history, onBringBack, onRemove, onCl
                         <button
                           type="button"
                           aria-expanded={removing === entry.id}
-                          aria-label={`Remove ${title} for good`}
+                          aria-label={`Remove for good: ${title}`}
                           onClick={() => setRemoving(removing === entry.id ? null : entry.id)}
                           className="min-h-11 px-2 text-xs font-bold text-slate-600 cursor-pointer"
                         >
