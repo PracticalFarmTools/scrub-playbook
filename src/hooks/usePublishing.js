@@ -83,7 +83,7 @@ export function usePublishing({ book, addAudit, setNotice }) {
     const found = placePhi(book, place, false);
     if (found.length) return { message: `Publishing for ${place} was not handed over. ${phiFoundText(found)}` };
     const result = await handOverPublishing(book, place, author(), { published: readPublished() });
-    if (result.error) return { message: `This phone does not publish ${place}.` };
+    if (!result.file) return { message: `This phone does not publish ${place}.` };
     const outcome = await shareFile(`scrubplaybook-publisher-${slugify(place)}-r${result.revision}.json`, result.file);
     if (outcome === 'cancelled') return { message: `Publishing for ${place} was not handed over. This phone still publishes it.` };
     const removed = update(current => withEntry(current, place, null));

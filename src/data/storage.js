@@ -12,7 +12,12 @@ export async function requestPersistentStorage(storage = globalThis.navigator?.s
   }
 }
 
-/** localStorage that never throws. A full or blocked store reports false instead of crashing the screen. */
+/**
+ * localStorage that never throws. A full or blocked store reports false instead of crashing the screen.
+ * @param {string} key
+ * @param {string | null} [fallback]
+ * @returns {string | null}
+ */
 export function safeGet(key, fallback = null) {
   try {
     const value = globalThis.localStorage?.getItem(key);

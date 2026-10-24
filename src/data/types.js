@@ -9,7 +9,41 @@
  * @property {boolean} [demo]
  * @property {boolean} [archived]
  * @property {Array<object>} [firstCase]
+ * @property {string | null} [firstCaseAt]
+ * @property {string} [firstCaseBy]
+ * @property {string} [createdAt]
+ * @property {string} [addedBy]
  * @property {UnitStamp} [unitBook]
+ *
+ * @typedef {object} Confirmation
+ * @property {string} name
+ * @property {string | null} [userId]
+ * @property {string} at
+ *
+ * @typedef {object} TextBlock
+ * @property {string} text
+ * @property {string} source
+ * @property {string} updatedBy
+ * @property {string | null} updatedAt
+ *
+ * @typedef {{ productId: string | null, model: string, brand: string, color: string, size: string }} Glove
+ *
+ * @typedef {object} Blocks
+ * @property {TextBlock} position
+ * @property {TextBlock} prep
+ * @property {TextBlock} drapes
+ * @property {TextBlock} room
+ * @property {TextBlock} equipment
+ * @property {Array<object>} steps
+ * @property {Array<object>} instruments
+ * @property {Array<object>} trays
+ * @property {Array<object>} implants
+ * @property {Array<object>} sutures
+ * @property {{ outer: Glove | null, inner: Glove | null }} gloves
+ * @property {Array<object>} nicknames
+ * @property {TextBlock} endOfCase
+ * @property {Array<object>} people
+ * @property {TextBlock} note
  *
  * @typedef {object} Procedure
  * @property {string} id
@@ -17,16 +51,25 @@
  * @property {string} name
  * @property {string} [approach]
  * @property {boolean} [demo]
- * @property {Array<object>} [confirmations]
+ * @property {boolean} [disputed]
+ * @property {boolean} [reported]
+ * @property {string} [reportNote]
+ * @property {Array<Confirmation>} [confirmations]
  * @property {string | null} [lastConfirmedAt]
+ * @property {{ label: string, reviewedAt: string | null, note: string }} [official]
  * @property {string} [updatedAt]
- * @property {object} [blocks]
+ * @property {string} [baseUpdatedAt]
+ * @property {Blocks} [blocks]
  * @property {UnitStamp} [unitBook]
  *
  * @typedef {object} UnitStamp Where a card came from when it arrived in a unit book.
  * @property {string} id
- * @property {string} place
  * @property {number} revision
+ * @property {string | null} [publishedAt]
+ * @property {string} [key] Fingerprint of the publisher key that signed it.
+ * @property {object} [settings]
+ * @property {Array<string>} [replaced] Earlier unit book ids this one replaced.
+ * @property {Array<object>} [changes] What this revision changed on the card.
  *
  * @typedef {object} Book
  * @property {number} version

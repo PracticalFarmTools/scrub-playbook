@@ -50,6 +50,7 @@ function procedureFromV0(surgeon) {
     .join('\n');
   blocks.note = textBlock(note, surgeon.addedBy || '');
 
+  /** @type {import('./types').Procedure} */
   const procedure = {
     id: uid(),
     surgeonId: surgeon.id,
@@ -79,6 +80,7 @@ function procedureFromV0(surgeon) {
   return procedure;
 }
 
+/** @returns {import('./types').Surgeon} */
 export function surgeonFromV0(surgeon) {
   return {
     id: surgeon.id || uid(),

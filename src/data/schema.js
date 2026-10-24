@@ -33,10 +33,12 @@ export function uid() {
   return `id-${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
 }
 
+/** @returns {import('./types').TextBlock} */
 export function emptyText() {
   return { text: '', source: 'observed', updatedBy: '', updatedAt: null };
 }
 
+/** @returns {import('./types').TextBlock} */
 export function textBlock(text, user) {
   return {
     text: text || '',
@@ -46,6 +48,7 @@ export function textBlock(text, user) {
   };
 }
 
+/** @returns {import('./types').Blocks} */
 export function emptyBlocks() {
   return {
     position: emptyText(),
@@ -89,10 +92,12 @@ export function normalizeBlocks(blocks = {}) {
   };
 }
 
+/** @returns {import('./types').Book} */
 export function emptyBook() {
   return { version: BOOK_VERSION, surgeons: [], procedures: [] };
 }
 
+/** @returns {import('./types').Surgeon} */
 export function emptySurgeon(partial = {}) {
   return {
     id: uid(),
@@ -110,6 +115,7 @@ export function emptySurgeon(partial = {}) {
   };
 }
 
+/** @returns {import('./types').Procedure} */
 export function emptyProcedure(surgeonId, partial = {}) {
   const now = new Date().toISOString();
   return {
@@ -188,6 +194,10 @@ export function cleanInstruments(items = []) {
     }));
 }
 
+/**
+ * @param {{ productId?: string | null, model?: string, brand?: string, color?: string, size?: string }} [choice]
+ * @returns {import('./types').Glove | null}
+ */
 export function gloveChoice({ productId = null, model = '', brand = '', color = '', size = '7.0' } = {}) {
   if (!model && !productId) return null;
   return { productId, model, brand, color, size };

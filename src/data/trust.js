@@ -18,6 +18,9 @@ export function timeAgo(iso, now = Date.now()) {
 /**
  * One signal for the surgeon row. A worse state wins, so a flagged
  * procedure is never hidden behind a match.
+ * @param {Array<object> | null | undefined} procedures
+ * @param {object} [options]
+ * @param {((procedure: object) => object) | null} [optionsFor]
  */
 export function rowTrust(procedures, options = {}, optionsFor = null) {
   const list = procedures || [];
@@ -75,9 +78,9 @@ export function personId(name) {
 
 /**
  * @param {import('./types').Procedure} procedure
- * @param {{ name?: string, userId?: string | null, at?: string, mode?: string }} [confirmation]
+ * @param {{ name: string, userId?: string | null, at?: string, mode?: string }} confirmation
  */
-export function withConfirmation(procedure, { name, userId = null, at = new Date().toISOString(), mode = 'personal' } = {}) {
+export function withConfirmation(procedure, { name, userId = null, at = new Date().toISOString(), mode = 'personal' }) {
   if (mode === 'facility' && userId) {
     const confs = [...(procedure.confirmations || [])];
     const existing = confs.findIndex(c => c.userId === userId);

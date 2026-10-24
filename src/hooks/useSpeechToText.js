@@ -14,7 +14,7 @@ export function useSpeechToText({ onResult } = {}) {
   const supported = !!SpeechRecognition;
 
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef(null);
+  const recognitionRef = useRef(/** @type {any} */ (null));
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
 

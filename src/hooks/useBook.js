@@ -67,7 +67,7 @@ export function useBook() {
   const skipSave = useRef(true);
   const quietWrite = useRef(false);
   const saveSeq = useRef(0);
-  const channel = useRef(null);
+  const channel = useRef(/** @type {{ post: (key: string) => void, close: () => void } | null} */ (null));
 
   useEffect(() => {
     let alive = true;

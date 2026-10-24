@@ -44,7 +44,7 @@ export async function generateSigningKey() {
 export async function keyFingerprint(publicJwk) {
   const digest = await subtle().digest('SHA-256', new TextEncoder().encode(canonicalJson(publicPart(publicJwk))));
   const hex = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
-  return hex.slice(0, 16).match(/.{4}/g).join('-');
+  return (hex.slice(0, 16).match(/.{4}/g) || []).join('-');
 }
 
 function unsigned(file) {

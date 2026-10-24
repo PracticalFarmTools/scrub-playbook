@@ -3,10 +3,12 @@ import { getProduct } from './products';
 import { LINK_FRESH_DAYS } from './schema';
 import { daysSince } from './trust';
 
+/** @returns {url is string} */
 function isHttps(url) {
   return typeof url === 'string' && /^https:\/\//i.test(url.trim());
 }
 
+/** @returns {code is string} */
 function isCatalogCode(code) {
   return typeof code === 'string' && /^[A-Za-z0-9][A-Za-z0-9-]{1,40}$/.test(code.trim());
 }

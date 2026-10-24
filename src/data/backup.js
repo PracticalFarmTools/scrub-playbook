@@ -67,35 +67,31 @@ export function restoreBackup(current, incoming) {
   const counts = { added: 0, updated: 0, kept: 0 };
   for (const surgeon of incoming?.surgeons || []) {
     if (surgeon.demo) continue;
-    if (!surgeonAt.has(surgeon.id)) {
+    const index = surgeonAt.get(surgeon.id);
+    if (index === undefined) {
       surgeonAt.set(surgeon.id, surgeons.length);
       surgeons.push(surgeon);
       counts.added += 1;
+    } else if (stampOf(surgeon) > stampOf(surgeons[index])) {
+      surgeons[index] = surgeon;
+      counts.updated += 1;
     } else {
-      const index = surgeonAt.get(surgeon.id);
-      if (stampOf(surgeon) > stampOf(surgeons[index])) {
-        surgeons[index] = surgeon;
-        counts.updated += 1;
-      } else {
-        counts.kept += 1;
-      }
+      counts.kept += 1;
     }
   }
   for (const procedure of incoming?.procedures || []) {
     if (procedure.demo || !surgeonAt.has(procedure.surgeonId)) continue;
     const next = { ...procedure, blocks: normalizeBlocks(procedure.blocks) };
-    if (!procedureAt.has(procedure.id)) {
+    const index = procedureAt.get(procedure.id);
+    if (index === undefined) {
       procedureAt.set(procedure.id, procedures.length);
       procedures.push(next);
       counts.added += 1;
+    } else if (stampOf(procedure) > stampOf(procedures[index])) {
+      procedures[index] = next;
+      counts.updated += 1;
     } else {
-      const index = procedureAt.get(procedure.id);
-      if (stampOf(procedure) > stampOf(procedures[index])) {
-        procedures[index] = next;
-        counts.updated += 1;
-      } else {
-        counts.kept += 1;
-      }
+      counts.kept += 1;
     }
   }
   return { book: { version: BOOK_VERSION, surgeons, procedures }, ...counts };

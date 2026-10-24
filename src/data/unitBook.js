@@ -248,6 +248,9 @@ function noCounts() {
 /**
  * A surgeon this phone already keeps under the same id is left alone unless `adopt` is set.
  * With `adopt`, that surgeon and its matching procedures follow the unit book from now on.
+ * @param {import('./types').Book} current
+ * @param {object} file
+ * @param {{ adopt?: boolean, published?: import('./types').Published, fingerprint?: string | null }} [options]
  */
 export function applyUnitBook(current, file, { adopt = false, published = readPublished(), fingerprint = null } = {}) {
   const unitBookId = file?.unitBookId;
@@ -263,7 +266,7 @@ export function applyUnitBook(current, file, { adopt = false, published = readPu
   const conflicts = unitConflicts(current, file);
   const carried = [...(current?.surgeons || []), ...(current?.procedures || [])]
     .filter(item => item?.unitBook?.id === unitBookId)
-    .flatMap(item => item.unitBook.replaced || []);
+    .flatMap(item => item.unitBook?.replaced || []);
   const left = adopt ? conflicts.map(surgeon => surgeon.unitBook?.id).filter(id => id && id !== unitBookId) : [];
   const replaced = [...new Set([...carried, ...left])];
   const stamp = {
@@ -374,7 +377,7 @@ export function unitResultText(place, result) {
 export function unitChangeList(current, file, options) {
   const result = applyUnitBook(current, file, options);
   if (result.status !== 'updated') return { status: result.status, cards: [], removed: 0 };
-  const names = new Map(result.book.surgeons.map(surgeon => [surgeon.id, surgeon.name]));
+  const names = new Map(result.book.surgeons.map(surgeon => /** @type {[string, string]} */ ([surgeon.id, surgeon.name])));
   const cards = result.book.procedures
     .filter(procedure => procedure.unitBook?.id === file.unitBookId && procedure.unitBook.revision === result.revision && procedure.unitBook.changes?.length)
     .map(procedure => ({ id: procedure.id, title: `${names.get(procedure.surgeonId) || ''} · ${procedure.name}`, changes: procedure.unitBook.changes }));

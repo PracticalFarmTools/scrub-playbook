@@ -14,7 +14,7 @@ const FOCUSABLE = [
  * @param {{ onClose?: () => void, initialFocus?: import('react').RefObject<HTMLElement> }} [options]
  */
 export function useDialog({ onClose, initialFocus } = {}) {
-  const ref = useRef(null);
+  const ref = useRef(/** @type {HTMLElement | null} */ (null));
   const closeRef = useRef(onClose);
   // Read on first render: React's autoFocus moves focus into the dialog before effects run.
   const [opener] = useState(() => /** @type {HTMLElement | null} */ (globalThis.document?.activeElement ?? null));
@@ -34,7 +34,7 @@ export function useDialog({ onClose, initialFocus } = {}) {
     const previous = opener;
     if (!node.hasAttribute('tabindex')) node.setAttribute('tabindex', '-1');
     const focusedInside = node !== document.activeElement && node.contains(document.activeElement) ? document.activeElement : null;
-    const target = initialFocus?.current || focusedInside || node.querySelector('[autofocus]') || node.querySelector(FOCUSABLE) || node;
+    const target = /** @type {HTMLElement} */ (initialFocus?.current || focusedInside || node.querySelector('[autofocus]') || node.querySelector(FOCUSABLE) || node);
     target.focus?.({ preventScroll: true });
 
     const onKey = (event) => {
@@ -47,14 +47,14 @@ export function useDialog({ onClose, initialFocus } = {}) {
         return;
       }
       if (event.key !== 'Tab') return;
-      const items = [...node.querySelectorAll(FOCUSABLE)];
+      const items = /** @type {HTMLElement[]} */ ([...node.querySelectorAll(FOCUSABLE)]);
       if (!items.length) {
         event.preventDefault();
         node.focus();
         return;
       }
       const first = items[0];
-      const last = items.at(-1);
+      const last = items[items.length - 1];
       const inside = node.contains(document.activeElement);
       if (event.shiftKey && (!inside || document.activeElement === first || document.activeElement === node)) {
         event.preventDefault();
