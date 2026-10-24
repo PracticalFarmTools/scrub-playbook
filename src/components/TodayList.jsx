@@ -3,13 +3,15 @@ import { Pencil, X } from 'lucide-react';
 import { findPhiSignals } from '../data/phi';
 import { boardProblemText, parseBoard } from '../data/boardMatch';
 import { loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleDay } from '../data/today';
+import { TODAY_KEY } from '../data/schema';
 import { sourceLabel } from '../data/unitBook';
+import { useStoredState } from '../hooks/useStoredState';
 import PhiPause from './PhiPause';
 
 const field = 'w-full min-h-11 rounded-lg bg-slate-50 border border-slate-200 text-sm px-2 py-2';
 
 export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStartProcedure, onStartSurgeon }) {
-  const [stored, setStored] = useState(loadToday);
+  const [stored, setStored] = useStoredState(TODAY_KEY, loadToday, saveToday);
   const [today, setToday] = useState(localDay);
   const [offset, setOffset] = useState(0);
   const [draft, setDraft] = useState({ startsAt: '', room: '', surgeonName: '', procedureName: '' });
@@ -25,10 +27,6 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
     .map(item => ({ item, result: resolveTodayTap(book, item) }))
     .filter(entry => entry.result.action === 'open')
     .map(entry => ({ item: entry.item, procedure: entry.result.procedure }));
-
-  useEffect(() => {
-    saveToday(stored);
-  }, [stored]);
 
   useEffect(() => {
     const timer = setInterval(() => setToday(localDay()), 60000);

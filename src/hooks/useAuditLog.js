@@ -1,29 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
-import { TECH_NAME_KEY, uid } from '../data/schema';
+import { useCallback } from 'react';
+import { AUDIT_KEY, TECH_NAME_KEY, uid } from '../data/schema';
 import { safeGet, safeJson, safeSet } from '../data/storage';
+import { useStoredState } from './useStoredState';
+
+const MAX_ENTRIES = 100;
 
 function currentUser() {
   return safeGet(TECH_NAME_KEY, '') || 'Unknown';
 }
 
-const AUDIT_KEY = 'scrubplaybook_audit';
-const MAX_ENTRIES = 100;
-
-function loadLog() {
+export function loadLog() {
   const log = safeJson(AUDIT_KEY, []);
-  return Array.isArray(log) ? log : [];
+  return Array.isArray(log) ? log.filter(entry => entry && typeof entry === 'object') : [];
 }
 
-/**
- * Hook for the audit trail.
- * Stores up to 100 entries on this phone, newest first.
- */
-export function useAuditLog() {
-  const [log, setLog] = useState(loadLog);
+function saveLog(log) {
+  return safeSet(AUDIT_KEY, JSON.stringify(log));
+}
 
-  useEffect(() => {
-    safeSet(AUDIT_KEY, JSON.stringify(log));
-  }, [log]);
+function newestFirst(entries) {
+  const byId = new Map();
+  for (const entry of entries) if (entry?.id && !byId.has(entry.id)) byId.set(entry.id, entry);
+  return [...byId.values()]
+    .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))
+    .slice(0, MAX_ENTRIES);
+}
+
+/** Recent activity on this phone: up to 100 entries, newest first, shared by every open tab. */
+export function useAuditLog() {
+  const [log, update] = useStoredState(AUDIT_KEY, loadLog, saveLog);
 
   const addEntry = useCallback(({ action, surgeonName, user, note }) => {
     const entry = {
@@ -34,18 +39,12 @@ export function useAuditLog() {
       note: note?.trim() || null,
       timestamp: new Date().toISOString(),
     };
-    setLog(prev => [entry, ...prev].slice(0, MAX_ENTRIES));
-  }, []);
+    update(prev => [entry, ...prev].slice(0, MAX_ENTRIES));
+  }, [update]);
 
   const mergeLog = useCallback((incoming) => {
-    setLog(prev => {
-      const byId = new Map();
-      for (const entry of [...(incoming || []), ...prev]) if (entry?.id) byId.set(entry.id, entry);
-      return [...byId.values()]
-        .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))
-        .slice(0, MAX_ENTRIES);
-    });
-  }, []);
+    update(prev => newestFirst([...prev, ...(Array.isArray(incoming) ? incoming : [])]));
+  }, [update]);
 
   return { log, addEntry, mergeLog };
 }
