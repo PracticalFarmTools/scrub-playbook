@@ -9,6 +9,7 @@ import { mergeBackup, restoreBackup } from '../data/backup';
 import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
 import { recordBookChange, withEarlierContent } from '../data/history';
+import { addSignedEdit, signedContent } from '../data/editTrail';
 import { applySave, clearConfirmation, personId, stripConfirmation, withConfirmation } from '../data/trust';
 
 export const UNREADABLE_KEY = 'scrubplaybook_book_unreadable';
@@ -73,6 +74,8 @@ export function useBook() {
   const savedBook = useRef(book);
   // Why the book became `book`; any other book is an edit on this phone.
   const changeReason = useRef(/** @type {{ book: any, reason: import('../data/history').ChangeReason } | null} */ (null));
+  // Cards saved on this phone that still need a signed record, by card id.
+  const toSign = useRef(/** @type {Map<string, { action: import('../data/editTrail').EditAction, by: string, content: string }>} */ (new Map()));
 
   useEffect(() => {
     let alive = true;
@@ -143,6 +146,24 @@ export function useBook() {
     }
   }, [book, loaded, saveAttempt]);
 
+  useEffect(() => {
+    if (!loaded || !toSign.current.size) return;
+    for (const [id, job] of [...toSign.current]) {
+      toSign.current.delete(id);
+      const target = book.procedures.find(p => p.id === id);
+      if (!target || target.demo || target.unitBook || signedContent(target) !== job.content) continue;
+      const lastSig = target.trail?.at(-1)?.sig || null;
+      addSignedEdit(target, job).then(trail => {
+        setBook(prev => {
+          const now = prev.procedures.find(p => p.id === id);
+          if (!now || (now.trail?.at(-1)?.sig || null) !== lastSig || signedContent(now) !== job.content) return prev;
+          quietWrite.current = true;
+          return { ...prev, procedures: prev.procedures.map(p => p.id === id ? { ...p, trail } : p) };
+        });
+      }).catch(() => { /* the card is saved; it shows as changed after its last signed record */ });
+    }
+  }, [book, loaded]);
+
   const retrySave = useCallback(() => setSaveAttempt(n => n + 1), []);
 
   const addSurgeon = useCallback((partial) => {
@@ -187,10 +208,16 @@ export function useBook() {
     return { surgeons: surgeons.length, procedures: procedures.length };
   }, [commit]);
 
-  const saveProcedure = useCallback((procedure) => {
+  /** Saves a card. A new card, or a change to what it says, is signed by this phone under `by`. */
+  const saveProcedure = useCallback((procedure, /** @type {{ by?: string }} */ { by } = {}) => {
+    const signer = by === undefined ? readTechName() : writeTechName(by);
     setBook(prev => {
       const previous = prev.procedures.find(p => p.id === procedure.id);
-      const next = applySave(previous, procedure);
+      const next = applySave(previous, previous ? { ...procedure, trail: previous.trail } : procedure);
+      if (!next.trail) delete next.trail;
+      const content = signedContent(next);
+      const action = !previous ? (next.copiedFrom ? 'copied' : 'created') : (signedContent(previous) !== content ? 'edited' : null);
+      if (action && !next.demo && !next.unitBook) toSign.current.set(next.id, { action, by: signer, content });
       return {
         ...prev,
         procedures: previous
@@ -329,6 +356,8 @@ export function useBook() {
   const copyToNotes = useCallback((procedureId) => {
     const result = copyUnitProcedure(bookRef.current, procedureId);
     if (result.status === 'copied') {
+      const copy = result.book.procedures.find(p => p.id === result.procedureId);
+      if (copy) toSign.current.set(copy.id, { action: 'copied', by: readTechName(), content: signedContent(copy) });
       bookRef.current = result.book;
       setBook(result.book);
     }
@@ -368,6 +397,9 @@ export function useBook() {
     const saved = { ...next, updatedAt: new Date().toISOString() };
     const updated = { ...bookRef.current, procedures: bookRef.current.procedures.map(p => p.id === procedureId ? saved : p) };
     changeReason.current = { book: updated, reason: 'earlier-version' };
+    if (signedContent(saved) !== signedContent(current)) {
+      toSign.current.set(procedureId, { action: 'earlier-version', by: readTechName(), content: signedContent(saved) });
+    }
     commit(updated);
     return true;
   }, [commit]);
