@@ -268,7 +268,7 @@ export function importPreviewText(parsed) {
  * A full backup of this phone. `extras` carries the board, the activity log,
  * the unit books this phone publishes, and suggestion follow-ups.
  */
-export function toBackup(book, extras = {}) {
+export function toBackup(book, extras = {}, { appVersion } = {}) {
   const surgeons = book.surgeons.filter(s => !s.demo);
   const ids = new Set(surgeons.map(s => s.id));
   const kept = {};
@@ -280,6 +280,7 @@ export function toBackup(book, extras = {}) {
     kind: 'scrubplaybook-backup',
     v: 2,
     exportedAt: new Date().toISOString(),
+    ...(appVersion ? { appVersion } : {}),
     book: {
       version: BOOK_VERSION,
       surgeons,

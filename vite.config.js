@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 import vercel from './vercel.json' with { type: 'json' }
+import { buildDefines } from './build-info.js'
 
 const securityHeaders = Object.fromEntries(
   vercel.headers.find(rule => rule.source === '/(.*)').headers.map(({ key, value }) => [key, value]),
@@ -11,6 +12,7 @@ const securityHeaders = Object.fromEntries(
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: buildDefines,
   plugins: [
     react(),
     tailwindcss(),
