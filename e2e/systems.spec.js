@@ -73,6 +73,8 @@ test('the directory finds a system by name and still groups companies', async ({
   await expect(page.getByText(/^Companies \(\d+\)$/)).toBeVisible()
   const finder = page.getByLabel('Find a system or company')
   await finder.fill('mako')
+  await expect(page.getByText('Matching systems and companies')).toBeVisible()
+  await expect(page.getByText(/^Companies \(\d+\)$/)).toHaveCount(0)
   const systems = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Systems (1)' }) })
   await expect(systems.getByText('Mako · Stryker')).toBeVisible()
   await expect(systems.getByRole('link', { name: 'Stryker instructions' })).toHaveAttribute('href', 'https://ifu.stryker.com')

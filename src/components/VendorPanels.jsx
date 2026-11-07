@@ -114,7 +114,7 @@ export function VendorLibrary({ onClose }) {
     <div className="max-w-5xl mx-auto px-4 mt-4">
       <div className="bg-white border border-slate-200 rounded-2xl p-5">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <p className="text-sm font-bold text-slate-700">Companies ({COMPANIES.length})</p>
+          <p className="text-sm font-bold text-slate-700">{q ? 'Matching systems and companies' : `Companies (${COMPANIES.length})`}</p>
           <button type="button" onClick={onClose} aria-label="Close systems and companies" className="min-h-11 min-w-11 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"><X size={16} /></button>
         </div>
         <input

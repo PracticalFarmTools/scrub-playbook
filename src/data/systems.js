@@ -134,6 +134,26 @@ export function cleanSystemUses(list = []) {
   return kept;
 }
 
+/**
+ * The card's systems after the same rules as a save: twelve, https hospital
+ * links, and a tray only points at a system that is still on the card.
+ * @param {{ systems?: Array<object>, trays?: Array<object> }} [blocks]
+ */
+export function blocksWithCleanSystems(blocks = {}) {
+  const systems = cleanSystemUses(blocks.systems);
+  const ids = new Set(systems.map(item => item.id));
+  return {
+    ...blocks,
+    systems,
+    trays: (blocks.trays || []).map(tray => {
+      if (!tray?.systemId || ids.has(tray.systemId)) return tray;
+      const copy = { ...tray };
+      delete copy.systemId;
+      return copy;
+    }),
+  };
+}
+
 /** Doors for a system stored on a surgeon or a card. */
 export function doorsFor(use, now = Date.now()) {
   const catalog = getSystem(use?.catalogId);
