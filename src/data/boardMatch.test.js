@@ -123,6 +123,15 @@ describe('board taps', () => {
     expect(hip.action).toBe('start-procedure');
   });
 
+  it('does not open a flagged card by itself', () => {
+    const flagged = emptyProcedure('a', { id: 'r', name: 'Right TKA', disputed: true, reportNote: 'Uses the small tray now' });
+    const result = resolveTodayTap({ surgeons: [amy], procedures: [flagged] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    expect(result).toMatchObject({ action: 'choose', flagged: true, procedures: [{ id: 'r' }] });
+    const other = emptyProcedure('a', { id: 'l', name: 'Left TKA' });
+    const kept = resolveTodayTap({ surgeons: [amy], procedures: [flagged, other] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(kept).toMatchObject({ action: 'open', procedure: { id: 'l' } });
+  });
+
   it('keeps an approach side from being opened for the other side', () => {
     const right = emptyProcedure('a', { id: 'r', name: 'Total knee arthroplasty', approach: 'Right', aliases: ['TKA'] });
     const opened = resolveTodayTap({ surgeons: [amy], procedures: [right] }, { surgeonName: 'Chen', procedureName: 'L TKA' });

@@ -36,6 +36,15 @@ function gloveFromId(id, size) {
   return { productId: glove.id, model: glove.model, brand: glove.brand, color: glove.color, size };
 }
 
+/** The glove the card stored, even when it has no catalog id. An empty card stays on None. */
+function gloveSelectId(glove) {
+  if (!glove?.model && !glove?.productId) return '';
+  const byModel = SURGICAL_GLOVES.find(item => item.model.toLowerCase() === String(glove.model || '').trim().toLowerCase());
+  if (byModel) return byModel.id;
+  if (glove.productId && SURGICAL_GLOVES.some(item => item.id === glove.productId) && !String(glove.model || '').trim()) return glove.productId;
+  return String(glove.model || '').trim() ? `stored:${glove.model}` : '';
+}
+
 const SECTIONS = [
   ['editor-case', 'Case'],
   ['editor-room', 'Room'],
@@ -252,27 +261,35 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
 
           <section id="editor-gloves" tabIndex={-1} className={sectionClass}>
             <h3 className={heading}>Gloves</h3>
-            {['outer', 'inner'].map(which => (
-              <div key={which} className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <p className={label}>{which}</p>
-                  <SearchableDropdown
-                    label={`${which === 'outer' ? 'Outer' : 'Inner'} glove`}
-                    options={[{ value: '', label: 'None', sublabel: '' }, ...GLOVE_OPTIONS]}
-                    value={blocks.gloves?.[which]?.productId || ''}
-                    onChange={(id) => setBlocks({ gloves: { ...blocks.gloves, [which]: id ? gloveFromId(id, blocks.gloves?.[which]?.size || '7.0') : null } })}
-                    placeholder="Search gloves"
-                    renderSelected={opt => <span>{opt?.label || 'None'}</span>}
-                  />
+            {['outer', 'inner'].map(which => {
+              const stored = blocks.gloves?.[which];
+              const title = which === 'outer' ? 'Outer' : 'Inner';
+              const selectedId = gloveSelectId(stored);
+              const storedOption = selectedId.startsWith('stored:') ? [{ value: selectedId, label: stored.model, sublabel: 'Stored on this card' }] : [];
+              const size = stored && GLOVE_SIZES.includes(String(stored.size)) ? String(stored.size) : '';
+              return (
+                <div key={which} className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <p className={label}>{which}</p>
+                    <SearchableDropdown
+                      label={`${title} glove`}
+                      options={[{ value: '', label: 'None', sublabel: '' }, ...storedOption, ...GLOVE_OPTIONS]}
+                      value={selectedId}
+                      onChange={(id) => setBlocks({ gloves: { ...blocks.gloves, [which]: id && !id.startsWith('stored:') ? gloveFromId(id, stored?.size || '7.0') : id ? stored : null } })}
+                      placeholder="Search gloves"
+                      renderSelected={opt => <span>{opt?.label || 'None'}</span>}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`glove-size-${which}`} className={label}>{title} size</label>
+                    <select id={`glove-size-${which}`} value={size} disabled={!stored} onChange={e => setBlocks({ gloves: { ...blocks.gloves, [which]: stored ? { ...stored, size: e.target.value } : null } })} className={input}>
+                      <option value="">{stored ? 'Not set' : 'No glove'}</option>
+                      {GLOVE_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor={`glove-size-${which}`} className={label}>Size</label>
-                  <select id={`glove-size-${which}`} value={blocks.gloves?.[which]?.size || '7.0'} onChange={e => setBlocks({ gloves: { ...blocks.gloves, [which]: blocks.gloves?.[which] ? { ...blocks.gloves[which], size: e.target.value } : null } })} className={input}>
-                    {GLOVE_SIZES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </section>
 
           <section id="editor-flow" tabIndex={-1} className={sectionClass}>

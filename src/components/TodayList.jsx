@@ -87,6 +87,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   const lineStatus = (item) => {
     const result = resolveTodayTap(book, item);
     if (result.action === 'open') return `Opens ${result.procedure.name}`;
+    if (result.flagged && result.procedures?.length === 1) return 'Flagged. Read it before you open it.';
     if (result.action === 'choose') return 'You choose the card';
     return 'No card yet';
   };
@@ -233,11 +234,11 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
       {choice?.procedures && (
         <div className="px-4 py-3 border-t border-slate-100 space-y-2">
           <p className="text-xs font-bold text-slate-600">
-            {choice.closest ? 'Closest cards. Check the side and the procedure before you open one.' : 'Which procedure?'}
+            {choice.flagged ? 'Flagged. Read it before you open it.' : choice.closest ? 'Closest cards. Check the side and the procedure before you open one.' : 'Which procedure?'}
           </p>
           {choice.procedures.map(procedure => (
             <button type="button" key={procedure.id} onClick={() => { const item = choice.item; setChoice(null); onOpen(procedure, item); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 min-h-11 cursor-pointer">
-              {[procedure.name, procedure.approach, sideConflictText(procedure), sourceLabel(procedure)].filter(Boolean).join(' · ')}
+              {[procedure.name, procedure.approach, procedure.disputed ? 'Flagged' : '', sideConflictText(procedure), sourceLabel(procedure)].filter(Boolean).join(' · ')}
             </button>
           ))}
           {choice.closest && choice.item && (

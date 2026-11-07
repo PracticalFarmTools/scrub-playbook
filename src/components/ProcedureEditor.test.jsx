@@ -119,6 +119,26 @@ describe('ProcedureEditor', () => {
     expect(saved.blocks.trays[0].commonName).toBe('Knee tray');
   });
 
+  it('keeps a stored glove and does not invent a size', () => {
+    const onSave = vi.fn();
+    const procedure = {
+      ...partial,
+      blocks: {
+        ...partial.blocks,
+        gloves: { outer: { model: 'House latex', brand: '', color: '', size: '', productId: null }, inner: null },
+      },
+    };
+    render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
+    expect(screen.getByRole('button', { name: 'Outer glove: House latex' })).toBeTruthy();
+    expect(screen.getByLabelText('Outer size').value).toBe('');
+    expect(screen.getByLabelText('Inner size').value).toBe('');
+    expect(screen.getByLabelText('Inner size').disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Outer size'), { target: { value: '8.0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.gloves.outer).toMatchObject({ model: 'House latex', size: '8.0', productId: null });
+    expect(onSave.mock.calls[0][0].blocks.gloves.inner).toBeNull();
+  });
+
   it('shows a side disagreement and leaves an unmarked tray unset', () => {
     const onSave = vi.fn();
     const procedure = {
