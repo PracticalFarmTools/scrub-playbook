@@ -6,6 +6,7 @@ import ProductLink from './ProductLink';
 import { SystemDoors } from './Systems';
 import { resolveProductLink } from '../data/productLink';
 import { getProduct } from '../data/products';
+import { sideConflictText } from '../data/boardMatch';
 import { personLine, trayLine } from '../data/caseView';
 import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
@@ -55,6 +56,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <div className="flex items-start justify-between gap-3">
           <div>
             {showTitle && <h4 className="text-base font-extrabold text-slate-900 tracking-tight">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h4>}
+            {sideConflictText(procedure) && <p className="text-sm font-bold text-rose-800 mt-1">{sideConflictText(procedure)}</p>}
             {showTitle && sourceLabel(procedure) && (
               <p className="text-xs font-bold uppercase tracking-widest text-medical-600 mt-0.5">{sourceLabel(procedure)}</p>
             )}

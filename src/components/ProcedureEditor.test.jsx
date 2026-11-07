@@ -119,6 +119,25 @@ describe('ProcedureEditor', () => {
     expect(saved.blocks.trays[0].commonName).toBe('Knee tray');
   });
 
+  it('shows a side disagreement and leaves an unmarked tray unset', () => {
+    const onSave = vi.fn();
+    const procedure = {
+      ...partial,
+      name: 'Right TKA',
+      approach: 'Left',
+      blocks: {
+        ...partial.blocks,
+        trays: [{ id: 't1', commonName: 'Knee tray', spdName: '', vendorName: '' }],
+      },
+    };
+    render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
+    expect(screen.getByText('The name says right. The approach says left. Check the side before you set up.')).toBeTruthy();
+    expect(screen.getByLabelText('Tray 1, open or hold').value).toBe('');
+    fireEvent.change(screen.getByLabelText('Tray 1, open or hold'), { target: { value: 'hold' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.trays[0].openOrHold).toBe('hold');
+  });
+
   it('closes on Escape', () => {
     const onClose = vi.fn();
     render(<ProcedureEditor surgeon={surgeon} procedure={partial} onClose={onClose} onSave={() => {}} />);

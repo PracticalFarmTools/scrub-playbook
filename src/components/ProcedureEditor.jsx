@@ -4,7 +4,7 @@ import { SURGICAL_GLOVES, GLOVE_SIZES, GLOVE_COLOR_HEX } from '../data/gloves';
 import { NEEDLE_TYPES, SUTURE_LIBRARY, SUTURE_SIZES } from '../data/sutures';
 import { productsByKind, productIdForSuture } from '../data/products';
 import { findPhiInProcedure } from '../data/phi';
-import { cleanAliases } from '../data/boardMatch';
+import { cleanAliases, sideConflictText } from '../data/boardMatch';
 import { cleanInstruments, cleanSteps, normalizeBlocks, uid } from '../data/schema';
 import { personLine } from '../data/caseView';
 import { cleanSystemUses, systemIdentity } from '../data/systems';
@@ -188,6 +188,7 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
               <label htmlFor="procedure-approach" className={label}>Approach</label>
               <input id="procedure-approach" list="scrub-approaches" maxLength={60} value={draft.approach || ''} placeholder="Anterior, laparoscopic, open" onChange={e => setDraft(d => ({ ...d, approach: e.target.value.slice(0, 60) }))} className={input} />
               <datalist id="scrub-approaches">{APPROACHES.map(item => <option key={item} value={item} />)}</datalist>
+              {sideConflictText(draft) && <p className="text-sm font-bold text-rose-800">{sideConflictText(draft)}</p>}
             </div>
             <div>
               <label htmlFor="procedure-aliases" className={label}>Other names on the board</label>
@@ -338,7 +339,8 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
                   </select>
                 )}
                 <div className="flex gap-2">
-                  <select aria-label={`Tray ${index + 1}, open or hold`} value={tray.openOrHold} onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, openOrHold: e.target.value } : t) })} className={input}>
+                  <select aria-label={`Tray ${index + 1}, open or hold`} value={tray.openOrHold === 'open' || tray.openOrHold === 'hold' ? tray.openOrHold : ''} onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, openOrHold: e.target.value } : t) })} className={input}>
+                    <option value="">Not set</option>
                     <option value="open">Open</option>
                     <option value="hold">Hold</option>
                   </select>

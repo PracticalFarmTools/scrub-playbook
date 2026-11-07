@@ -49,6 +49,11 @@ describe('CaseView', () => {
     expect(screen.getByRole('checkbox', { name: 'Extra · Open or hold not set' })).toBeTruthy();
   });
 
+  it('says when the name and the approach name different sides', () => {
+    render(<CaseView surgeon={surgeon} staleDays={90} onClose={() => {}} procedure={procedureWith({}, { name: 'Right TKA', approach: 'Left' })} />);
+    expect(screen.getByText('The name says right. The approach says left. Check the side before you set up.')).toBeTruthy();
+  });
+
   it('keeps the board line with the case, including the side the board wrote', () => {
     const procedure = procedureWith();
     render(<CaseView surgeon={surgeon} procedure={procedure} board={{ id: 'line-1', startsAt: '07:30', room: '4', procedureName: 'Left TKA' }} staleDays={90} onClose={() => {}} />);

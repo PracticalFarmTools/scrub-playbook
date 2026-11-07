@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { findPhiSignals } from '../data/phi';
-import { boardProblemText, parseBoard } from '../data/boardMatch';
+import { boardProblemText, parseBoard, sideConflictText } from '../data/boardMatch';
 import { loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleDay } from '../data/today';
 import { TODAY_KEY } from '../data/schema';
 import { sourceLabel } from '../data/unitBook';
@@ -237,7 +237,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
           </p>
           {choice.procedures.map(procedure => (
             <button type="button" key={procedure.id} onClick={() => { const item = choice.item; setChoice(null); onOpen(procedure, item); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 min-h-11 cursor-pointer">
-              {[procedure.name, procedure.approach, sourceLabel(procedure)].filter(Boolean).join(' · ')}
+              {[procedure.name, procedure.approach, sideConflictText(procedure), sourceLabel(procedure)].filter(Boolean).join(' · ')}
             </button>
           ))}
           {choice.closest && choice.item && (

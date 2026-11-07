@@ -1,3 +1,4 @@
+import { sideConflictText } from '../data/boardMatch';
 import { gloveLine, implantLine, nickFor, personLine, pullTargets, sutureLine, trayLine, trustLine } from '../data/caseView';
 import { systemsForCase } from '../data/systems';
 import { SystemDoors } from './Systems';
@@ -50,6 +51,9 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
         )}
         <p id={`${idPrefix}-surgeon`} className="text-xl font-bold">{surgeon.name}</p>
         <h1 id={`${idPrefix}-procedure`} className="text-xl font-bold mt-1">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h1>
+        {sideConflictText(procedure) && (
+          <p className="text-lg font-bold mt-2">{sideConflictText(procedure)}</p>
+        )}
         {surgeon.facility?.trim() && <p className={`text-lg mt-1 ${muted}`}>{surgeon.facility}</p>}
         {procedure.official?.label?.trim() && (
           <p className="text-lg mt-2">Official card: {procedure.official.label.trim()}</p>

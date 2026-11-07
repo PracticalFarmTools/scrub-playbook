@@ -102,6 +102,34 @@ describe('board taps', () => {
     const left = resolveTodayTap({ surgeons: [amy], procedures: [sided] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
     expect(left).toMatchObject({ action: 'open', procedure: { id: 's' } });
   });
+
+  it('opens the same card for either side when both board names are listed', () => {
+    const both = emptyProcedure('a', { id: 'both', name: 'Total knee arthroplasty', aliases: ['R TKA', 'L TKA'] });
+    const right = resolveTodayTap({ surgeons: [amy], procedures: [both] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    const left = resolveTodayTap({ surgeons: [amy], procedures: [both] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(right).toMatchObject({ action: 'open', procedure: { id: 'both' } });
+    expect(left).toMatchObject({ action: 'open', procedure: { id: 'both' } });
+    const unsided = resolveTodayTap({ surgeons: [amy], procedures: [both] }, { surgeonName: 'Chen', procedureName: 'TKA' });
+    expect(unsided).toMatchObject({ action: 'choose', closest: true });
+  });
+
+  it('does not open a card whose name and approach name opposite sides', () => {
+    const conflict = emptyProcedure('a', { id: 'c', name: 'Right TKA', approach: 'Left' });
+    const right = resolveTodayTap({ surgeons: [amy], procedures: [conflict] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    const left = resolveTodayTap({ surgeons: [amy], procedures: [conflict] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(right).toMatchObject({ action: 'choose', closest: true, procedures: [{ id: 'c' }] });
+    expect(left).toMatchObject({ action: 'choose', closest: true, procedures: [{ id: 'c' }] });
+    const hip = resolveTodayTap({ surgeons: [amy], procedures: [conflict] }, { surgeonName: 'Chen', procedureName: 'Lap chole' });
+    expect(hip.action).toBe('start-procedure');
+  });
+
+  it('keeps an approach side from being opened for the other side', () => {
+    const right = emptyProcedure('a', { id: 'r', name: 'Total knee arthroplasty', approach: 'Right', aliases: ['TKA'] });
+    const opened = resolveTodayTap({ surgeons: [amy], procedures: [right] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(opened.action).toBe('start-procedure');
+    const same = resolveTodayTap({ surgeons: [amy], procedures: [right] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    expect(same).toMatchObject({ action: 'open', procedure: { id: 'r' } });
+  });
 });
 
 describe('pasting the board', () => {
