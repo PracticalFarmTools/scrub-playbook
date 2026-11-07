@@ -74,6 +74,18 @@ export function getSystem(id) {
   return id ? byId.get(id) || null : null;
 }
 
+/** Exact catalog name or alias. A fragment such as "knee" matches nothing. */
+export function findSystemByName(name) {
+  const q = fold(name);
+  if (!q) return null;
+  return SYSTEMS.find(system => fold(system.name) === q || system.aliases.some(alias => fold(alias) === q)) || null;
+}
+
+export function sameSystemName(a, b) {
+  const left = fold(a);
+  return Boolean(left) && left === fold(b);
+}
+
 function fold(value) {
   return String(value || '')
     .toLowerCase()

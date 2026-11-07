@@ -1,4 +1,4 @@
-import { nickFor, pullTargets, trustLine } from '../data/caseView';
+import { nickFor, pullTargets, trayLine, trustLine } from '../data/caseView';
 import { systemsForCase } from '../data/systems';
 import { SystemDoors } from './Systems';
 
@@ -146,7 +146,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           {blocks.trays.map(tray => (
             <label key={tray.id} className="flex items-start gap-3 min-h-11 py-1">
               {checkFor(`tray-${tray.id}`)}
-              <span>{[tray.commonName || 'Tray', (blocks.systems || []).find(system => system.id === tray.systemId)?.name, tray.spdName && `SPD: ${tray.spdName}`, tray.openOrHold === 'hold' ? 'Hold' : 'Open'].filter(Boolean).join(' · ')}</span>
+              <span>{trayLine(tray, blocks)}</span>
             </label>
           ))}
         </Section>

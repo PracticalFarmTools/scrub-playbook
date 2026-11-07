@@ -233,7 +233,18 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
             <SystemListEditor
               systems={blocks.systems || []}
               suggestions={surgeon.preferredSystems || []}
-              onChange={systems => setBlocks({ systems })}
+              onChange={systems => {
+                const ids = new Set(systems.map(item => item.id));
+                setBlocks({
+                  systems,
+                  trays: (blocks.trays || []).map(tray => {
+                    if (!tray.systemId || ids.has(tray.systemId)) return tray;
+                    const next = { ...tray };
+                    delete next.systemId;
+                    return next;
+                  }),
+                });
+              }}
             />
           </section>
 

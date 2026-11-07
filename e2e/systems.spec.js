@@ -52,7 +52,7 @@ test('a case opens its product page, and the surgeon’s other system opens as i
   await expect(view.getByRole('link', { name: 'Product page' })).toBeVisible()
   await expect(view.getByText('This surgeon uses')).toBeVisible()
   await expect(view.getByRole('link', { name: 'Stryker instructions' })).toHaveAttribute('href', 'https://ifu.stryker.com')
-  await expect(view.getByText('Knee tray · ATTUNE Knee System · Open')).toBeVisible()
+  await expect(view.getByText('Knee tray · ATTUNE Knee System · Stryker · Open')).toBeVisible()
 })
 
 test('search finds a system by name and does not list the directory for one letter', async ({ page }) => {

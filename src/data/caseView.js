@@ -15,6 +15,18 @@ export function nickFor(blocks, name) {
   return (blocks.nicknames || []).find(entry => (entry.actual || '').trim().toLowerCase() === String(name || '').trim().toLowerCase());
 }
 
+/** The same tray sentence on the card, in the room, and in a shared message. */
+export function trayLine(tray, blocks) {
+  const system = (blocks?.systems || []).find(item => item.id === tray?.systemId);
+  return [
+    tray?.commonName || 'Tray',
+    system?.name,
+    tray?.spdName && `SPD: ${tray.spdName}`,
+    tray?.vendorName,
+    tray?.openOrHold === 'hold' ? 'Hold' : 'Open',
+  ].filter(Boolean).join(' · ');
+}
+
 export function pullTargets(blocks) {
   const items = [];
   if (blocks.gloves?.outer?.model) items.push({ id: 'glove-outer', label: `Outer glove · ${[blocks.gloves.outer.model, blocks.gloves.outer.size].filter(Boolean).join(' ')}` });
@@ -28,7 +40,7 @@ export function pullTargets(blocks) {
   (blocks.trays || []).forEach(tray => {
     items.push({
       id: `tray-${tray.id}`,
-      label: [tray.commonName || 'Tray', (blocks.systems || []).find(system => system.id === tray.systemId)?.name, tray.spdName && `SPD: ${tray.spdName}`, tray.openOrHold === 'hold' ? 'Hold' : 'Open'].filter(Boolean).join(' · '),
+      label: trayLine(tray, blocks),
     });
   });
   (blocks.sutures || []).forEach(suture => {

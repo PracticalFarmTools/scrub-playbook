@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseImport } from './incoming';
+import { parseImport, placeIncomingCard } from './incoming';
 import { emptyBlocks, emptyProcedure, emptySurgeon } from './schema';
 import { shareMessage } from './share';
 import { doorsFor } from './systems';
@@ -44,5 +44,15 @@ describe('system share round trip', () => {
     expect(arrived[1].overrideUrl).toBe('');
     expect(doorsFor(arrived[1]).hospital).toBeNull();
     expect(incoming.book.surgeons[0].preferredSystems.map(system => system.name)).toEqual(['Mako']);
+
+    const placed = placeIncomingCard(
+      { surgeons: [{ id: 'here', name: 'Dr. Ada Chen', specialty: 'Orthopedics', facility: '', demo: false }], procedures: [] },
+      incoming.book,
+      { surgeonId: 'here' },
+    );
+    const attached = placed.book.procedures[0].blocks.systems;
+    expect(attached.map(system => system.name)).toEqual(['ATTUNE Knee System', 'House retractor set']);
+    expect(attached[1].overrideUrl).toBe('');
+    expect(placed.book.procedures[0].blocks.trays[0].systemId).toBe(attached[0].id);
   });
 });

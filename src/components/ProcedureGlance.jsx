@@ -5,6 +5,7 @@ import { timeAgo, trustState } from '../data/trust';
 import ProductLink from './ProductLink';
 import { SystemDoors } from './Systems';
 import { resolveProductLink } from '../data/productLink';
+import { trayLine } from '../data/caseView';
 import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
 import { STATUS_CLASS } from './statusStyle';
@@ -158,15 +159,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Trays</p>
           <ul className="space-y-1">
             {trays.map(tray => (
-              <li key={tray.id} className="text-sm text-slate-700">
-                <span className="font-semibold">{tray.commonName}</span>
-                {tray.spdName && <span className="text-slate-500"> · SPD: {tray.spdName}</span>}
-                {tray.vendorName && <span className="text-slate-500"> · {tray.vendorName}</span>}
-                {(blocks.systems || []).some(system => system.id === tray.systemId) && (
-                  <span className="text-slate-500"> · {(blocks.systems || []).find(system => system.id === tray.systemId).name}</span>
-                )}
-                <span className="text-slate-500"> · {tray.openOrHold === 'hold' ? 'Hold' : 'Open'}</span>
-              </li>
+              <li key={tray.id} className="text-sm text-slate-700">{trayLine(tray, blocks)}</li>
             ))}
           </ul>
         </div>

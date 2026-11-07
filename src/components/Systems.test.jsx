@@ -32,6 +32,23 @@ describe('SystemDoors', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('uses the listed system when the typed name is already in the catalog', () => {
+    const onChange = vi.fn();
+    render(<SystemListEditor systems={[]} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('System name not in the list'), { target: { value: 'ATTUNE' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add this name' }));
+    expect(onChange.mock.calls[0][0][0]).toMatchObject({ catalogId: 'sys-attune', name: 'ATTUNE Knee System', companyId: 'depuy-synthes-j-and-j' });
+  });
+
+  it('says when that system is already on the list', () => {
+    const onChange = vi.fn();
+    render(<SystemListEditor systems={cleanSystemUses([{ catalogId: 'sys-mako' }])} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('System name not in the list'), { target: { value: 'Mako SmartRobotics' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add this name' }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('status').textContent).toBe('Mako is already on this list.');
+  });
+
   it('says when no page is stored', () => {
     render(<SystemDoors use={cleanSystemUses([{ name: 'House tray system' }])[0]} />);
     expect(screen.getByText('No page is stored for this system yet.')).toBeTruthy();

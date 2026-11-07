@@ -1,6 +1,7 @@
 import { QR_MAX_CHARS, normalizeBlocks } from './schema';
 import { stripConfirmation } from './trust';
 import { cleanAliases } from './boardMatch';
+import { trayLine } from './caseView';
 import { cleanSystemUses, systemShareLine, systemsForCase } from './systems';
 
 /** The text and the small payload of one card that a tech sends by message, AirDrop, or QR. */
@@ -125,15 +126,7 @@ export function toGlanceText(surgeon, procedure) {
   if (gear.mayo.length) lines.push('', `Mayo: ${gear.mayo.join(', ')}`);
   if (gear.rest.length) lines.push('', 'Also ready:', ...gear.rest);
 
-  pushSection(lines, 'Trays', (blocks.trays || []).map(tray => {
-    const parts = [tray.commonName];
-    const system = (blocks.systems || []).find(item => item.id === tray.systemId);
-    if (system?.name) parts.push(system.name);
-    if (tray.spdName) parts.push(`SPD: ${tray.spdName}`);
-    if (tray.vendorName) parts.push(tray.vendorName);
-    parts.push(tray.openOrHold === 'hold' ? 'Hold' : 'Open');
-    return parts.filter(Boolean).join(' · ');
-  }));
+  pushSection(lines, 'Trays', (blocks.trays || []).map(tray => trayLine(tray, blocks)));
 
   pushSection(lines, 'Sutures', (blocks.sutures || []).map(suture => {
     const layer = suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? suture.layer : '';

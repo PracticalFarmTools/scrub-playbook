@@ -193,7 +193,7 @@ export function placeIncomingCard(book, incomingBook, { surgeonId } = {}) {
     demo: false,
     updatedAt: now,
     baseUpdatedAt: now,
-    blocks: normalizeBlocks(procedure.blocks),
+    blocks: blocksWithCleanSystems(normalizeBlocks(procedure.blocks)),
   });
   return {
     kind: 'attach',

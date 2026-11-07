@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COMPANIES, findCompany } from './companies';
 import { getProduct } from './products';
-import { cleanSystemUses, doorsFor, searchCatalog, SYSTEMS, systemsForCase } from './systems';
+import { cleanSystemUses, doorsFor, findSystemByName, searchCatalog, SYSTEMS, systemsForCase } from './systems';
 
 describe('companies', () => {
   it('matches a whole name or alias and ignores a fragment', () => {
@@ -37,6 +37,12 @@ describe('systems', () => {
     const doors = doorsFor({ catalogId: 'sys-centurion', name: 'Centurion Vision System', companyId: 'alcon' });
     expect(doors.product).toBeNull();
     expect(doors.instructions).toEqual({ href: 'https://ifu.alcon.com', label: 'Alcon instructions' });
+  });
+
+  it('finds a listed system by its exact name or alias', () => {
+    expect(findSystemByName('ATTUNE')?.id).toBe('sys-attune');
+    expect(findSystemByName('da Vinci Xi')?.id).toBe('sys-davinci');
+    expect(findSystemByName('knee')).toBeNull();
   });
 
   it('searches names and aliases, and a one-letter search matches nothing', () => {

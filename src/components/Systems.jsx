@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { COMPANIES, getCompany } from '../data/companies';
 import { uid } from '../data/schema';
-import { SYSTEMS, SYSTEMS_MAX, doorsFor, getSystem } from '../data/systems';
+import { SYSTEMS, SYSTEMS_MAX, doorsFor, findSystemByName, getSystem, sameSystemName } from '../data/systems';
 import SearchableDropdown from './SearchableDropdown';
 
 const CATALOG_OPTIONS = [
@@ -75,30 +75,52 @@ export function SystemListEditor({ systems, onChange, suggestions = [] }) {
   const [catalogId, setCatalogId] = useState('');
   const [customName, setCustomName] = useState('');
   const [customCompany, setCustomCompany] = useState('');
+  const [notice, setNotice] = useState('');
   const full = systems.length >= SYSTEMS_MAX;
   const input = 'w-full min-h-11 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm px-3 py-2';
   const taken = new Set(systems.map(item => item.catalogId).filter(Boolean));
-  const pending = suggestions.filter(item => item.catalogId && !taken.has(item.catalogId) && !systems.some(row => row.name.trim().toLowerCase() === item.name.trim().toLowerCase()));
+  const pending = suggestions.filter(item => item.catalogId && !taken.has(item.catalogId) && !systems.some(row => sameSystemName(row.name, item.name)));
 
-  const addCatalog = () => {
-    const system = getSystem(catalogId);
-    if (!system || full || taken.has(system.id)) return;
+  const addListed = (system) => {
     onChange([...systems, {
       id: uid(), catalogId: system.id, name: system.name, companyId: system.companyId,
       catalogNumber: '', overrideUrl: '', repExpected: false,
     }]);
     setCatalogId('');
+    setCustomName('');
+    setCustomCompany('');
+    setNotice('');
+  };
+
+  const addCatalog = () => {
+    const system = getSystem(catalogId);
+    if (!system || full || taken.has(system.id)) return;
+    addListed(system);
   };
 
   const addCustom = () => {
     const name = customName.trim();
     if (!name || full) return;
+    const listed = findSystemByName(name);
+    if (listed) {
+      if (taken.has(listed.id) || systems.some(row => sameSystemName(row.name, listed.name))) {
+        setNotice(`${listed.name} is already on this list.`);
+        return;
+      }
+      addListed(listed);
+      return;
+    }
+    if (systems.some(row => sameSystemName(row.name, name))) {
+      setNotice(`${name} is already on this list.`);
+      return;
+    }
     onChange([...systems, {
       id: uid(), catalogId: null, name, companyId: customCompany || null,
       catalogNumber: '', overrideUrl: '', repExpected: false,
     }]);
     setCustomName('');
     setCustomCompany('');
+    setNotice('');
   };
 
   const patch = (id, next) => onChange(systems.map(item => item.id === id ? { ...item, ...next } : item));
@@ -174,6 +196,7 @@ export function SystemListEditor({ systems, onChange, suggestions = [] }) {
         <input aria-label="System name not in the list" value={customName} maxLength={80} placeholder="A system this list does not have" onChange={e => setCustomName(e.target.value)} className={input} />
         <SearchableDropdown label="Company for a system not in the list" options={COMPANY_OPTIONS} value={customCompany} onChange={setCustomCompany} placeholder="Company" renderSelected={opt => <span>{opt?.label}</span>} />
         <button type="button" disabled={full || !customName.trim()} onClick={addCustom} className="min-h-11 text-xs font-bold text-medical-700 disabled:opacity-40 cursor-pointer text-left">Add this name</button>
+        {notice && <p role="status" className="text-xs font-semibold text-slate-600">{notice}</p>}
       </div>
       {full && <p className="text-xs text-slate-500">This list keeps {SYSTEMS_MAX} systems. Remove one to add another.</p>}
     </div>
