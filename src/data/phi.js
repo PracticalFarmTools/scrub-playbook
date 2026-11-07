@@ -95,12 +95,14 @@ export function findPhiInProcedure(procedure) {
     ...(blocks.trays || []).map(t => `${t.commonName || ''} ${t.spdName || ''} ${t.vendorName || ''}`),
     ...(blocks.sutures || []).map(s => [s.layer, s.name, s.size, s.needle, s.open, s.hold].filter(Boolean).join(' ')),
     ...(blocks.implants || []).map(t => t.systemName || ''),
+    ...(blocks.systems || []).map(system => system.name || ''),
     ...(blocks.people || []).map(p => `${p.name || ''} ${p.role || ''} ${p.gloveModel || ''}`),
     ...(blocks.nicknames || []).map(n => `${n.nickname || ''} ${n.actual || ''}`),
   ];
   const codes = [
     ...(blocks.sutures || []).flatMap(s => [s.catalogNumber, s.overrideUrl]),
     ...(blocks.implants || []).flatMap(t => [t.catalogNumber, t.overrideUrl]),
+    ...(blocks.systems || []).flatMap(system => [system.catalogNumber, system.overrideUrl]),
   ];
   return merge(
     findPhiSignals(chunks.filter(Boolean).join('\n')),
@@ -114,8 +116,14 @@ export function findPhiInSurgeon(surgeon) {
     surgeon?.name,
     surgeon?.facility,
     ...(surgeon?.firstCase || []),
+    ...(surgeon?.preferredSystems || []).map(system => system.name || ''),
   ];
-  return merge(findPhiSignals(chunks.filter(Boolean).join('\n')), fieldSignals(surgeon));
+  const codes = (surgeon?.preferredSystems || []).flatMap(system => [system.catalogNumber, system.overrideUrl]);
+  return merge(
+    findPhiSignals(chunks.filter(Boolean).join('\n')),
+    findPhiSignals(codes.filter(Boolean).join('\n'), { skip: CODE_SKIP }),
+    fieldSignals(surgeon),
+  );
 }
 
 /**

@@ -6,6 +6,8 @@ import { productsByKind, productIdForSuture } from '../data/products';
 import { findPhiInProcedure } from '../data/phi';
 import { cleanAliases } from '../data/boardMatch';
 import { cleanInstruments, cleanSteps, normalizeBlocks, uid } from '../data/schema';
+import { cleanSystemUses } from '../data/systems';
+import { SystemListEditor } from './Systems';
 import SearchableDropdown from './SearchableDropdown';
 import MicButton from './MicButton';
 import PhiPause from './PhiPause';
@@ -36,6 +38,7 @@ function gloveFromId(id, size) {
 const SECTIONS = [
   ['editor-case', 'Case'],
   ['editor-room', 'Room'],
+  ['editor-systems', 'Systems'],
   ['editor-gloves', 'Gloves'],
   ['editor-flow', 'Flow'],
   ['editor-instruments', 'Instruments'],
@@ -105,19 +108,37 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
       signerRef.current?.focus();
       return;
     }
+    const badLink = (draft.blocks.systems || []).some(item => item.overrideUrl?.trim() && !/^https:\/\//i.test(item.overrideUrl.trim()));
+    if (badLink) {
+      document.getElementById('editor-systems')?.scrollIntoView();
+      return;
+    }
     const aliases = cleanAliases(aliasText);
     const hits = findPhiInProcedure({ ...draft, aliases });
     if (hits.length) {
       setPhi(hits);
       return;
     }
+    const systems = cleanSystemUses(draft.blocks.systems);
+    const systemIds = new Set(systems.map(item => item.id));
     const steps = cleanSteps(draft.blocks.steps);
     onSave({
       ...draft,
       name: draft.name.trim() || 'Untitled case',
       approach: (draft.approach || '').trim().slice(0, 60),
       aliases,
-      blocks: { ...draft.blocks, steps, instruments: cleanInstruments(draft.blocks.instruments) },
+      blocks: {
+        ...draft.blocks,
+        steps,
+        instruments: cleanInstruments(draft.blocks.instruments),
+        systems,
+        trays: (draft.blocks.trays || []).map(tray => {
+          if (!tray.systemId || systemIds.has(tray.systemId)) return tray;
+          const next = { ...tray };
+          delete next.systemId;
+          return next;
+        }),
+      },
     }, { by: signer.trim() });
     onClose();
   };
@@ -206,6 +227,16 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
             </div>
           </section>
 
+          <section id="editor-systems" tabIndex={-1} className={sectionClass}>
+            <h3 className={heading}>Systems for this case</h3>
+            <p className="text-xs text-slate-500">The system this surgeon uses, or the one this case adds. A product page and the company instructions stay separate.</p>
+            <SystemListEditor
+              systems={blocks.systems || []}
+              suggestions={surgeon.preferredSystems || []}
+              onChange={systems => setBlocks({ systems })}
+            />
+          </section>
+
           <section id="editor-gloves" tabIndex={-1} className={sectionClass}>
             <h3 className={heading}>Gloves</h3>
             {['outer', 'inner'].map(which => (
@@ -284,6 +315,12 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
                 <input aria-label={`Tray ${index + 1}, what the team calls it`} value={tray.commonName} placeholder="What the team calls it" onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, commonName: e.target.value } : t) })} className={input} />
                 <input aria-label={`Tray ${index + 1}, SPD name`} value={tray.spdName} placeholder="SPD name" onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, spdName: e.target.value } : t) })} className={input} />
                 <input aria-label={`Tray ${index + 1}, company`} value={tray.vendorName} placeholder="Company, if it is theirs" onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, vendorName: e.target.value } : t) })} className={input} />
+                {(blocks.systems || []).length > 0 && (
+                  <select aria-label={`Tray ${index + 1}, system`} value={tray.systemId || ''} onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, systemId: e.target.value } : t) })} className={input}>
+                    <option value="">No system</option>
+                    {(blocks.systems || []).map(system => <option key={system.id} value={system.id}>{system.name}</option>)}
+                  </select>
+                )}
                 <div className="flex gap-2">
                   <select aria-label={`Tray ${index + 1}, open or hold`} value={tray.openOrHold} onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, openOrHold: e.target.value } : t) })} className={input}>
                     <option value="open">Open</option>

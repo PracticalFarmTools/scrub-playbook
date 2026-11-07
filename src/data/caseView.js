@@ -28,7 +28,7 @@ export function pullTargets(blocks) {
   (blocks.trays || []).forEach(tray => {
     items.push({
       id: `tray-${tray.id}`,
-      label: [tray.commonName || 'Tray', tray.spdName && `SPD: ${tray.spdName}`, tray.openOrHold === 'hold' ? 'Hold' : 'Open'].filter(Boolean).join(' · '),
+      label: [tray.commonName || 'Tray', (blocks.systems || []).find(system => system.id === tray.systemId)?.name, tray.spdName && `SPD: ${tray.spdName}`, tray.openOrHold === 'hold' ? 'Hold' : 'Open'].filter(Boolean).join(' · '),
     });
   });
   (blocks.sutures || []).forEach(suture => {

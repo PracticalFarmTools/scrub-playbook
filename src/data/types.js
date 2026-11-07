@@ -11,6 +11,7 @@
  * @property {Array<object>} [firstCase]
  * @property {string | null} [firstCaseAt]
  * @property {string} [firstCaseBy]
+ * @property {Array<import('./systems').SystemUse>} [preferredSystems] Systems this surgeon uses, up to the catalog cap.
  * @property {string} [createdAt]
  * @property {string} [addedBy]
  * @property {UnitStamp} [unitBook]
@@ -38,6 +39,7 @@
  * @property {Array<object>} instruments
  * @property {Array<object>} trays
  * @property {Array<object>} implants
+ * @property {Array<import('./systems').SystemUse>} systems
  * @property {Array<object>} sutures
  * @property {{ outer: Glove | null, inner: Glove | null }} gloves
  * @property {Array<object>} nicknames

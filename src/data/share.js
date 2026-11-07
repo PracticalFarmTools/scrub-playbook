@@ -1,6 +1,7 @@
 import { QR_MAX_CHARS, normalizeBlocks } from './schema';
 import { stripConfirmation } from './trust';
 import { cleanAliases } from './boardMatch';
+import { cleanSystemUses, systemShareLine, systemsForCase } from './systems';
 
 /** The text and the small payload of one card that a tech sends by message, AirDrop, or QR. */
 
@@ -100,6 +101,9 @@ export function toGlanceText(surgeon, procedure) {
   if (blocks.drapes.text?.trim()) pushSection(lines, 'Drapes', [blocks.drapes.text]);
   if (blocks.room.text?.trim()) pushSection(lines, 'Room start', [blocks.room.text]);
   if (blocks.equipment.text?.trim()) pushSection(lines, 'Equipment and settings', [blocks.equipment.text]);
+  const systems = systemsForCase(surgeon, blocks);
+  if (systems.onCard.length) pushSection(lines, 'Systems for this case', systems.onCard.map(systemShareLine));
+  if (systems.fromSurgeon.length) pushSection(lines, `Systems ${surgeonTitle(surgeon?.name)} uses`, systems.fromSurgeon.map(systemShareLine));
 
   const gloves = [];
   if (blocks.gloves.outer?.model) {
@@ -123,6 +127,8 @@ export function toGlanceText(surgeon, procedure) {
 
   pushSection(lines, 'Trays', (blocks.trays || []).map(tray => {
     const parts = [tray.commonName];
+    const system = (blocks.systems || []).find(item => item.id === tray.systemId);
+    if (system?.name) parts.push(system.name);
     if (tray.spdName) parts.push(`SPD: ${tray.spdName}`);
     if (tray.vendorName) parts.push(tray.vendorName);
     parts.push(tray.openOrHold === 'hold' ? 'Hold' : 'Open');
@@ -165,6 +171,11 @@ export function toShareableCard(surgeon, procedure) {
       facility: surgeon.facility || '',
       ...((surgeon.firstCase || []).some(line => String(line || '').trim())
         ? { firstCase: (surgeon.firstCase || []).map(line => String(line).trim()).filter(Boolean).slice(0, 3) }
+        : {}),
+      ...(cleanSystemUses(surgeon.preferredSystems).length
+        ? { preferredSystems: cleanSystemUses(surgeon.preferredSystems).map(({ catalogId, name, companyId, catalogNumber, overrideUrl, repExpected }) => ({
+          catalogId, name, companyId, catalogNumber, overrideUrl, repExpected,
+        })) }
         : {}),
     },
     procedure: slimProcedure(procedure),

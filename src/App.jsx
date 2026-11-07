@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { SURGICAL_VENDORS } from './data/vendors';
+import { searchCatalog } from './data/systems';
 import { buildSampleBook } from './data/defaults';
 import {
   CARD_STATUS, DISCLAIMER_KEY, HOME_SCREEN_KEY, SORT_KEY, STALE_AFTER_DAYS, SUGGESTIONS_KEY, duplicateProcedure, emptyProcedure,
@@ -26,7 +26,7 @@ import HomeBanners from './components/HomeBanners';
 import RecentActivity from './components/RecentActivity';
 import SurgeonCard from './components/SurgeonCard';
 import TodayList from './components/TodayList';
-import { VendorLibrary, VendorResults } from './components/VendorPanels';
+import { CatalogResults, VendorLibrary } from './components/VendorPanels';
 import { dayStamp, downloadText } from './utils/download';
 import { applyUpdate, onUpdateReady } from './pwa';
 
@@ -111,10 +111,8 @@ export default function App() {
   const filtered = useMemo(() => filterBook(book, search, placeFilter), [book, search, placeFilter]);
   const archivedCount = book.surgeons.filter(s => !s.demo && s.archived).length;
   const q = search.trim().toLowerCase();
-  const vendorHits = q
-    ? SURGICAL_VENDORS.filter(v => v.name.toLowerCase().includes(q) || v.blurb.toLowerCase().includes(q))
-    : [];
-  const showVendorHits = q && vendorHits.length > 0 && vendorHits.length < SURGICAL_VENDORS.length;
+  const catalogHits = useMemo(() => searchCatalog(q), [q]);
+  const showCatalogHits = catalogHits.systems.length + catalogHits.companies.length > 0;
 
   const trustFor = useCallback(
     (procedure) => trustOptionsFor(procedure, book.surgeons.find(surgeon => surgeon.id === procedure.surgeonId), published),
@@ -335,6 +333,10 @@ export default function App() {
       bookApi.saveFirstCase(id, lines);
       addAudit({ action: 'First-case notes edited', surgeonName: surgeon.name });
     },
+    onSavePreferredSystems: (id, systems) => {
+      bookApi.savePreferredSystems(id, systems);
+      addAudit({ action: 'Surgeon systems edited', surgeonName: surgeon.name, note: systems.map(item => item.name).filter(Boolean).join(', ') });
+    },
     onCaseView: (s, procedure) => openCases([procedure.id], false),
     onHistory: surgeon.demo ? undefined : (procedure) => setOverlay({ kind: 'history', procedureId: procedure.id }),
     onCopyToNotes: (id) => {
@@ -377,7 +379,7 @@ export default function App() {
         onAddSurgeon={() => setOverlay({ kind: 'add' })}
       />
 
-      {showVendorHits && <VendorResults vendors={vendorHits} />}
+      {showCatalogHits && <CatalogResults systems={catalogHits.systems} companies={catalogHits.companies} />}
       {showVendors && !q && <VendorLibrary onClose={() => setShowVendors(false)} />}
 
       <main className="max-w-5xl mx-auto px-4 py-6">

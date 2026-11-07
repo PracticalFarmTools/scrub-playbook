@@ -3,6 +3,7 @@ import { GLOVE_COLOR_HEX } from '../data/gloves';
 import { CARD_STATUS } from '../data/schema';
 import { timeAgo, trustState } from '../data/trust';
 import ProductLink from './ProductLink';
+import { SystemDoors } from './Systems';
 import { resolveProductLink } from '../data/productLink';
 import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
@@ -118,6 +119,15 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
       <TextBlock label="Room start" text={blocks.room?.text} />
       <TextBlock label="Equipment and settings" text={blocks.equipment?.text} />
 
+      {(blocks.systems || []).length > 0 && (
+        <div className="px-5 pb-4">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Systems for this case</p>
+          {(blocks.systems || []).map(system => (
+            <SystemDoors key={system.id || system.name} use={system} />
+          ))}
+        </div>
+      )}
+
       <div className="px-5 pb-4 flex flex-wrap gap-2">
         <GloveLine glove={blocks.gloves?.outer} label="Outer" />
         <GloveLine glove={blocks.gloves?.inner} label="Inner" />
@@ -152,6 +162,9 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
                 <span className="font-semibold">{tray.commonName}</span>
                 {tray.spdName && <span className="text-slate-500"> · SPD: {tray.spdName}</span>}
                 {tray.vendorName && <span className="text-slate-500"> · {tray.vendorName}</span>}
+                {(blocks.systems || []).some(system => system.id === tray.systemId) && (
+                  <span className="text-slate-500"> · {(blocks.systems || []).find(system => system.id === tray.systemId).name}</span>
+                )}
                 <span className="text-slate-500"> · {tray.openOrHold === 'hold' ? 'Hold' : 'Open'}</span>
               </li>
             ))}

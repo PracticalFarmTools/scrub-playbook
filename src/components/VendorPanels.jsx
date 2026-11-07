@@ -1,65 +1,118 @@
+import { useMemo, useState } from 'react';
 import { ExternalLink, X } from 'lucide-react';
-import { SURGICAL_VENDORS } from '../data/vendors';
+import { COMPANIES, SPECIALTIES, specialtyLabel } from '../data/companies';
+import { SystemDoors } from './Systems';
+
+function CompanyLink({ company }) {
+  const body = (
+    <div className="min-w-0">
+      <p className="text-sm font-semibold text-slate-800 truncate">{company.name}</p>
+      <p className="text-xs text-slate-500 truncate">{company.blurb}</p>
+    </div>
+  );
+  if (!company.url) {
+    return (
+      <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5 min-h-11">
+        {body}
+        <span className="text-xs font-semibold text-slate-400 shrink-0 ml-2">No page stored</span>
+      </div>
+    );
+  }
+  return (
+    <a
+      href={company.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5 min-h-11 hover:bg-medical-50"
+    >
+      {body}
+      <span className="inline-flex items-center gap-1 text-xs font-bold text-medical-700 shrink-0 ml-2">
+        Instructions <ExternalLink size={12} aria-hidden="true" />
+      </span>
+    </a>
+  );
+}
 
 /**
- * Vendor search results — shown when user searches and matches vendors.
+ * Search hits. Systems come first, and a company hit is labeled instructions.
+ * @param {{ systems: Array<object>, companies: Array<object> }} props
  */
-export function VendorResults({ vendors }) {
+export function CatalogResults({ systems, companies }) {
+  const uses = systems.map(system => ({
+    id: system.id,
+    catalogId: system.id,
+    name: system.name,
+    companyId: system.companyId,
+    catalogNumber: '',
+    overrideUrl: '',
+    repExpected: false,
+  }));
   return (
     <div className="max-w-5xl mx-auto px-4 mt-4">
-      <div className="bg-medical-50 border border-medical-200 rounded-2xl p-4">
-        <p className="text-xs font-semibold text-medical-600 uppercase tracking-wider mb-3">
-          Company pages ({vendors.length})
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {vendors.map((v, i) => (
-            <a
-              key={i}
-              href={v.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white rounded-xl px-4 py-3 hover:shadow-md transition-all group border border-transparent hover:border-medical-300"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-800 group-hover:text-medical-700">{v.name}</p>
-                <p className="text-xs text-slate-500 truncate">{v.blurb}</p>
-              </div>
-              <ExternalLink size={14} className="text-slate-300 group-hover:text-medical-500 shrink-0 ml-2" />
-            </a>
-          ))}
-        </div>
+      <div className="bg-medical-50 border border-medical-200 rounded-2xl p-4 space-y-4">
+        {uses.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-medical-600 uppercase tracking-wider mb-2">Systems ({uses.length})</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {uses.map(use => (
+                <div key={use.id} className="bg-white rounded-xl px-3 py-2 border border-medical-100">
+                  <SystemDoors use={use} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {companies.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-medical-600 uppercase tracking-wider mb-2">Company instructions ({companies.length})</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {companies.map(company => <CompanyLink key={company.id} company={company} />)}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/**
- * Full vendor library panel — toggled from the header menu icon.
- */
+/** The full directory, grouped, with its own search. */
 export function VendorLibrary({ onClose }) {
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const companies = useMemo(() => COMPANIES.filter(company => {
+    if (!q) return true;
+    return company.name.toLowerCase().includes(q)
+      || company.aliases.some(alias => alias.toLowerCase().includes(q))
+      || company.specialties.some(item => specialtyLabel(item).toLowerCase().includes(q) || item.includes(q));
+  }), [q]);
+  const groups = SPECIALTIES
+    .map(([id, label]) => ({ id, label, companies: companies.filter(company => company.specialties[0] === id) }))
+    .filter(group => group.companies.length > 0);
+
   return (
     <div className="max-w-5xl mx-auto px-4 mt-4">
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-bold text-slate-700">Company pages ({SURGICAL_VENDORS.length})</p>
-          <button onClick={onClose} aria-label="Close company pages" className="min-h-11 min-w-11 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"><X size={16} /></button>
+      <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-sm font-bold text-slate-700">Systems and companies ({COMPANIES.length})</p>
+          <button type="button" onClick={onClose} aria-label="Close systems and companies" className="min-h-11 min-w-11 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"><X size={16} /></button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto">
-          {SURGICAL_VENDORS.map((v, i) => (
-            <a
-              key={i}
-              href={v.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5 hover:bg-medical-50 transition-all group"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-700 group-hover:text-medical-700 truncate">{v.name}</p>
-                <p className="text-xs text-slate-500 truncate">{v.blurb}</p>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          aria-label="Find a company"
+          placeholder="Find a company"
+          className="w-full min-h-11 rounded-xl border border-slate-200 px-3 text-sm mb-4"
+        />
+        <div className="max-h-[70vh] overflow-y-auto space-y-5">
+          {groups.map(group => (
+            <section key={group.id}>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{group.label}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {group.companies.map(company => <CompanyLink key={company.id} company={company} />)}
               </div>
-              <ExternalLink size={12} className="text-slate-300 group-hover:text-medical-500 shrink-0 ml-2" />
-            </a>
+            </section>
           ))}
+          {groups.length === 0 && <p className="text-sm text-slate-500">No company matches that.</p>}
         </div>
       </div>
     </div>

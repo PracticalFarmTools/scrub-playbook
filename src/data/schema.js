@@ -66,6 +66,7 @@ export function emptyBlocks() {
     endOfCase: emptyText(),
     people: [],
     note: emptyText(),
+    systems: [],
   };
 }
 
@@ -89,6 +90,7 @@ export function normalizeBlocks(blocks = {}) {
     sutures: blocks.sutures || [],
     nicknames: blocks.nicknames || [],
     people: blocks.people || [],
+    systems: blocks.systems || [],
   };
 }
 
@@ -144,6 +146,8 @@ export function emptyProcedure(surgeonId, partial = {}) {
 export function duplicateProcedure(procedure) {
   const blocks = normalizeBlocks(procedure?.blocks);
   const fresh = (list) => list.map(item => ({ ...item, id: uid() }));
+  const systems = fresh(blocks.systems);
+  const systemIds = new Map(blocks.systems.map((item, index) => [item.id, systems[index]?.id]));
   return emptyProcedure(procedure.surgeonId, {
     name: `${procedure.name || 'Untitled case'} (copy)`,
     approach: procedure.approach || '',
@@ -154,9 +158,18 @@ export function duplicateProcedure(procedure) {
       gloves: { ...blocks.gloves },
       steps: fresh(blocks.steps),
       instruments: fresh(blocks.instruments),
-      trays: fresh(blocks.trays),
+      trays: fresh(blocks.trays).map(tray => {
+        const systemId = systemIds.get(tray.systemId);
+        if (!systemId) {
+          const copy = { ...tray };
+          delete copy.systemId;
+          return copy;
+        }
+        return { ...tray, systemId };
+      }),
       implants: fresh(blocks.implants),
       sutures: fresh(blocks.sutures),
+      systems: systems,
       nicknames: blocks.nicknames.map(item => ({ ...item })),
       people: blocks.people.map(item => ({ ...item })),
     },

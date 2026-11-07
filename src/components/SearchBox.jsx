@@ -20,7 +20,7 @@ export default function SearchBox({ initialValue = '', onChange }) {
         value={text}
         onChange={e => change(e.target.value)}
         aria-label="Search your book"
-        placeholder="Search surgeons, sutures, trays, nicknames…"
+        placeholder="Search surgeons, systems, sutures, trays…"
         className="w-full min-h-11 pl-10 pr-11 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-base focus:outline-none focus:ring-2 focus:ring-medical-400/40 focus:bg-white"
       />
       {text && (

@@ -87,7 +87,7 @@ export function pinnedKey(book, unitBookId) {
 const SECTION_LABELS = [
   ['position', 'Position'], ['prep', 'Prep'], ['drapes', 'Drapes'], ['room', 'Room start'],
   ['equipment', 'Equipment and settings'], ['gloves', 'Gloves'], ['steps', 'Case flow'], ['instruments', 'Instruments'],
-  ['trays', 'Trays'], ['sutures', 'Sutures'], ['implants', 'Implants'], ['nicknames', 'Nicknames'], ['people', 'People'],
+  ['trays', 'Trays'], ['sutures', 'Sutures'], ['implants', 'Implants'], ['systems', 'Systems'], ['nicknames', 'Nicknames'], ['people', 'People'],
   ['endOfCase', 'Dressing and end of case'], ['note', 'Note'],
 ];
 const TEXT_SECTIONS = new Set(['position', 'prep', 'drapes', 'room', 'equipment', 'endOfCase', 'note']);

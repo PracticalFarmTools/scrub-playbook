@@ -6,6 +6,7 @@ import { cleanAliases } from './boardMatch';
 import { SHARE_FENCE } from './share';
 import { mergeBackup } from './backup';
 import { TRAIL_MAX } from './editTrail';
+import { cleanSystemUses } from './systems';
 
 /** Reading what arrives: a shared card, a hand-off, a backup, a unit book, or a hand-over file. */
 
@@ -92,6 +93,7 @@ function cardToBook(data) {
         firstCase: cleanFirstCase(data.surgeon.firstCase),
         firstCaseAt: null,
         firstCaseBy: cleanFirstCase(data.surgeon.firstCase).length ? 'Imported' : '',
+        preferredSystems: cleanSystemUses(data.surgeon.preferredSystems),
         archived: false,
       }],
       procedures: [procedure],

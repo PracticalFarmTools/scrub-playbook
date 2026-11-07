@@ -36,7 +36,7 @@ export default function AppHeader({
             <button type="button" onClick={onImport} className={headerButton} title="Import" aria-label="Import">
               <Upload size={20} />
             </button>
-            <button type="button" onClick={onToggleVendors} className={headerButton} title="Company pages" aria-label="Company pages" aria-expanded={showVendors}>
+            <button type="button" onClick={onToggleVendors} className={headerButton} title="Systems and companies" aria-label="Systems and companies" aria-expanded={showVendors}>
               <Menu size={20} />
             </button>
             <button type="button" onClick={onAddSurgeon} aria-label="Add surgeon" className="sm:ml-1 min-h-11 min-w-11 flex items-center justify-center gap-1.5 px-3 sm:px-4 rounded-xl bg-medical-600 text-white font-semibold text-sm cursor-pointer">

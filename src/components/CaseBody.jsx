@@ -1,4 +1,6 @@
 import { nickFor, pullTargets, trustLine } from '../data/caseView';
+import { systemsForCase } from '../data/systems';
+import { SystemDoors } from './Systems';
 
 function Section({ title, children, muted }) {
   return (
@@ -20,6 +22,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
   const muted = dark ? 'text-slate-400' : 'text-slate-600';
   const firstCase = (surgeon.firstCase || []).map(line => String(line || '').trim()).filter(Boolean).slice(0, 3);
   const steps = blocks.steps || [];
+  const systems = systemsForCase(surgeon, blocks);
 
   const checkFor = (id) => targets.some(item => item.id === id)
     ? (
@@ -62,6 +65,23 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           <ul className="space-y-1">
             {firstCase.map((line, index) => <li key={index}>• {line}</li>)}
           </ul>
+        </Section>
+      )}
+
+      {(systems.onCard.length > 0 || systems.fromSurgeon.length > 0) && (
+        <Section title="Systems" muted={muted}>
+          {systems.onCard.length > 0 && (
+            <div>
+              {systems.fromSurgeon.length > 0 && <p className={`text-base font-bold mb-1 ${muted}`}>This case</p>}
+              {systems.onCard.map(system => <SystemDoors key={system.id || system.name} use={system} dark={dark} room />)}
+            </div>
+          )}
+          {systems.fromSurgeon.length > 0 && (
+            <div className={systems.onCard.length > 0 ? 'mt-3' : ''}>
+              <p className={`text-base font-bold mb-1 ${muted}`}>This surgeon uses</p>
+              {systems.fromSurgeon.map(system => <SystemDoors key={system.id || system.name} use={system} dark={dark} room />)}
+            </div>
+          )}
         </Section>
       )}
 
@@ -126,7 +146,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           {blocks.trays.map(tray => (
             <label key={tray.id} className="flex items-start gap-3 min-h-11 py-1">
               {checkFor(`tray-${tray.id}`)}
-              <span>{[tray.commonName || 'Tray', tray.spdName && `SPD: ${tray.spdName}`, tray.openOrHold === 'hold' ? 'Hold' : 'Open'].filter(Boolean).join(' · ')}</span>
+              <span>{[tray.commonName || 'Tray', (blocks.systems || []).find(system => system.id === tray.systemId)?.name, tray.spdName && `SPD: ${tray.spdName}`, tray.openOrHold === 'hold' ? 'Hold' : 'Open'].filter(Boolean).join(' · ')}</span>
             </label>
           ))}
         </Section>

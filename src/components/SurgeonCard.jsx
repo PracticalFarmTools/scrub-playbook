@@ -5,6 +5,7 @@ import { rowTrust, timeAgo, trustState } from '../data/trust';
 import { sourceLabel } from '../data/unitBook';
 import ProcedureGlance from './ProcedureGlance';
 import PhiPause from './PhiPause';
+import { PreferredSystems } from './Systems';
 import { STATUS_CLASS } from './statusStyle';
 
 const SHORT_STATUS = {
@@ -46,6 +47,7 @@ export default function SurgeonCard({
   onCopyToNotes,
   onCaseView,
   onSaveFirstCase,
+  onSavePreferredSystems,
   onHistory,
 }) {
   const [confirming, setConfirming] = useState(/** @type {any} */ (null));
@@ -198,6 +200,7 @@ export default function SurgeonCard({
           <button type="button" onClick={() => { setFirstDraft(['', '', '']); setEditingFirst(true); }} className="min-h-11 text-xs font-bold text-medical-700 cursor-pointer">Add first-case notes</button>
         </div>
       )}
+      <PreferredSystems surgeon={surgeon} editable={editable} onSave={onSavePreferredSystems} />
       {phi.length > 0 && <PhiPause signals={phi} next={phiNext} onEdit={() => setPhi([])} />}
 
       {procedures.length === 0 && (

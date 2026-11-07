@@ -10,6 +10,7 @@ import { archivePlace, deletePlace } from '../data/places';
 import { applyUnitBook, copyUnitProcedure } from '../data/unitBook';
 import { recordBookChange, withEarlierContent } from '../data/history';
 import { addSignedEdit, signedContent } from '../data/editTrail';
+import { cleanSystemUses } from '../data/systems';
 import { applySave, clearConfirmation, personId, stripConfirmation, withConfirmation } from '../data/trust';
 
 export const UNREADABLE_KEY = 'scrubplaybook_book_unreadable';
@@ -282,6 +283,18 @@ export function useBook() {
     }));
   }, []);
 
+  const savePreferredSystems = useCallback((id, list) => {
+    const preferredSystems = cleanSystemUses(list);
+    setBook(prev => ({
+      ...prev,
+      surgeons: prev.surgeons.map(s => s.id === id && !s.unitBook ? {
+        ...s,
+        preferredSystems,
+        updatedAt: new Date().toISOString(),
+      } : s),
+    }));
+  }, []);
+
   const setPlaceArchived = useCallback((place, archived) => {
     setBook(prev => archivePlace(prev, place, archived));
   }, []);
@@ -425,6 +438,7 @@ export function useBook() {
     disputeProcedure,
     clearDispute,
     saveFirstCase,
+    savePreferredSystems,
     setPlaceArchived,
     removePlace,
     updateSurgeon,
