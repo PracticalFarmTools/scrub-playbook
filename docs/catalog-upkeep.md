@@ -66,7 +66,7 @@ A company can exist with an empty `url`. The directory then says no page is stor
 
 `systems.js` is the list of systems a room sets up: a knee system, a robot, a phaco machine, an energy device. Each row has a stable `id`, the company id, aliases, and, only when `products.js` already has a checked page, a `productId`.
 
-A surgeon stores up to 12 of these (`preferredSystems`). A card stores up to 12 for that case (`blocks.systems`), and a tray can point at one of them. The case view shows the card's systems, then any surgeon system the card does not already list. Each one can open three different doors:
+A surgeon stores up to 12 of these (`preferredSystems`). A card stores up to 12 for that case (`blocks.systems`), and a tray can point at one of them. The case view shows the card's systems, then any surgeon system the card does not already list. The Systems and companies panel browses companies by specialty, and its search also opens a matching system. Each one can open three different doors:
 
 - **Product page**, when `productId` points at a fresh `product-page`.
 - **This catalog code**, when the card stored a code and the product has a template. The code still shows as text, and travels in a shared message, when no template is stored yet.

@@ -66,3 +66,17 @@ test('search finds a system by name and does not list the directory for one lett
   await expect(page.getByRole('link', { name: 'Alcon instructions' })).toHaveAttribute('href', 'https://ifu.alcon.com')
   await expect(page.getByRole('link', { name: 'Product page' })).toHaveCount(0)
 })
+
+test('the directory finds a system by name and still groups companies', async ({ page }) => {
+  await resetPhone(page, { book })
+  await page.getByRole('button', { name: 'Systems and companies' }).click()
+  await expect(page.getByText(/^Companies \(\d+\)$/)).toBeVisible()
+  const finder = page.getByLabel('Find a system or company')
+  await finder.fill('mako')
+  const systems = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Systems (1)' }) })
+  await expect(systems.getByText('Mako · Stryker')).toBeVisible()
+  await expect(systems.getByRole('link', { name: 'Stryker instructions' })).toHaveAttribute('href', 'https://ifu.stryker.com')
+  await finder.fill('eye')
+  const eyes = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Eyes' }) })
+  await expect(eyes.getByRole('link', { name: /Alcon/ })).toBeVisible()
+})
