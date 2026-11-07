@@ -5,6 +5,7 @@ import { timeAgo, trustState } from '../data/trust';
 import ProductLink from './ProductLink';
 import { SystemDoors } from './Systems';
 import { resolveProductLink } from '../data/productLink';
+import { getProduct } from '../data/products';
 import { trayLine } from '../data/caseView';
 import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
@@ -205,14 +206,20 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <div className="px-5 pb-4">
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Implants</p>
           <ul className="space-y-1">
-            {blocks.implants.map(implant => (
-              <li key={implant.id} className="text-sm text-slate-700 flex flex-wrap items-center gap-1">
-                <ProductLink productId={implant.productId} catalogNumber={implant.catalogNumber} overrideUrl={implant.overrideUrl}>
-                  {implant.systemName || 'Unnamed system'}
-                </ProductLink>
-                {implant.repExpected && <span className="text-slate-500">· Rep expected</span>}
-              </li>
-            ))}
+            {blocks.implants.map(implant => {
+              const product = getProduct(implant.productId);
+              const name = String(implant.systemName || '').trim();
+              const listed = product?.name && product.name !== name ? product.name : '';
+              return (
+                <li key={implant.id} className="text-sm text-slate-700 flex flex-wrap items-center gap-1">
+                  <ProductLink productId={implant.productId} catalogNumber={implant.catalogNumber} overrideUrl={implant.overrideUrl}>
+                    {listed || name || 'Unnamed system'}
+                  </ProductLink>
+                  {listed && name ? <span>Room calls it {name}.</span> : null}
+                  {implant.repExpected && <span className="text-slate-500">· Rep expected</span>}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

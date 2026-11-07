@@ -49,6 +49,14 @@ describe('SystemDoors', () => {
     expect(screen.getByRole('status').textContent).toBe('Mako is already on this list.');
   });
 
+  it('does not let a room name replace the listed system on the product page', () => {
+    const use = cleanSystemUses([{ catalogId: 'sys-attune', name: 'Persona Knee System' }])[0];
+    render(<SystemDoors use={use} />);
+    expect(screen.getByText(/ATTUNE Knee System/)).toBeTruthy();
+    expect(screen.getByText('Room calls it Persona Knee System.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Product page' }).getAttribute('href')).toMatch(/attune-knee-system/);
+  });
+
   it('says when no page is stored', () => {
     render(<SystemDoors use={cleanSystemUses([{ name: 'House tray system' }])[0]} />);
     expect(screen.getByText('No page is stored for this system yet.')).toBeTruthy();

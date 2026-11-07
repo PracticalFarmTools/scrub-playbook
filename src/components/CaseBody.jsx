@@ -1,4 +1,4 @@
-import { nickFor, pullTargets, trayLine, trustLine } from '../data/caseView';
+import { implantLine, nickFor, pullTargets, trayLine, trustLine } from '../data/caseView';
 import { systemsForCase } from '../data/systems';
 import { SystemDoors } from './Systems';
 
@@ -171,7 +171,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           {blocks.implants.map(implant => (
             <label key={implant.id} className="flex items-start gap-3 min-h-11 py-1">
               {checkFor(`implant-${implant.id}`)}
-              <span>{[implant.systemName || 'Unnamed system', implant.repExpected ? 'Rep expected' : ''].filter(Boolean).join(' · ')}</span>
+              <span>{implantLine(implant)}</span>
             </label>
           ))}
         </Section>

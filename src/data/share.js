@@ -1,7 +1,7 @@
 import { QR_MAX_CHARS, normalizeBlocks } from './schema';
 import { stripConfirmation } from './trust';
 import { cleanAliases } from './boardMatch';
-import { trayLine } from './caseView';
+import { implantLine, trayLine } from './caseView';
 import { cleanSystemUses, systemShareLine, systemsForCase } from './systems';
 
 /** The text and the small payload of one card that a tech sends by message, AirDrop, or QR. */
@@ -138,10 +138,7 @@ export function toGlanceText(surgeon, procedure) {
     return [head, ...tail].filter(Boolean).join(' · ');
   }));
 
-  pushSection(lines, 'Implants', (blocks.implants || []).map(implant => {
-    const name = implant.systemName || 'Unnamed system';
-    return implant.repExpected ? `${name} · Rep expected` : name;
-  }));
+  pushSection(lines, 'Implants', (blocks.implants || []).map(implant => implantLine(implant)));
 
   pushSection(lines, 'Nicknames', (blocks.nicknames || []).map(nick => `“${nick.nickname}” → ${nick.actual || ''}`));
   pushSection(lines, 'People', (blocks.people || []).map(person => [person.name, person.role].filter(Boolean).join(' · ')));

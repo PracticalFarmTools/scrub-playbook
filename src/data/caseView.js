@@ -1,4 +1,6 @@
+import { getProduct } from './products';
 import { CARD_STATUS } from './schema';
+import { systemIdentity } from './systems';
 import { timeAgo, trustState } from './trust';
 
 export function trustLine(procedure, staleDays, sample, trust = {}) {
@@ -18,13 +20,23 @@ export function nickFor(blocks, name) {
 /** The same tray sentence on the card, in the room, and in a shared message. */
 export function trayLine(tray, blocks) {
   const system = (blocks?.systems || []).find(item => item.id === tray?.systemId);
+  const identity = system ? systemIdentity(system) : null;
   return [
     tray?.commonName || 'Tray',
-    system?.name,
+    identity?.listed,
+    identity?.called && `Room calls it ${identity.called}`,
     tray?.spdName && `SPD: ${tray.spdName}`,
     tray?.vendorName,
     tray?.openOrHold === 'hold' ? 'Hold' : 'Open',
   ].filter(Boolean).join(' · ');
+}
+
+/** The implant the page belongs to, then the name the room uses when those differ. */
+export function implantLine(implant) {
+  const product = getProduct(implant?.productId);
+  const name = String(implant?.systemName || '').trim();
+  const listed = product?.name && product.name !== name ? product.name : '';
+  return [listed || name || 'Unnamed system', listed && name && `Room calls it ${name}`, implant?.repExpected ? 'Rep expected' : ''].filter(Boolean).join(' · ');
 }
 
 export function pullTargets(blocks) {
@@ -53,7 +65,7 @@ export function pullTargets(blocks) {
   (blocks.implants || []).forEach(implant => {
     items.push({
       id: `implant-${implant.id}`,
-      label: [implant.systemName || 'Unnamed system', implant.repExpected ? 'Rep expected' : ''].filter(Boolean).join(' · '),
+      label: implantLine(implant),
     });
   });
   return items;

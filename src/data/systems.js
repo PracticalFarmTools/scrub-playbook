@@ -86,6 +86,21 @@ export function sameSystemName(a, b) {
   return Boolean(left) && left === fold(b);
 }
 
+/**
+ * The listed system is what the doors belong to. A different stored name is
+ * what the room calls it, and it does not replace the listed system.
+ * @param {Partial<SystemUse>} [use]
+ */
+export function systemIdentity(use) {
+  const catalog = getSystem(use?.catalogId);
+  const name = String(use?.name || '').trim();
+  if (!catalog) return { listed: name, called: '' };
+  const called = name && !sameSystemName(name, catalog.name) && !catalog.aliases.some(alias => sameSystemName(name, alias))
+    ? name
+    : '';
+  return { listed: catalog.name, called };
+}
+
 function fold(value) {
   return String(value || '')
     .toLowerCase()
@@ -197,7 +212,8 @@ export function systemsForCase(surgeon, blocks) {
 export function systemShareLine(use) {
   const company = getCompany(use?.companyId);
   const doors = doorsFor(use);
-  const head = [use?.name, company?.name, use?.repExpected ? 'Rep expected' : ''].filter(Boolean).join(' · ');
+  const identity = systemIdentity(use);
+  const head = [identity.listed, company?.name, use?.repExpected ? 'Rep expected' : '', identity.called && `Room calls it ${identity.called}`].filter(Boolean).join(' · ');
   const links = [
     doors.product && `Product page: ${doors.product.href}`,
     doors.catalog && `Catalog code: ${doors.catalog.href}`,

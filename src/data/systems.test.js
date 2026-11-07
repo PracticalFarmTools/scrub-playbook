@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { COMPANIES, findCompany } from './companies';
 import { getProduct } from './products';
-import { cleanSystemUses, doorsFor, findSystemByName, searchCatalog, SYSTEMS, systemsForCase } from './systems';
+import { pullTargets, trayLine } from './caseView';
+import { cleanSystemUses, doorsFor, findSystemByName, searchCatalog, SYSTEMS, systemShareLine, systemsForCase } from './systems';
 
 describe('companies', () => {
   it('matches a whole name or alias and ignores a fragment', () => {
@@ -37,6 +38,23 @@ describe('systems', () => {
     const doors = doorsFor({ catalogId: 'sys-centurion', name: 'Centurion Vision System', companyId: 'alcon' });
     expect(doors.product).toBeNull();
     expect(doors.instructions).toEqual({ href: 'https://ifu.alcon.com', label: 'Alcon instructions' });
+  });
+
+  it('keeps a renamed system on the listed product, and says what the room calls it', () => {
+    const use = { catalogId: 'sys-attune', name: 'Persona Knee System', companyId: 'depuy-synthes-j-and-j', catalogNumber: '', overrideUrl: '', repExpected: false };
+    const line = systemShareLine(use);
+    expect(line.startsWith('ATTUNE Knee System')).toBe(true);
+    expect(line).toContain('Room calls it Persona Knee System');
+    expect(line).toContain('https://www.jnjmedtech.com/en-US/product/attune-knee-system');
+    expect(line.indexOf('ATTUNE Knee System')).toBeLessThan(line.indexOf('Persona'));
+    const blocks = {
+      systems: [use],
+      trays: [{ id: 't1', commonName: 'Knee tray', spdName: '', vendorName: 'Stryker', openOrHold: 'open', systemId: 'cs1' }],
+      implants: [{ id: 'i1', systemName: 'Persona Knee System', productId: 'imp-attune', repExpected: false }],
+    };
+    use.id = 'cs1';
+    expect(trayLine(blocks.trays[0], blocks)).toBe('Knee tray · ATTUNE Knee System · Room calls it Persona Knee System · Stryker · Open');
+    expect(pullTargets(blocks).find(item => item.id === 'implant-i1').label).toBe('ATTUNE Knee System · Room calls it Persona Knee System');
   });
 
   it('finds a listed system by its exact name or alias', () => {

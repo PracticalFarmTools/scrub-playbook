@@ -69,18 +69,34 @@ describe('ProcedureEditor', () => {
     expect(onSave.mock.calls[0][1]).toEqual({ by: 'Alex Rivera' });
   });
 
+  it('drops an implant product page when the name is no longer that product', () => {
+    const onSave = vi.fn();
+    const procedure = {
+      ...partial,
+      blocks: {
+        ...partial.blocks,
+        implants: [{ id: 'i1', systemName: 'ATTUNE Knee System', productId: 'imp-attune', repExpected: false, catalogNumber: '', overrideUrl: '' }],
+      },
+    };
+    render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
+    fireEvent.change(screen.getByLabelText('Implant 1, system name'), { target: { value: 'Persona Knee System' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.implants[0]).toMatchObject({ systemName: 'Persona Knee System', productId: null });
+  });
+
   it('drops a tray’s system when that system is removed', () => {
     const onSave = vi.fn();
     const procedure = {
       ...partial,
       blocks: {
         ...partial.blocks,
-        systems: [{ id: 'cs1', catalogId: 'sys-attune', name: 'ATTUNE Knee System', companyId: 'depuy-synthes-j-and-j', catalogNumber: '', overrideUrl: '', repExpected: false }],
+        systems: [{ id: 'cs1', catalogId: 'sys-attune', name: 'Persona Knee System', companyId: 'depuy-synthes-j-and-j', catalogNumber: '', overrideUrl: '', repExpected: false }],
         trays: [{ id: 't1', commonName: 'Knee tray', spdName: '', vendorName: '', openOrHold: 'open', systemId: 'cs1' }],
       },
     };
     render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
     expect(screen.getByLabelText('Tray 1, system').value).toBe('cs1');
+    expect(screen.getByRole('option', { name: 'ATTUNE Knee System (room calls it Persona Knee System)' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Remove system 1' }));
     expect(screen.queryByLabelText('Tray 1, system')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));

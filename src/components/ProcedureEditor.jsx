@@ -6,7 +6,7 @@ import { productsByKind, productIdForSuture } from '../data/products';
 import { findPhiInProcedure } from '../data/phi';
 import { cleanAliases } from '../data/boardMatch';
 import { cleanInstruments, cleanSteps, normalizeBlocks, uid } from '../data/schema';
-import { cleanSystemUses } from '../data/systems';
+import { cleanSystemUses, systemIdentity } from '../data/systems';
 import { SystemListEditor } from './Systems';
 import SearchableDropdown from './SearchableDropdown';
 import MicButton from './MicButton';
@@ -329,7 +329,11 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
                 {(blocks.systems || []).length > 0 && (
                   <select aria-label={`Tray ${index + 1}, system`} value={tray.systemId || ''} onChange={e => setBlocks({ trays: blocks.trays.map((t, i) => i === index ? { ...t, systemId: e.target.value } : t) })} className={input}>
                     <option value="">No system</option>
-                    {(blocks.systems || []).map(system => <option key={system.id} value={system.id}>{system.name}</option>)}
+                    {(blocks.systems || []).map(system => {
+                      const identity = systemIdentity(system);
+                      const label = identity.called ? `${identity.listed} (room calls it ${identity.called})` : identity.listed;
+                      return <option key={system.id} value={system.id}>{label}</option>;
+                    })}
                   </select>
                 )}
                 <div className="flex gap-2">
@@ -382,7 +386,11 @@ export default function ProcedureEditor({ surgeon, procedure, copyOf = '', allow
             <h3 className={heading}>Implants</h3>
             {blocks.implants.map((implant, index) => (
               <div key={implant.id} className="space-y-2 border border-slate-100 rounded-xl p-3">
-                <input aria-label={`Implant ${index + 1}, system name`} value={implant.systemName} placeholder="System name, such as ATTUNE" onChange={e => setBlocks({ implants: blocks.implants.map((t, i) => i === index ? { ...t, systemName: e.target.value, productId: implants.find(p => p.name === e.target.value)?.id || t.productId } : t) })} className={input} />
+                <input aria-label={`Implant ${index + 1}, system name`} value={implant.systemName} placeholder="System name, such as ATTUNE" onChange={e => {
+                  const systemName = e.target.value;
+                  const named = implants.find(product => product.name === systemName.trim());
+                  setBlocks({ implants: blocks.implants.map((t, i) => i === index ? { ...t, systemName, productId: named?.id || null } : t) });
+                }} className={input} />
                 <select aria-label={`Implant ${index + 1}, product page`} value={implant.productId || ''} onChange={e => {
                   const product = implants.find(p => p.id === e.target.value);
                   setBlocks({ implants: blocks.implants.map((t, i) => i === index ? { ...t, productId: product?.id || null, systemName: product?.name || t.systemName } : t) });

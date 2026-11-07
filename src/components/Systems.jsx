@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { COMPANIES, getCompany } from '../data/companies';
 import { uid } from '../data/schema';
-import { SYSTEMS, SYSTEMS_MAX, doorsFor, findSystemByName, getSystem, sameSystemName } from '../data/systems';
+import { SYSTEMS, SYSTEMS_MAX, doorsFor, findSystemByName, getSystem, sameSystemName, systemIdentity } from '../data/systems';
 import SearchableDropdown from './SearchableDropdown';
 
 const CATALOG_OPTIONS = [
@@ -33,6 +33,7 @@ function isHttps(url) {
 export function SystemDoors({ use, dark = false, room = false }) {
   const doors = doorsFor(use);
   const company = getCompany(use.companyId);
+  const identity = systemIdentity(use);
   const linkClass = room
     ? `inline-flex items-center min-h-11 px-3 rounded-xl text-base font-bold underline underline-offset-2 ${dark ? 'bg-slate-800 text-sky-200' : 'bg-medical-50 text-medical-800'}`
     : 'inline-flex items-center min-h-11 text-sm font-bold text-medical-700 underline underline-offset-2';
@@ -41,10 +42,11 @@ export function SystemDoors({ use, dark = false, room = false }) {
   return (
     <div className={room ? 'py-2' : 'py-1'}>
       <p className={room ? 'text-lg font-bold' : 'text-sm font-semibold text-slate-800'}>
-        {use.name}
+        {identity.listed}
         {company ? <span className={`font-medium ${quiet}`}> · {company.name}</span> : null}
         {use.repExpected ? <span className={`font-medium ${quiet}`}> · Rep expected</span> : null}
       </p>
+      {identity.called ? <p className={`text-sm ${quiet}`}>Room calls it {identity.called}.</p> : null}
       <div className="flex flex-wrap gap-2 mt-1">
         {doors.product && (
           <a className={linkClass} href={doors.product.href} target="_blank" rel="noopener noreferrer">Product page</a>
@@ -138,6 +140,9 @@ export function SystemListEditor({ systems, onChange, suggestions = [] }) {
               onChange={e => patch(item.id, { name: e.target.value })}
               className={input}
             />
+            {getSystem(item.catalogId) && (
+              <p className="text-xs text-slate-600">Listed as {getSystem(item.catalogId).name}. The product page stays with that system.</p>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <input
                 aria-label={`System ${index + 1} catalog code`}
