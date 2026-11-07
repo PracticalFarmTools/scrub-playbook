@@ -345,9 +345,10 @@ describe('share', () => {
       official: { label: 'Knee card', reviewedAt: null, note: '' },
       blocks: {
         ...emptyBlocks(),
-        gloves: { outer: { model: 'Biogel Eclipse', size: '7.5' }, inner: null },
-        sutures: [{ id: 'su1', layer: 'Fascia', name: 'Vicryl', size: '2-0', needle: 'CT-1', open: '2', hold: '1' }],
-        trays: [{ id: 't1', commonName: 'Knee tray', spdName: 'SPD-KNEE', openOrHold: 'open' }],
+        gloves: { outer: { model: 'Biogel Eclipse', size: '7.5', color: 'Green' }, inner: null },
+        sutures: [{ id: 'su1', layer: 'Fascia', name: 'Vicryl', size: '2-0', needle: 'CT-1', open: '2', hold: '1', catalogNumber: 'J497H' }],
+        trays: [{ id: 't1', commonName: 'Knee tray', spdName: 'SPD-KNEE', openOrHold: 'open' }, { id: 't2', commonName: 'Extra', spdName: '', vendorName: '' }],
+        people: [{ name: 'Jake Rivera', role: 'PA', gloveModel: 'Protexis PI', gloveSize: '8.0', gloveColor: 'Blue' }],
         nicknames: [{ nickname: 'The Cobb', actual: 'Cobb Elevator' }],
         note: textBlock('Damp lap on the field', 'Blair'),
       },
@@ -355,8 +356,10 @@ describe('share', () => {
     const glance = toGlanceText(surgeon, procedure);
     expect(glance.text).toContain('Dr. Chen · Orthopedics');
     expect(glance.text).toContain('Procedure: Right total knee');
-    expect(glance.text).toContain('Outer: Biogel Eclipse 7.5');
-    expect(glance.text).toContain('Fascia · Vicryl 2-0 CT-1 · open 2 · hold 1');
+    expect(glance.text).toContain('Outer · Biogel Eclipse 7.5 Green');
+    expect(glance.text).toContain('Fascia · Vicryl 2-0 CT-1 · open 2 · hold 1 · J497H');
+    expect(glance.text).toContain('Jake Rivera · PA · Protexis PI 8.0 Blue');
+    expect(glance.text).toContain('Extra · Open or hold not set');
     expect(glance.text).toContain('Arrives unconfirmed. Confirm after you are in the room.');
     expect(glance.text).not.toContain('Blair');
     expect(glance.text).not.toContain('\nImplants\n');

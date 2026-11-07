@@ -1,7 +1,7 @@
 import { QR_MAX_CHARS, normalizeBlocks } from './schema';
 import { stripConfirmation } from './trust';
 import { cleanAliases } from './boardMatch';
-import { implantLine, trayLine } from './caseView';
+import { gloveLine, implantLine, personLine, sutureLine, trayLine } from './caseView';
 import { cleanSystemUses, systemShareLine, systemsForCase } from './systems';
 
 /** The text and the small payload of one card that a tech sends by message, AirDrop, or QR. */
@@ -106,13 +106,7 @@ export function toGlanceText(surgeon, procedure) {
   if (systems.onCard.length) pushSection(lines, 'Systems for this case', systems.onCard.map(systemShareLine));
   if (systems.fromSurgeon.length) pushSection(lines, `Systems ${surgeonTitle(surgeon?.name)} uses`, systems.fromSurgeon.map(systemShareLine));
 
-  const gloves = [];
-  if (blocks.gloves.outer?.model) {
-    gloves.push(`Outer: ${[blocks.gloves.outer.model, blocks.gloves.outer.size].filter(Boolean).join(' ')}`);
-  }
-  if (blocks.gloves.inner?.model) {
-    gloves.push(`Inner: ${[blocks.gloves.inner.model, blocks.gloves.inner.size].filter(Boolean).join(' ')}`);
-  }
+  const gloves = [gloveLine('Outer', blocks.gloves.outer), gloveLine('Inner', blocks.gloves.inner)].filter(Boolean);
   pushSection(lines, 'Gloves', gloves);
 
   pushSection(lines, 'Case flow', (blocks.steps || []).filter(step => step.title?.trim()).map((step, index) => {
@@ -128,20 +122,12 @@ export function toGlanceText(surgeon, procedure) {
 
   pushSection(lines, 'Trays', (blocks.trays || []).map(tray => trayLine(tray, blocks)));
 
-  pushSection(lines, 'Sutures', (blocks.sutures || []).map(suture => {
-    const layer = suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? suture.layer : '';
-    const head = [layer, [suture.name, suture.size, suture.needle].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
-    const tail = [];
-    if (suture.open) tail.push(`open ${suture.open}`);
-    if (suture.hold) tail.push(`hold ${suture.hold}`);
-    if (suture.catalogNumber) tail.push(suture.catalogNumber);
-    return [head, ...tail].filter(Boolean).join(' · ');
-  }));
+  pushSection(lines, 'Sutures', (blocks.sutures || []).map(suture => sutureLine(suture)));
 
   pushSection(lines, 'Implants', (blocks.implants || []).map(implant => implantLine(implant)));
 
   pushSection(lines, 'Nicknames', (blocks.nicknames || []).map(nick => `“${nick.nickname}” → ${nick.actual || ''}`));
-  pushSection(lines, 'People', (blocks.people || []).map(person => [person.name, person.role].filter(Boolean).join(' · ')));
+  pushSection(lines, 'People', (blocks.people || []).map(person => personLine(person)));
 
   if (blocks.endOfCase.text?.trim()) pushSection(lines, 'Dressing and end of case', [blocks.endOfCase.text]);
   if (blocks.note.text?.trim()) pushSection(lines, 'Note', [blocks.note.text]);

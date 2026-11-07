@@ -69,6 +69,19 @@ describe('ProcedureEditor', () => {
     expect(onSave.mock.calls[0][1]).toEqual({ by: 'Alex Rivera' });
   });
 
+  it('saves the glove for a person in the room', () => {
+    const onSave = vi.fn();
+    render(<ProcedureEditor surgeon={surgeon} procedure={partial} onClose={() => {}} onSave={onSave} />);
+    fireEvent.change(screen.getByLabelText('Person’s name'), { target: { value: 'Jake Rivera' } });
+    fireEvent.change(screen.getByLabelText('Glove for this person'), { target: { value: 'g7' } });
+    fireEvent.change(screen.getByLabelText('Glove size for this person'), { target: { value: '8.0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add person' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.people[0]).toMatchObject({
+      name: 'Jake Rivera', role: 'PA', gloveModel: 'Protexis PI', gloveSize: '8.0', gloveColor: 'Blue',
+    });
+  });
+
   it('drops an implant product page when the name is no longer that product', () => {
     const onSave = vi.fn();
     const procedure = {

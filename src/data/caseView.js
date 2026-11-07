@@ -27,8 +27,33 @@ export function trayLine(tray, blocks) {
     identity?.called && `Room calls it ${identity.called}`,
     tray?.spdName && `SPD: ${tray.spdName}`,
     tray?.vendorName,
-    tray?.openOrHold === 'hold' ? 'Hold' : 'Open',
+    tray?.openOrHold === 'hold' ? 'Hold' : tray?.openOrHold === 'open' ? 'Open' : 'Open or hold not set',
   ].filter(Boolean).join(' · ');
+}
+
+/** Outer or inner glove, including the color the box is picked by. */
+export function gloveLine(label, glove) {
+  const words = [glove?.model, glove?.size, glove?.color].map(item => String(item || '').trim()).filter(Boolean).join(' ');
+  return words ? `${label} · ${words}` : '';
+}
+
+/** Name, role, and the glove stored for that person. */
+export function personLine(person) {
+  const glove = [person?.gloveModel, person?.gloveSize, person?.gloveColor].map(item => String(item || '').trim()).filter(Boolean).join(' ');
+  return [person?.name, person?.role, glove].map(item => String(item || '').trim()).filter(Boolean).join(' · ');
+}
+
+/** One suture sentence: what it is, how many to open, how many to hold, and the catalog code. */
+export function sutureLine(suture) {
+  const layer = suture?.layer && String(suture.layer).toLowerCase() !== 'unspecified' ? String(suture.layer).trim() : '';
+  const name = [suture?.name, suture?.size, suture?.needle].map(item => String(item || '').trim()).filter(Boolean).join(' ');
+  const head = [layer, name].filter(Boolean).join(' · ');
+  const tail = [
+    String(suture?.open || '').trim() && `open ${String(suture.open).trim()}`,
+    String(suture?.hold || '').trim() && `hold ${String(suture.hold).trim()}`,
+    String(suture?.catalogNumber || '').trim(),
+  ].filter(Boolean);
+  return [head, ...tail].filter(Boolean).join(' · ');
 }
 
 /** The implant the page belongs to, then the name the room uses when those differ. */
@@ -41,8 +66,10 @@ export function implantLine(implant) {
 
 export function pullTargets(blocks) {
   const items = [];
-  if (blocks.gloves?.outer?.model) items.push({ id: 'glove-outer', label: `Outer glove · ${[blocks.gloves.outer.model, blocks.gloves.outer.size].filter(Boolean).join(' ')}` });
-  if (blocks.gloves?.inner?.model) items.push({ id: 'glove-inner', label: `Inner glove · ${[blocks.gloves.inner.model, blocks.gloves.inner.size].filter(Boolean).join(' ')}` });
+  const outer = gloveLine('Outer', blocks.gloves?.outer);
+  const inner = gloveLine('Inner', blocks.gloves?.inner);
+  if (outer) items.push({ id: 'glove-outer', label: outer });
+  if (inner) items.push({ id: 'glove-inner', label: inner });
   (blocks.instruments || []).filter(item => item?.name?.trim()).forEach(item => {
     const nick = nickFor(blocks, item.name);
     const name = nick ? `${item.name.trim()} “${nick.nickname}”` : item.name.trim();
@@ -56,10 +83,9 @@ export function pullTargets(blocks) {
     });
   });
   (blocks.sutures || []).forEach(suture => {
-    const layer = suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? suture.layer : '';
     items.push({
       id: `suture-${suture.id}`,
-      label: [layer, suture.name, suture.size, suture.needle, suture.open && `open ${suture.open}`, suture.hold && `hold ${suture.hold}`].filter(Boolean).join(' '),
+      label: sutureLine(suture),
     });
   });
   (blocks.implants || []).forEach(implant => {

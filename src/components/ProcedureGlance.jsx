@@ -6,7 +6,7 @@ import ProductLink from './ProductLink';
 import { SystemDoors } from './Systems';
 import { resolveProductLink } from '../data/productLink';
 import { getProduct } from '../data/products';
-import { trayLine } from '../data/caseView';
+import { personLine, trayLine } from '../data/caseView';
 import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
 import { STATUS_CLASS } from './statusStyle';
@@ -33,6 +33,7 @@ function GloveLine({ glove, label }) {
         {glove.model}
       </ProductLink>
       <span className="text-sm font-bold text-medical-700">Size {glove.size}</span>
+      {glove.color ? <span className="text-sm font-bold text-medical-700">{glove.color}</span> : null}
     </div>
   );
 }
@@ -186,6 +187,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
                 {suture.needle && <span className="opacity-80">{suture.needle}</span>}
                 {suture.open && <span className="opacity-80">open {suture.open}</span>}
                 {suture.hold && <span className="opacity-80">hold {suture.hold}</span>}
+                {suture.catalogNumber ? <span className="opacity-80">{suture.catalogNumber}</span> : null}
               </span>
             ))}
           </div>
@@ -245,8 +247,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
           <ul className="space-y-1">
             {blocks.people.map((person, index) => (
               <li key={`${person.name}-${index}`} className="text-sm text-slate-700">
-                <span className="font-semibold">{person.name}</span>
-                {person.role && <span className="text-slate-500"> · {person.role}</span>}
+                {personLine(person)}
               </li>
             ))}
           </ul>

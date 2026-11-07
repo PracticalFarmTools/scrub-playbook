@@ -6,6 +6,7 @@ import { productsByKind, productIdForSuture } from '../data/products';
 import { findPhiInProcedure } from '../data/phi';
 import { cleanAliases } from '../data/boardMatch';
 import { cleanInstruments, cleanSteps, normalizeBlocks, uid } from '../data/schema';
+import { personLine } from '../data/caseView';
 import { cleanSystemUses, systemIdentity } from '../data/systems';
 import { SystemListEditor } from './Systems';
 import SearchableDropdown from './SearchableDropdown';
@@ -518,20 +519,43 @@ function NicknameAdder({ onAdd }) {
 function PeopleEditor({ people, onChange }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('PA');
+  const [gloveId, setGloveId] = useState('');
+  const [gloveSize, setGloveSize] = useState('7.5');
   const input = 'w-full min-h-11 rounded-xl bg-slate-50 border border-slate-200 text-sm px-3 py-2';
+  const add = () => {
+    if (!name.trim()) return;
+    const glove = gloveId ? gloveFromId(gloveId, gloveSize) : null;
+    onChange([...people, {
+      name: name.trim(),
+      role,
+      gloveModel: glove?.model || '',
+      gloveBrand: glove?.brand || '',
+      gloveSize: glove ? glove.size : '',
+      gloveColor: glove?.color || '',
+    }]);
+    setName('');
+    setGloveId('');
+  };
   return (
     <section id="editor-people" tabIndex={-1} className="space-y-3 scroll-mt-2 focus:outline-none">
       <h3 className="text-sm font-bold text-medical-700">People in the room</h3>
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <input aria-label="Person’s name" value={name} onChange={e => setName(e.target.value)} placeholder="Name" className={input} />
         <select aria-label="Role" value={role} onChange={e => setRole(e.target.value)} className={input}>
           {['PA', 'Resident', 'Fellow', 'NP', 'RNFA'].map(r => <option key={r}>{r}</option>)}
         </select>
-        <button type="button" onClick={() => { if (name.trim()) { onChange([...people, { name: name.trim(), role, gloveModel: '', gloveBrand: '', gloveSize: '' }]); setName(''); } }} aria-label="Add person" className="shrink-0 w-11 h-11 rounded-xl bg-medical-600 text-white cursor-pointer"><Plus size={16} className="mx-auto" /></button>
+        <select aria-label="Glove for this person" value={gloveId} onChange={e => setGloveId(e.target.value)} className={input}>
+          <option value="">No glove</option>
+          {SURGICAL_GLOVES.map(glove => <option key={glove.id} value={glove.id}>{glove.model}</option>)}
+        </select>
+        <select aria-label="Glove size for this person" value={gloveSize} onChange={e => setGloveSize(e.target.value)} className={input}>
+          {GLOVE_SIZES.map(size => <option key={size}>{size}</option>)}
+        </select>
+        <button type="button" onClick={add} aria-label="Add person" className="col-span-2 min-h-11 rounded-xl bg-medical-50 text-medical-800 text-sm font-bold cursor-pointer">Add person</button>
       </div>
       {people.map((person, index) => (
         <div key={`${person.name}-${index}`} className="flex items-center justify-between text-sm bg-slate-50 rounded-xl pl-3">
-          <span>{person.name} <span className="text-slate-500">({person.role})</span></span>
+          <span>{personLine(person)}</span>
           <button type="button" onClick={() => onChange(people.filter((_, i) => i !== index))} aria-label={`Remove ${person.name}`} className="tap-icon shrink-0 text-slate-500 hover:text-rose-600 cursor-pointer"><Trash2 size={14} /></button>
         </div>
       ))}

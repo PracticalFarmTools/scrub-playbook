@@ -1,4 +1,4 @@
-import { implantLine, nickFor, pullTargets, trayLine, trustLine } from '../data/caseView';
+import { gloveLine, implantLine, nickFor, personLine, pullTargets, sutureLine, trayLine, trustLine } from '../data/caseView';
 import { systemsForCase } from '../data/systems';
 import { SystemDoors } from './Systems';
 
@@ -100,13 +100,13 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           {blocks.gloves.outer?.model && (
             <label className="flex items-start gap-3 min-h-11 py-1">
               {checkFor('glove-outer')}
-              <span>Outer · {[blocks.gloves.outer.model, blocks.gloves.outer.size].filter(Boolean).join(' ')}</span>
+              <span>{gloveLine('Outer', blocks.gloves.outer)}</span>
             </label>
           )}
           {blocks.gloves.inner?.model && (
             <label className="flex items-start gap-3 min-h-11 py-1">
               {checkFor('glove-inner')}
-              <span>Inner · {[blocks.gloves.inner.model, blocks.gloves.inner.size].filter(Boolean).join(' ')}</span>
+              <span>{gloveLine('Inner', blocks.gloves.inner)}</span>
             </label>
           )}
         </Section>
@@ -158,15 +158,12 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
 
       {(blocks.sutures || []).length > 0 && (
         <Section title="Sutures" muted={muted}>
-          {blocks.sutures.map(suture => {
-            const layer = suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? suture.layer : '';
-            return (
-              <label key={suture.id} className="flex items-start gap-3 min-h-11 py-1">
-                {checkFor(`suture-${suture.id}`)}
-                <span>{[layer, suture.name, suture.size, suture.needle, suture.open && `open ${suture.open}`, suture.hold && `hold ${suture.hold}`].filter(Boolean).join(' ')}</span>
-              </label>
-            );
-          })}
+          {blocks.sutures.map(suture => (
+            <label key={suture.id} className="flex items-start gap-3 min-h-11 py-1">
+              {checkFor(`suture-${suture.id}`)}
+              <span>{sutureLine(suture)}</span>
+            </label>
+          ))}
         </Section>
       )}
 
@@ -192,7 +189,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
       {(blocks.people || []).length > 0 && (
         <Section title="People" muted={muted}>
           {blocks.people.map((person, index) => (
-            <p key={`${person.name}-${index}`}>{[person.name, person.role].filter(Boolean).join(' · ')}</p>
+            <p key={`${person.name}-${index}`}>{personLine(person)}</p>
           ))}
         </Section>
       )}
