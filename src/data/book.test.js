@@ -150,6 +150,9 @@ describe('trust', () => {
     expect(edited.lastConfirmedAt).toBeNull();
     const approachOnly = applySave(confirmed, { ...confirmed, approach: 'Anterior' }, '2026-10-05T00:00:00.000Z');
     expect(approachOnly.confirmations).toEqual([]);
+    const renamed = applySave(confirmed, { ...confirmed, aliases: ['L TKA'] }, '2026-10-05T00:00:00.000Z');
+    expect(renamed.confirmations).toEqual([]);
+    expect(renamed.aliases).toEqual(['L TKA']);
   });
 
   it('keeps a match when the card is only checked against the official card or opened with empty sections filled in', () => {

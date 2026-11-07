@@ -39,7 +39,7 @@ describe('TodayList', () => {
     expect(screen.getByText('07:30 · Rm 4 · CHEN, AMY · R TKA')).toBeTruthy();
     expect(screen.queryByText(/SMITH/)).toBeNull();
     fireEvent.click(screen.getByText('07:30 · Rm 4 · CHEN, AMY · R TKA'));
-    expect(props.onOpen).toHaveBeenCalledWith(right);
+    expect(props.onOpen).toHaveBeenCalledWith(right, expect.objectContaining({ room: '4', procedureName: 'R TKA', startsAt: '07:30' }));
   });
 
   it('edits a board line in place and keeps the edit after a reload', () => {

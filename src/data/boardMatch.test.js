@@ -36,7 +36,7 @@ describe('procedure names on the board', () => {
     expect(procedureTextMatch('Right TKA', 'Left TKA')).toBeNull();
     expect(procedureTextMatch('Right TKA', 'Bilateral TKA')).toBeNull();
     expect(procedureTextMatch('Right TKA', 'TKA')).toBe('partial');
-    expect(procedureTextMatch('TKA', 'L TKA')).toBe('exact');
+    expect(procedureTextMatch('TKA', 'L TKA')).toBe('partial');
     expect(procedureTextMatch('Laparoscopic cholecystectomy', 'Lap chole')).toBe('exact');
     expect(procedureTextMatch('Irrigation and debridement', 'I&D')).toBe('exact');
     expect(procedureTextMatch('Exploratory laparotomy', 'Ex-lap')).toBe('exact');
@@ -89,6 +89,18 @@ describe('board taps', () => {
   it('opens a card through its board name', () => {
     const hip = emptyProcedure('a', { id: 'h', name: 'Anterior hip', aliases: ['DAA THA'] });
     expect(resolveTodayTap({ surgeons: [amy], procedures: [hip] }, { surgeonName: 'Chen, A', procedureName: 'daa tha' }).procedure.id).toBe('h');
+  });
+
+  it('does not let an unsided board name open the other side', () => {
+    const right = emptyProcedure('a', { id: 'r', name: 'Right TKA', aliases: ['TKA'] });
+    const opened = resolveTodayTap({ surgeons: [amy], procedures: [right] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(opened.action).toBe('start-procedure');
+    const generic = emptyProcedure('a', { id: 'g', name: 'Total knee', aliases: ['TKA'] });
+    const asked = resolveTodayTap({ surgeons: [amy], procedures: [generic] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(asked).toMatchObject({ action: 'choose', closest: true });
+    const sided = emptyProcedure('a', { id: 's', name: 'Total knee', aliases: ['Left TKA'] });
+    const left = resolveTodayTap({ surgeons: [amy], procedures: [sided] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(left).toMatchObject({ action: 'open', procedure: { id: 's' } });
   });
 });
 

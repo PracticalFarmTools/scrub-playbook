@@ -19,9 +19,6 @@ export default function PrintDay({ cases, staleDays, trustFor, onDone }) {
     <div id="print-day-root" className="print-root" aria-hidden="true">
       {cases.map(({ surgeon, procedure, item }, index) => (
         <div key={`${procedure.id}-${index}`} className="print-case">
-          {item && (
-            <p className="text-lg font-bold">{[item.startsAt, item.room && `Room ${item.room}`].filter(Boolean).join(' · ')}</p>
-          )}
           <CaseBody
             surgeon={surgeon}
             procedure={procedure}
@@ -29,6 +26,7 @@ export default function PrintDay({ cases, staleDays, trustFor, onDone }) {
             staleDays={staleDays}
             trust={trustFor?.(procedure)}
             dark={false}
+            board={item}
             checks={{}}
             idPrefix={`print-${index}`}
           />

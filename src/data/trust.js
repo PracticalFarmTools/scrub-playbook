@@ -1,3 +1,4 @@
+import { cleanAliases } from './boardMatch';
 import { CARD_STATUS, STALE_AFTER_DAYS, normalizeBlocks } from './schema';
 
 export function daysSince(iso, now = Date.now()) {
@@ -112,6 +113,7 @@ function contentKey(procedure) {
   return JSON.stringify({
     name: procedure?.name || '',
     approach: procedure?.approach || '',
+    aliases: cleanAliases(procedure?.aliases),
     blocks: normalizeBlocks(procedure?.blocks),
     official: { label: procedure?.official?.label || '', note: procedure?.official?.note || '' },
   });

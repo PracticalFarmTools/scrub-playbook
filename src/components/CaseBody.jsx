@@ -14,9 +14,10 @@ function Section({ title, children, muted }) {
 /**
  * The readable case: header, setup, and the pull list. Shared by the case view and the day printout.
  * @param {{ surgeon: any, procedure: any, blocks: any, staleDays?: number, trust?: any, dark?: boolean,
+ *   board?: { startsAt?: string, room?: string, procedureName?: string } | null,
  *   checks?: Record<string, boolean>, onToggle?: (id: string) => void, idPrefix?: string }} props
  */
-export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust, dark, checks, onToggle, idPrefix = 'case-view' }) {
+export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust, dark, board = null, checks, onToggle, idPrefix = 'case-view' }) {
   const targets = pullTargets(blocks);
   const sample = Boolean(procedure.demo || surgeon.demo);
   const muted = dark ? 'text-slate-400' : 'text-slate-600';
@@ -43,6 +44,9 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           <p className={`mb-3 rounded-xl px-3 py-2 text-lg font-bold ${dark ? 'bg-slate-800 text-slate-100' : 'bg-slate-100 text-slate-700'}`}>
             Sample. Not from your hospital.
           </p>
+        )}
+        {(board?.startsAt || board?.room || board?.procedureName) && (
+          <p className="text-lg font-bold mb-2">Board: {[board.startsAt, board.room && `Room ${board.room}`, board.procedureName].filter(Boolean).join(' · ')}</p>
         )}
         <p id={`${idPrefix}-surgeon`} className="text-xl font-bold">{surgeon.name}</p>
         <h1 id={`${idPrefix}-procedure`} className="text-xl font-bold mt-1">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h1>

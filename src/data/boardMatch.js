@@ -150,8 +150,8 @@ function isSubset(small, big) {
 }
 
 /**
- * 'exact', 'partial', or null. A different side never matches. A card that names a side
- * is only 'partial' for a board line that names none, so the tech checks the side.
+ * 'exact', 'partial', or null. A different side never matches. A missing side on
+ * either name is only 'partial', so the tech checks the side before the card opens.
  */
 export function procedureTextMatch(cardText, boardText) {
   const card = procedureKey(cardText);
@@ -159,7 +159,7 @@ export function procedureTextMatch(cardText, boardText) {
   if (!card.words.size || !board.words.size) return null;
   if (card.sides && board.sides && card.sides !== board.sides) return null;
   const same = card.words.size === board.words.size && isSubset(card.words, board.words);
-  if (same) return card.sides && !board.sides ? 'partial' : 'exact';
+  if (same) return card.sides === board.sides ? 'exact' : 'partial';
   const [small, big] = card.words.size <= board.words.size ? [card.words, board.words] : [board.words, card.words];
   if (small.size >= 2 && isSubset(small, big)) return 'partial';
   return null;
@@ -180,18 +180,28 @@ export function cleanAliases(list) {
     .slice(0, 12);
 }
 
-/** Best match of a board procedure against a card's name, name with approach, and board names. */
+/**
+ * Best match of a board procedure against a card's name, name with approach, and board names.
+ * A side on the card name, or on a board name, cannot be overruled by another name.
+ * A card that names a side stays partial when the board names none.
+ */
 export function procedureMatch(procedure, boardText) {
   const names = [
     procedure?.name,
     procedure?.approach ? `${procedure.name} ${procedure.approach}` : '',
     ...cleanAliases(procedure?.aliases),
   ].filter(Boolean);
+  const boardSides = procedureKey(boardText).sides;
+  const nameSides = procedureKey(procedure?.name || '').sides;
+  if (nameSides && boardSides && nameSides !== boardSides) return null;
+  const aliasSides = cleanAliases(procedure?.aliases).map(alias => procedureKey(alias).sides).filter(Boolean);
+  if (boardSides && aliasSides.some(sides => sides !== boardSides)) return null;
   let best = null;
   for (const name of names) {
     const tier = procedureTextMatch(name, boardText);
     if (tier && (!best || PROCEDURE_RANK[tier] > PROCEDURE_RANK[best])) best = tier;
   }
+  if (best === 'exact' && nameSides && !boardSides) return 'partial';
   return best;
 }
 

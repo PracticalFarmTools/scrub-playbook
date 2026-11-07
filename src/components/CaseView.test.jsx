@@ -36,6 +36,12 @@ describe('CaseView', () => {
     expect(screen.getAllByText(/Bovie 35\/35/)).toHaveLength(2);
   });
 
+  it('keeps the board line with the case, including the side the board wrote', () => {
+    const procedure = procedureWith();
+    render(<CaseView surgeon={surgeon} procedure={procedure} board={{ id: 'line-1', startsAt: '07:30', room: '4', procedureName: 'Left TKA' }} staleDays={90} onClose={() => {}} />);
+    expect(screen.getByText('Board: 07:30 · Room 4 · Left TKA')).toBeTruthy();
+  });
+
   it('closes on Escape, and Escape first leaves the suggestion form', () => {
     const onClose = vi.fn();
     render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} onClose={onClose} />);

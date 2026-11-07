@@ -57,8 +57,8 @@ function plural(count, one, many) {
  *   | { kind: 'editor', surgeon: Surgeon, procedure: Procedure, copyOf?: string }
  *   | { kind: 'share', surgeon: Surgeon, procedure: Procedure }
  *   | { kind: 'confirm', procedure: Procedure }
- *   | { kind: 'case', queue: string[], index: number, returnTo?: boolean }
- *   | { kind: 'print', ids: string[] }
+ *   | { kind: 'case', queue: Array<{ id: string, board: import('./data/types').TodayItem | null }>, index: number, returnTo?: boolean }
+ *   | { kind: 'print', cases: Array<{ id: string, board: import('./data/types').TodayItem | null }> }
  *   | { kind: 'import' }
  *   | { kind: 'places' }
  *   | { kind: 'history', procedureId: string }
@@ -277,10 +277,12 @@ export default function App() {
       clearSearch();
       setActiveFacility(null);
     }
-    setOverlay({ kind: 'case', queue: ids, index: 0, returnTo });
+    const queue = ids.map(entry => (typeof entry === 'string' ? { id: entry, board: null } : entry));
+    setOverlay({ kind: 'case', queue, index: 0, returnTo });
   };
 
-  const caseProcedureId = overlay?.kind === 'case' ? overlay.queue[overlay.index] : null;
+  const caseEntry = overlay?.kind === 'case' ? overlay.queue[overlay.index] : null;
+  const caseProcedureId = caseEntry?.id || null;
   const caseProcedure = caseProcedureId ? book.procedures.find(item => item.id === caseProcedureId) : null;
   const caseSurgeon = caseProcedure ? surgeonOf(caseProcedure) : null;
   const historyProcedure = overlay?.kind === 'history' ? book.procedures.find(item => item.id === overlay.procedureId) || null : null;
@@ -401,9 +403,9 @@ export default function App() {
         <TodayList
           key={todayVersion}
           book={book}
-          onOpen={(procedure) => openCases([procedure.id], true)}
-          onOpenAll={(ready) => openCases(ready.map(entry => entry.procedure.id), true)}
-          onPrintAll={(ready) => setOverlay({ kind: 'print', ids: ready.map(entry => entry.procedure.id) })}
+          onOpen={(procedure, item) => openCases([{ id: procedure.id, board: item || null }], true)}
+          onOpenAll={(ready) => openCases(ready.map(entry => ({ id: entry.procedure.id, board: entry.item })), true)}
+          onPrintAll={(ready) => setOverlay({ kind: 'print', cases: ready.map(entry => ({ id: entry.procedure.id, board: entry.item })) })}
           onStartProcedure={(surgeon, procedureName) => setOverlay({ kind: 'editor', surgeon, procedure: emptyProcedure(surgeon.id, { name: procedureName }) })}
           onStartSurgeon={(surgeonName, procedureName) => setOverlay({ kind: 'add', name: surgeonName, procedureName })}
         />
@@ -522,9 +524,10 @@ export default function App() {
         )}
         {overlay?.kind === 'case' && (
           <CaseView
-            key={caseProcedureId}
+            key={caseEntry?.board?.id ? `${caseProcedureId}:${caseEntry.board.id}` : `${caseProcedureId}:${overlay.index}`}
             surgeon={caseSurgeon}
             procedure={caseProcedure}
+            board={caseEntry?.board || null}
             staleDays={STALE_AFTER_DAYS}
             trust={caseProcedure ? trustFor(caseProcedure) : undefined}
             position={{ index: overlay.index, total: overlay.queue.length, onNext: () => stepCase(1), onPrev: () => stepCase(-1) }}
@@ -539,11 +542,12 @@ export default function App() {
         )}
         {overlay?.kind === 'print' && (
           <PrintDay
-            cases={overlay.ids
-              .map(id => book.procedures.find(item => item.id === id))
-              .filter(Boolean)
-              .map(procedure => ({ procedure, surgeon: surgeonOf(procedure) }))
-              .filter(entry => entry.surgeon)}
+            cases={overlay.cases
+              .map(({ id, board }) => {
+                const procedure = book.procedures.find(item => item.id === id);
+                return procedure ? { procedure, surgeon: surgeonOf(procedure), item: board } : null;
+              })
+              .filter(entry => entry?.surgeon)}
             staleDays={STALE_AFTER_DAYS}
             trustFor={trustFor}
             onDone={donePrinting}
