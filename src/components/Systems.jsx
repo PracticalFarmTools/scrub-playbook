@@ -167,8 +167,8 @@ export function SystemListEditor({ systems, onChange, suggestions = [] }) {
         </div>
       )}
 
-      <SearchableDropdown label="Add a listed system" options={CATALOG_OPTIONS} value={catalogId} onChange={setCatalogId} placeholder="Search systems" renderSelected={opt => <span>{opt?.label}</span>} />
-      <button type="button" disabled={full || !catalogId} onClick={addCatalog} className="min-h-11 text-xs font-bold text-medical-700 disabled:opacity-40 cursor-pointer">Add system</button>
+      <SearchableDropdown label="Add a listed system" options={CATALOG_OPTIONS.filter(option => !option.value || !taken.has(option.value))} value={taken.has(catalogId) ? '' : catalogId} onChange={setCatalogId} placeholder="Search systems" renderSelected={opt => <span>{opt?.label}</span>} />
+      <button type="button" disabled={full || !catalogId || taken.has(catalogId)} onClick={addCatalog} className="min-h-11 text-xs font-bold text-medical-700 disabled:opacity-40 cursor-pointer">Add system</button>
 
       <div className="grid grid-cols-1 gap-2">
         <input aria-label="System name not in the list" value={customName} maxLength={80} placeholder="A system this list does not have" onChange={e => setCustomName(e.target.value)} className={input} />
@@ -202,7 +202,7 @@ export function PreferredSystems({ surgeon, editable, onSave }) {
       setBlocked(true);
       return;
     }
-    onSave?.(surgeon.id, draft);
+    if (onSave?.(surgeon.id, draft) === false) return;
     setEditing(false);
   };
 

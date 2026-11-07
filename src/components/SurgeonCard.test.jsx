@@ -119,6 +119,19 @@ describe('SurgeonCard', () => {
     expect(container.querySelector('#procedure-p1').className).not.toContain('ring-inset');
   });
 
+  it('pauses instead of saving a surgeon system that looks like a patient detail', () => {
+    const onSavePreferredSystems = vi.fn();
+    const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', facility: 'Main', demo: false, firstCase: [], preferredSystems: [] };
+    render(<SurgeonCard surgeon={surgeon} procedures={[]} staleDays={90} onSavePreferredSystems={onSavePreferredSystems} onUpdateSurgeon={noop} onCopyToNotes={noop} {...handlers} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add the systems this surgeon uses' }));
+    fireEvent.change(screen.getByLabelText('System name not in the list'), { target: { value: 'patient number 12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add this name' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('alertdialog', { name: 'Hold on' })).toBeTruthy();
+    expect(onSavePreferredSystems).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('System 1 name').value).toBe('patient number 12');
+  });
+
   it('keeps two identical first-case lines', () => {
     const surgeon = { id: 's1', name: 'Dr. Chen', specialty: 'Orthopedics', demo: false, firstCase: ['Same', 'Same'] };
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});

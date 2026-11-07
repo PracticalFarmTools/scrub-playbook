@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { cleanSystemUses } from '../data/systems';
-import { SystemDoors } from './Systems';
+import { SystemDoors, SystemListEditor } from './Systems';
 
 afterEach(cleanup);
 
@@ -20,6 +20,16 @@ describe('SystemDoors', () => {
     render(<SystemDoors use={use} />);
     expect(screen.getByText('Catalog code HT-14')).toBeTruthy();
     expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('hides a listed system that is already on the card', async () => {
+    const onChange = vi.fn();
+    render(<SystemListEditor systems={cleanSystemUses([{ catalogId: 'sys-mako' }])} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /Add a listed system/ }));
+    await waitFor(() => expect(screen.getByRole('option', { name: /TightRope/ })).toBeTruthy());
+    expect(screen.queryByRole('option', { name: /Mako/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add system' }).disabled).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('says when no page is stored', () => {

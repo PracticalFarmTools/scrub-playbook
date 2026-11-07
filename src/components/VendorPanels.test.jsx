@@ -15,4 +15,13 @@ describe('VendorLibrary', () => {
     expect(screen.getByRole('heading', { name: 'Eyes' })).toBeTruthy();
     expect(screen.getByText('Alcon')).toBeTruthy();
   });
+
+  it('does not list every system from a company that also works in another specialty', () => {
+    render(<VendorLibrary onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Find a system or company'), { target: { value: 'sports' } });
+    const systems = screen.getByRole('heading', { name: /^Systems \(/ }).closest('section');
+    expect(systems.textContent).toMatch(/TightRope/);
+    expect(systems.textContent).not.toMatch(/Mako/);
+    expect(systems.textContent).not.toMatch(/LigaSure/);
+  });
 });

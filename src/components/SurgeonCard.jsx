@@ -200,7 +200,20 @@ export default function SurgeonCard({
           <button type="button" onClick={() => { setFirstDraft(['', '', '']); setEditingFirst(true); }} className="min-h-11 text-xs font-bold text-medical-700 cursor-pointer">Add first-case notes</button>
         </div>
       )}
-      <PreferredSystems surgeon={surgeon} editable={editable} onSave={onSavePreferredSystems} />
+      <PreferredSystems
+        surgeon={surgeon}
+        editable={editable}
+        onSave={(id, systems) => {
+          const hits = findPhiInSurgeon({ ...surgeon, preferredSystems: systems });
+          if (hits.length) {
+            setPhiNext('Take that detail out, then save.');
+            setPhi(hits);
+            return false;
+          }
+          onSavePreferredSystems?.(id, systems);
+          return true;
+        }}
+      />
       {phi.length > 0 && <PhiPause signals={phi} next={phiNext} onEdit={() => setPhi([])} />}
 
       {procedures.length === 0 && (

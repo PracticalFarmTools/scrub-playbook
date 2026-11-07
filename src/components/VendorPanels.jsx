@@ -76,25 +76,38 @@ export function CatalogResults({ systems, companies }) {
   );
 }
 
+function fold(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 function companyMatches(company, q) {
-  return company.name.toLowerCase().includes(q)
-    || company.aliases.some(alias => alias.toLowerCase().includes(q))
-    || company.specialties.some(item => specialtyLabel(item).toLowerCase().includes(q) || item.includes(q));
+  return fold(company.name).includes(q)
+    || company.aliases.some(alias => fold(alias).includes(q))
+    || company.specialties.some(item => fold(specialtyLabel(item)).includes(q) || fold(item).includes(q));
+}
+
+function companyNameMatches(company, q) {
+  return fold(company.name).includes(q) || company.aliases.some(alias => fold(alias).includes(q));
 }
 
 function systemMatches(system, q) {
   const company = getCompany(system.companyId);
-  return system.name.toLowerCase().includes(q)
-    || system.aliases.some(alias => alias.toLowerCase().includes(q))
-    || system.specialty.includes(q)
-    || specialtyLabel(system.specialty).toLowerCase().includes(q)
-    || (company && companyMatches(company, q));
+  return fold(system.name).includes(q)
+    || system.aliases.some(alias => fold(alias).includes(q))
+    || fold(system.specialty).includes(q)
+    || fold(specialtyLabel(system.specialty)).includes(q)
+    || (company && companyNameMatches(company, q));
 }
 
 /** The directory. Companies stay grouped by specialty. A search also opens matching systems. */
 export function VendorLibrary({ onClose }) {
   const [query, setQuery] = useState('');
-  const q = query.trim().toLowerCase();
+  const q = fold(query);
   const systems = useMemo(() => (q ? SYSTEMS.filter(system => systemMatches(system, q)) : []), [q]);
   const companies = useMemo(() => COMPANIES.filter(company => !q || companyMatches(company, q)), [q]);
   const groups = SPECIALTIES
