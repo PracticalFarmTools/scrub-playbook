@@ -17,7 +17,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   const [draft, setDraft] = useState({ startsAt: '', room: '', surgeonName: '', procedureName: '' });
   const [editing, setEditing] = useState(/** @type {import('../data/types').TodayItem | null} */ (null));
   const [phi, setPhi] = useState(/** @type {Array<import('../data/types').PhiSignal>} */ ([]));
-  const [choice, setChoice] = useState(/** @type {{ item: import('../data/types').TodayItem, surgeons: Array<any>, procedures?: Array<any>, closest?: boolean } | null} */ (null));
+  const [choice, setChoice] = useState(/** @type {{ item: import('../data/types').TodayItem, surgeons: Array<any>, procedures?: Array<any>, closest?: boolean, flagged?: boolean } | null} */ (null));
   const [pasting, setPasting] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [pasteLines, setPasteLines] = useState(/** @type {Array<{ line: string, item: object, problems: string[] }> | null} */ (null));
@@ -87,7 +87,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   const lineStatus = (item) => {
     const result = resolveTodayTap(book, item);
     if (result.action === 'open') return `Opens ${result.procedure.name}`;
-    if (result.flagged && result.procedures?.length === 1) return 'Flagged. Read it before you open it.';
+    if (result.action === 'choose' && result.flagged && result.procedures?.length === 1) return 'Flagged. Read it before you open it.';
     if (result.action === 'choose') return 'You choose the card';
     return 'No card yet';
   };

@@ -130,6 +130,7 @@ export function SystemListEditor({ systems, onChange, suggestions = [] }) {
   return (
     <div className="space-y-3">
       {systems.map((item, index) => {
+        const listed = getSystem(item.catalogId);
         const badLink = item.overrideUrl?.trim() && !isHttps(item.overrideUrl);
         return (
           <div key={item.id} className="space-y-2 border border-slate-100 rounded-xl p-3">
@@ -140,8 +141,8 @@ export function SystemListEditor({ systems, onChange, suggestions = [] }) {
               onChange={e => patch(item.id, { name: e.target.value })}
               className={input}
             />
-            {getSystem(item.catalogId) && (
-              <p className="text-xs text-slate-600">Listed as {getSystem(item.catalogId).name}. The product page stays with that system.</p>
+            {listed && (
+              <p className="text-xs text-slate-600">Listed as {listed.name}. The product page stays with that system.</p>
             )}
             <div className="grid grid-cols-2 gap-2">
               <input
@@ -210,7 +211,7 @@ export function SystemListEditor({ systems, onChange, suggestions = [] }) {
 
 /**
  * Systems a surgeon uses, above their cards.
- * @param {{ surgeon: any, editable: boolean, onSave?: (id: string, systems: Array<object>) => void }} props
+ * @param {{ surgeon: any, editable: boolean, onSave?: (id: string, systems: Array<object>) => boolean | void }} props
  */
 export function PreferredSystems({ surgeon, editable, onSave }) {
   const saved = surgeon.preferredSystems || [];

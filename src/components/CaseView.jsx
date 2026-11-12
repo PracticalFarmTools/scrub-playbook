@@ -28,6 +28,11 @@ function wakeSupported() {
   return typeof navigator !== 'undefined' && typeof navigator.wakeLock?.request === 'function';
 }
 
+/**
+ * @param {{ surgeon: any, procedure: any, staleDays?: number, trust?: any, position?: any,
+ *   board?: import('../data/types').TodayItem | null, onClose: () => void,
+ *   onSuggested?: any, onConfirm?: any, onFlag?: any }} props
+ */
 export default function CaseView({ surgeon, procedure, staleDays, trust, position, board = null, onClose, onSuggested, onConfirm, onFlag }) {
   const blocks = useMemo(() => normalizeBlocks(procedure?.blocks), [procedure]);
   const targets = useMemo(() => pullTargets(blocks), [blocks]);

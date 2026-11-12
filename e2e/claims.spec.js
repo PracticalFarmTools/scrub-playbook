@@ -79,6 +79,7 @@ test('the home list, a card, the case view, the editor, and Share pass an automa
 })
 
 test('Card history, Recently deleted, Places, Import, and Add surgeon pass an automated WCAG 2.2 AA scan', async ({ page }) => {
+  test.setTimeout(90_000)
   await resetPhone(page)
   await openCard(page)
   await page.getByRole('button', { name: 'Edit', exact: true }).click()

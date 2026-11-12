@@ -78,7 +78,7 @@ export function todayItem({ day = localDay(), startsAt = '', room = '', surgeonN
  * @param {{ surgeons?: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure> }} book
  * @param {{ surgeonName?: string, procedureName?: string }} item
  * @returns {{ action: 'start-surgeon', surgeonName: string, procedureName: string }
- *   | { action: 'choose', surgeons: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure>, closest?: boolean }
+ *   | { action: 'choose', surgeons: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure>, closest?: boolean, flagged?: boolean }
  *   | { action: 'open', surgeon: import('./types').Surgeon, procedure: import('./types').Procedure }
  *   | { action: 'start-procedure', surgeon: import('./types').Surgeon, procedureName: string }}
  */
