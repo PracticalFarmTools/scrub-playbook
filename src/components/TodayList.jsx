@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { findPhiSignals } from '../data/phi';
-import { boardProblemText, parseBoard } from '../data/boardMatch';
+import { boardProblemText, parseBoard, sideConflictText } from '../data/boardMatch';
 import { loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleDay } from '../data/today';
 import { TODAY_KEY } from '../data/schema';
 import { sourceLabel } from '../data/unitBook';
@@ -17,7 +17,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   const [draft, setDraft] = useState({ startsAt: '', room: '', surgeonName: '', procedureName: '' });
   const [editing, setEditing] = useState(/** @type {import('../data/types').TodayItem | null} */ (null));
   const [phi, setPhi] = useState(/** @type {Array<import('../data/types').PhiSignal>} */ ([]));
-  const [choice, setChoice] = useState(/** @type {{ item: import('../data/types').TodayItem, surgeons: Array<any>, procedures?: Array<any>, closest?: boolean } | null} */ (null));
+  const [choice, setChoice] = useState(/** @type {{ item: import('../data/types').TodayItem, surgeons: Array<any>, procedures?: Array<any>, closest?: boolean, flagged?: boolean } | null} */ (null));
   const [pasting, setPasting] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [pasteLines, setPasteLines] = useState(/** @type {Array<{ line: string, item: object, problems: string[] }> | null} */ (null));
@@ -87,6 +87,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   const lineStatus = (item) => {
     const result = resolveTodayTap(book, item);
     if (result.action === 'open') return `Opens ${result.procedure.name}`;
+    if (result.action === 'choose' && result.flagged && result.procedures?.length === 1) return 'Flagged. Read it before you open it.';
     if (result.action === 'choose') return 'You choose the card';
     return 'No card yet';
   };
@@ -95,11 +96,11 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
     setStored(prev => ({ v: 2, items: keepCurrent(prev.items || []).filter(item => item.id !== id) }));
   };
 
-  const follow = (result) => {
-    if (result.action === 'open') onOpen(result.procedure);
+  const follow = (result, item) => {
+    if (result.action === 'open') onOpen(result.procedure, item);
     else if (result.action === 'start-procedure') onStartProcedure(result.surgeon, result.procedureName);
     else if (result.action === 'start-surgeon') onStartSurgeon(result.surgeonName, result.procedureName);
-    else setChoice({ item: choice?.item, ...result });
+    else setChoice({ item, ...result });
   };
 
   const tap = (item) => {
@@ -107,7 +108,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
     if (result.action === 'choose') setChoice({ item, ...result });
     else {
       setChoice(null);
-      follow(result);
+      follow(result, item);
     }
   };
 
@@ -117,7 +118,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
     if (result.action === 'choose') setChoice({ item: choice.item, ...result });
     else {
       setChoice(null);
-      follow(result);
+      follow(result, choice.item);
     }
   };
 
@@ -233,11 +234,11 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
       {choice?.procedures && (
         <div className="px-4 py-3 border-t border-slate-100 space-y-2">
           <p className="text-xs font-bold text-slate-600">
-            {choice.closest ? 'Closest cards. Check the side and the procedure before you open one.' : 'Which procedure?'}
+            {choice.flagged ? 'Flagged. Read it before you open it.' : choice.closest ? 'Closest cards. Check the side and the procedure before you open one.' : 'Which procedure?'}
           </p>
           {choice.procedures.map(procedure => (
-            <button type="button" key={procedure.id} onClick={() => { setChoice(null); onOpen(procedure); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 min-h-11 cursor-pointer">
-              {[procedure.name, procedure.approach, sourceLabel(procedure)].filter(Boolean).join(' · ')}
+            <button type="button" key={procedure.id} onClick={() => { const item = choice.item; setChoice(null); onOpen(procedure, item); }} className="block w-full text-left text-sm font-semibold rounded-lg bg-slate-50 px-3 py-2 min-h-11 cursor-pointer">
+              {[procedure.name, procedure.approach, procedure.disputed ? 'Flagged' : '', sideConflictText(procedure), sourceLabel(procedure)].filter(Boolean).join(' · ')}
             </button>
           ))}
           {choice.closest && choice.item && (

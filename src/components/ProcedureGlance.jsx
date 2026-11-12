@@ -3,7 +3,11 @@ import { GLOVE_COLOR_HEX } from '../data/gloves';
 import { CARD_STATUS } from '../data/schema';
 import { timeAgo, trustState } from '../data/trust';
 import ProductLink from './ProductLink';
+import { SystemDoors } from './Systems';
 import { resolveProductLink } from '../data/productLink';
+import { getProduct } from '../data/products';
+import { sideConflictText } from '../data/boardMatch';
+import { personLine, trayLine } from '../data/caseView';
 import { instrumentLines } from '../data/share';
 import { sourceLabel } from '../data/unitBook';
 import { STATUS_CLASS } from './statusStyle';
@@ -30,6 +34,7 @@ function GloveLine({ glove, label }) {
         {glove.model}
       </ProductLink>
       <span className="text-sm font-bold text-medical-700">Size {glove.size}</span>
+      {glove.color ? <span className="text-sm font-bold text-medical-700">{glove.color}</span> : null}
     </div>
   );
 }
@@ -51,6 +56,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <div className="flex items-start justify-between gap-3">
           <div>
             {showTitle && <h4 className="text-base font-extrabold text-slate-900 tracking-tight">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h4>}
+            {sideConflictText(procedure) && <p className="text-sm font-bold text-rose-800 mt-1">{sideConflictText(procedure)}</p>}
             {showTitle && sourceLabel(procedure) && (
               <p className="text-xs font-bold uppercase tracking-widest text-medical-600 mt-0.5">{sourceLabel(procedure)}</p>
             )}
@@ -118,6 +124,15 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
       <TextBlock label="Room start" text={blocks.room?.text} />
       <TextBlock label="Equipment and settings" text={blocks.equipment?.text} />
 
+      {(blocks.systems || []).length > 0 && (
+        <div className="px-5 pb-4">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Systems for this case</p>
+          {(blocks.systems || []).map(system => (
+            <SystemDoors key={system.id || system.name} use={system} />
+          ))}
+        </div>
+      )}
+
       <div className="px-5 pb-4 flex flex-wrap gap-2">
         <GloveLine glove={blocks.gloves?.outer} label="Outer" />
         <GloveLine glove={blocks.gloves?.inner} label="Inner" />
@@ -148,12 +163,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Trays</p>
           <ul className="space-y-1">
             {trays.map(tray => (
-              <li key={tray.id} className="text-sm text-slate-700">
-                <span className="font-semibold">{tray.commonName}</span>
-                {tray.spdName && <span className="text-slate-500"> · SPD: {tray.spdName}</span>}
-                {tray.vendorName && <span className="text-slate-500"> · {tray.vendorName}</span>}
-                <span className="text-slate-500"> · {tray.openOrHold === 'hold' ? 'Hold' : 'Open'}</span>
-              </li>
+              <li key={tray.id} className="text-sm text-slate-700">{trayLine(tray, blocks)}</li>
             ))}
           </ul>
         </div>
@@ -179,6 +189,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
                 {suture.needle && <span className="opacity-80">{suture.needle}</span>}
                 {suture.open && <span className="opacity-80">open {suture.open}</span>}
                 {suture.hold && <span className="opacity-80">hold {suture.hold}</span>}
+                {suture.catalogNumber ? <span className="opacity-80">{suture.catalogNumber}</span> : null}
               </span>
             ))}
           </div>
@@ -199,14 +210,20 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
         <div className="px-5 pb-4">
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Implants</p>
           <ul className="space-y-1">
-            {blocks.implants.map(implant => (
-              <li key={implant.id} className="text-sm text-slate-700 flex flex-wrap items-center gap-1">
-                <ProductLink productId={implant.productId} catalogNumber={implant.catalogNumber} overrideUrl={implant.overrideUrl}>
-                  {implant.systemName || 'Unnamed system'}
-                </ProductLink>
-                {implant.repExpected && <span className="text-slate-500">· Rep expected</span>}
-              </li>
-            ))}
+            {blocks.implants.map(implant => {
+              const product = getProduct(implant.productId);
+              const name = String(implant.systemName || '').trim();
+              const listed = product?.name && product.name !== name ? product.name : '';
+              return (
+                <li key={implant.id} className="text-sm text-slate-700 flex flex-wrap items-center gap-1">
+                  <ProductLink productId={implant.productId} catalogNumber={implant.catalogNumber} overrideUrl={implant.overrideUrl}>
+                    {listed || name || 'Unnamed system'}
+                  </ProductLink>
+                  {listed && name ? <span>Room calls it {name}.</span> : null}
+                  {implant.repExpected && <span className="text-slate-500">· Rep expected</span>}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -232,8 +249,7 @@ export default function ProcedureGlance({ procedure, mode = 'personal', staleDay
           <ul className="space-y-1">
             {blocks.people.map((person, index) => (
               <li key={`${person.name}-${index}`} className="text-sm text-slate-700">
-                <span className="font-semibold">{person.name}</span>
-                {person.role && <span className="text-slate-500"> · {person.role}</span>}
+                {personLine(person)}
               </li>
             ))}
           </ul>

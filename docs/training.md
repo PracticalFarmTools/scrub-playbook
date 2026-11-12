@@ -16,7 +16,7 @@ Who: every tech, nurse, and traveler who will use the app. Travelers take it on 
 
 1. Type your name when the app asks. It labels your confirmations and activity on this phone, and it is signed into every card change you save.
 2. Today: tap **Paste the board**, paste three lines from the board (time, room, surgeon, procedure; no patient names), tap **Read the lines**, then **Add 3 lines to today**. Open a matched card from the list.
-3. In the case view, find the trays and sutures, switch **Dark** on and off, and use **Previous** and **Next**.
+3. In the case view, read the systems at the top, find the trays and sutures, switch **Dark** on and off, and use **Previous** and **Next**. A product page is labeled **Product page**. Company instructions are labeled with the company name and the word **instructions**.
 4. After the case: tap **I was in this case** to confirm, or **Flag** with what did not match.
 5. If the official card is wrong, tap **Suggest a card change**, write what the card says, what you saw, and the change, and send it. Tap **I sent it** once it has gone.
 6. Edit a card, change one tray, check that **Your name** is yours, and tap **Save procedure**. Try leaving without saving and see the app ask first.

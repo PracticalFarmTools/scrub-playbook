@@ -1,4 +1,7 @@
-import { nickFor, pullTargets, trustLine } from '../data/caseView';
+import { sideConflictText } from '../data/boardMatch';
+import { gloveLine, implantLine, nickFor, personLine, pullTargets, sutureLine, trayLine, trustLine } from '../data/caseView';
+import { systemsForCase } from '../data/systems';
+import { SystemDoors } from './Systems';
 
 function Section({ title, children, muted }) {
   return (
@@ -12,14 +15,16 @@ function Section({ title, children, muted }) {
 /**
  * The readable case: header, setup, and the pull list. Shared by the case view and the day printout.
  * @param {{ surgeon: any, procedure: any, blocks: any, staleDays?: number, trust?: any, dark?: boolean,
+ *   board?: { startsAt?: string, room?: string, procedureName?: string } | null,
  *   checks?: Record<string, boolean>, onToggle?: (id: string) => void, idPrefix?: string }} props
  */
-export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust, dark, checks, onToggle, idPrefix = 'case-view' }) {
+export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust, dark, board = null, checks, onToggle, idPrefix = 'case-view' }) {
   const targets = pullTargets(blocks);
   const sample = Boolean(procedure.demo || surgeon.demo);
   const muted = dark ? 'text-slate-400' : 'text-slate-600';
   const firstCase = (surgeon.firstCase || []).map(line => String(line || '').trim()).filter(Boolean).slice(0, 3);
   const steps = blocks.steps || [];
+  const systems = systemsForCase(surgeon, blocks);
 
   const checkFor = (id) => targets.some(item => item.id === id)
     ? (
@@ -41,8 +46,14 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
             Sample. Not from your hospital.
           </p>
         )}
+        {(board?.startsAt || board?.room || board?.procedureName) && (
+          <p className="text-lg font-bold mb-2">Board: {[board.startsAt, board.room && `Room ${board.room}`, board.procedureName].filter(Boolean).join(' · ')}</p>
+        )}
         <p id={`${idPrefix}-surgeon`} className="text-xl font-bold">{surgeon.name}</p>
         <h1 id={`${idPrefix}-procedure`} className="text-xl font-bold mt-1">{procedure.name}{procedure.approach ? ` · ${procedure.approach}` : ''}</h1>
+        {sideConflictText(procedure) && (
+          <p className="text-lg font-bold mt-2">{sideConflictText(procedure)}</p>
+        )}
         {surgeon.facility?.trim() && <p className={`text-lg mt-1 ${muted}`}>{surgeon.facility}</p>}
         {procedure.official?.label?.trim() && (
           <p className="text-lg mt-2">Official card: {procedure.official.label.trim()}</p>
@@ -65,6 +76,23 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
         </Section>
       )}
 
+      {(systems.onCard.length > 0 || systems.fromSurgeon.length > 0) && (
+        <Section title="Systems" muted={muted}>
+          {systems.onCard.length > 0 && (
+            <div>
+              {systems.fromSurgeon.length > 0 && <p className={`text-base font-bold mb-1 ${muted}`}>This case</p>}
+              {systems.onCard.map(system => <SystemDoors key={system.id || system.name} use={system} dark={dark} room />)}
+            </div>
+          )}
+          {systems.fromSurgeon.length > 0 && (
+            <div className={systems.onCard.length > 0 ? 'mt-3' : ''}>
+              <p className={`text-base font-bold mb-1 ${muted}`}>This surgeon uses</p>
+              {systems.fromSurgeon.map(system => <SystemDoors key={system.id || system.name} use={system} dark={dark} room />)}
+            </div>
+          )}
+        </Section>
+      )}
+
       {blocks.position?.text?.trim() && <Section title="Position" muted={muted}><p className="whitespace-pre-wrap">{blocks.position.text}</p></Section>}
       {blocks.prep?.text?.trim() && <Section title="Prep" muted={muted}><p className="whitespace-pre-wrap">{blocks.prep.text}</p></Section>}
       {blocks.drapes?.text?.trim() && <Section title="Drapes" muted={muted}><p className="whitespace-pre-wrap">{blocks.drapes.text}</p></Section>}
@@ -76,13 +104,13 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           {blocks.gloves.outer?.model && (
             <label className="flex items-start gap-3 min-h-11 py-1">
               {checkFor('glove-outer')}
-              <span>Outer · {[blocks.gloves.outer.model, blocks.gloves.outer.size].filter(Boolean).join(' ')}</span>
+              <span>{gloveLine('Outer', blocks.gloves.outer)}</span>
             </label>
           )}
           {blocks.gloves.inner?.model && (
             <label className="flex items-start gap-3 min-h-11 py-1">
               {checkFor('glove-inner')}
-              <span>Inner · {[blocks.gloves.inner.model, blocks.gloves.inner.size].filter(Boolean).join(' ')}</span>
+              <span>{gloveLine('Inner', blocks.gloves.inner)}</span>
             </label>
           )}
         </Section>
@@ -126,7 +154,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           {blocks.trays.map(tray => (
             <label key={tray.id} className="flex items-start gap-3 min-h-11 py-1">
               {checkFor(`tray-${tray.id}`)}
-              <span>{[tray.commonName || 'Tray', tray.spdName && `SPD: ${tray.spdName}`, tray.openOrHold === 'hold' ? 'Hold' : 'Open'].filter(Boolean).join(' · ')}</span>
+              <span>{trayLine(tray, blocks)}</span>
             </label>
           ))}
         </Section>
@@ -134,15 +162,12 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
 
       {(blocks.sutures || []).length > 0 && (
         <Section title="Sutures" muted={muted}>
-          {blocks.sutures.map(suture => {
-            const layer = suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? suture.layer : '';
-            return (
-              <label key={suture.id} className="flex items-start gap-3 min-h-11 py-1">
-                {checkFor(`suture-${suture.id}`)}
-                <span>{[layer, suture.name, suture.size, suture.needle, suture.open && `open ${suture.open}`, suture.hold && `hold ${suture.hold}`].filter(Boolean).join(' ')}</span>
-              </label>
-            );
-          })}
+          {blocks.sutures.map(suture => (
+            <label key={suture.id} className="flex items-start gap-3 min-h-11 py-1">
+              {checkFor(`suture-${suture.id}`)}
+              <span>{sutureLine(suture)}</span>
+            </label>
+          ))}
         </Section>
       )}
 
@@ -151,7 +176,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
           {blocks.implants.map(implant => (
             <label key={implant.id} className="flex items-start gap-3 min-h-11 py-1">
               {checkFor(`implant-${implant.id}`)}
-              <span>{[implant.systemName || 'Unnamed system', implant.repExpected ? 'Rep expected' : ''].filter(Boolean).join(' · ')}</span>
+              <span>{implantLine(implant)}</span>
             </label>
           ))}
         </Section>
@@ -168,7 +193,7 @@ export default function CaseBody({ surgeon, procedure, blocks, staleDays, trust,
       {(blocks.people || []).length > 0 && (
         <Section title="People" muted={muted}>
           {blocks.people.map((person, index) => (
-            <p key={`${person.name}-${index}`}>{[person.name, person.role].filter(Boolean).join(' · ')}</p>
+            <p key={`${person.name}-${index}`}>{personLine(person)}</p>
           ))}
         </Section>
       )}

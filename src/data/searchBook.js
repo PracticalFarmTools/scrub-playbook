@@ -14,8 +14,9 @@ function blobProcedure(procedure) {
     b.endOfCase?.text,
     b.note?.text,
     ...(b.sutures || []).flatMap(s => [s.name, s.size, s.needle, s.layer, s.catalogNumber]),
-    ...(b.trays || []).flatMap(t => [t.commonName, t.spdName, t.vendorName]),
+    ...(b.trays || []).flatMap(t => [t.commonName, t.spdName, t.vendorName, (b.systems || []).find(system => system.id === t.systemId)?.name]),
     ...(b.implants || []).map(t => t.systemName),
+    ...(b.systems || []).flatMap(system => [system.name, system.catalogNumber]),
     ...(b.nicknames || []).flatMap(n => [n.nickname, n.actual]),
     ...(b.people || []).flatMap(p => [p.name, p.role, p.gloveModel]),
     b.gloves?.outer?.model,
@@ -39,7 +40,8 @@ export function filterBook(book, query, facility = null) {
     s.name.toLowerCase().includes(q) ||
     (s.specialty || '').toLowerCase().includes(q) ||
     (s.facility || '').toLowerCase().includes(q) ||
-    (s.firstCase || []).join(' ').toLowerCase().includes(q)
+    (s.firstCase || []).join(' ').toLowerCase().includes(q) ||
+    (s.preferredSystems || []).map(item => item.name).join(' ').toLowerCase().includes(q)
   ).map(s => s.id));
 
   const procedureHits = procedures.filter(p => surgeonHits.has(p.surgeonId) || blobProcedure(p).includes(q));

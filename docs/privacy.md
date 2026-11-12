@@ -29,7 +29,7 @@ Only when you choose to:
 - **Share a card, hand off a place, publish a unit book, hand over publishing, or send a suggestion.** You pick the recipient and the channel (Messages, email, AirDrop, a file). That channel's own terms apply. Confirmations and flags are removed from what you share, hand off, or publish.
 - **Export a backup.** The file goes where you save it. It holds your whole book, including confirmations. If you publish a unit book, its signing key is locked with your passphrase or left out.
 - **Dictate.** Your browser's speech recognition may send audio to Apple or Google to turn it into text. Your unit can turn dictation off.
-- **Open a product or company link.** Your browser goes to the manufacturer's site. The app does not tell that site which page you came from. That site's privacy policy applies.
+- **Open a product page, a catalog code, a hospital item, or a company instructions page.** Your browser goes to that address. The app does not tell that site which page you came from. That site's privacy policy applies. A company instructions page is labeled as instructions.
 
 ## Patient information
 

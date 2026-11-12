@@ -1,6 +1,8 @@
 import { QR_MAX_CHARS, normalizeBlocks } from './schema';
 import { stripConfirmation } from './trust';
 import { cleanAliases } from './boardMatch';
+import { gloveLine, implantLine, personLine, sutureLine, trayLine } from './caseView';
+import { cleanSystemUses, systemShareLine, systemsForCase } from './systems';
 
 /** The text and the small payload of one card that a tech sends by message, AirDrop, or QR. */
 
@@ -100,14 +102,11 @@ export function toGlanceText(surgeon, procedure) {
   if (blocks.drapes.text?.trim()) pushSection(lines, 'Drapes', [blocks.drapes.text]);
   if (blocks.room.text?.trim()) pushSection(lines, 'Room start', [blocks.room.text]);
   if (blocks.equipment.text?.trim()) pushSection(lines, 'Equipment and settings', [blocks.equipment.text]);
+  const systems = systemsForCase(surgeon, blocks);
+  if (systems.onCard.length) pushSection(lines, 'Systems for this case', systems.onCard.map(systemShareLine));
+  if (systems.fromSurgeon.length) pushSection(lines, `Systems ${surgeonTitle(surgeon?.name)} uses`, systems.fromSurgeon.map(systemShareLine));
 
-  const gloves = [];
-  if (blocks.gloves.outer?.model) {
-    gloves.push(`Outer: ${[blocks.gloves.outer.model, blocks.gloves.outer.size].filter(Boolean).join(' ')}`);
-  }
-  if (blocks.gloves.inner?.model) {
-    gloves.push(`Inner: ${[blocks.gloves.inner.model, blocks.gloves.inner.size].filter(Boolean).join(' ')}`);
-  }
+  const gloves = [gloveLine('Outer', blocks.gloves.outer), gloveLine('Inner', blocks.gloves.inner)].filter(Boolean);
   pushSection(lines, 'Gloves', gloves);
 
   pushSection(lines, 'Case flow', (blocks.steps || []).filter(step => step.title?.trim()).map((step, index) => {
@@ -121,31 +120,14 @@ export function toGlanceText(surgeon, procedure) {
   if (gear.mayo.length) lines.push('', `Mayo: ${gear.mayo.join(', ')}`);
   if (gear.rest.length) lines.push('', 'Also ready:', ...gear.rest);
 
-  pushSection(lines, 'Trays', (blocks.trays || []).map(tray => {
-    const parts = [tray.commonName];
-    if (tray.spdName) parts.push(`SPD: ${tray.spdName}`);
-    if (tray.vendorName) parts.push(tray.vendorName);
-    parts.push(tray.openOrHold === 'hold' ? 'Hold' : 'Open');
-    return parts.filter(Boolean).join(' · ');
-  }));
+  pushSection(lines, 'Trays', (blocks.trays || []).map(tray => trayLine(tray, blocks)));
 
-  pushSection(lines, 'Sutures', (blocks.sutures || []).map(suture => {
-    const layer = suture.layer && suture.layer.toLowerCase() !== 'unspecified' ? suture.layer : '';
-    const head = [layer, [suture.name, suture.size, suture.needle].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
-    const tail = [];
-    if (suture.open) tail.push(`open ${suture.open}`);
-    if (suture.hold) tail.push(`hold ${suture.hold}`);
-    if (suture.catalogNumber) tail.push(suture.catalogNumber);
-    return [head, ...tail].filter(Boolean).join(' · ');
-  }));
+  pushSection(lines, 'Sutures', (blocks.sutures || []).map(suture => sutureLine(suture)));
 
-  pushSection(lines, 'Implants', (blocks.implants || []).map(implant => {
-    const name = implant.systemName || 'Unnamed system';
-    return implant.repExpected ? `${name} · Rep expected` : name;
-  }));
+  pushSection(lines, 'Implants', (blocks.implants || []).map(implant => implantLine(implant)));
 
   pushSection(lines, 'Nicknames', (blocks.nicknames || []).map(nick => `“${nick.nickname}” → ${nick.actual || ''}`));
-  pushSection(lines, 'People', (blocks.people || []).map(person => [person.name, person.role].filter(Boolean).join(' · ')));
+  pushSection(lines, 'People', (blocks.people || []).map(person => personLine(person)));
 
   if (blocks.endOfCase.text?.trim()) pushSection(lines, 'Dressing and end of case', [blocks.endOfCase.text]);
   if (blocks.note.text?.trim()) pushSection(lines, 'Note', [blocks.note.text]);
@@ -165,6 +147,11 @@ export function toShareableCard(surgeon, procedure) {
       facility: surgeon.facility || '',
       ...((surgeon.firstCase || []).some(line => String(line || '').trim())
         ? { firstCase: (surgeon.firstCase || []).map(line => String(line).trim()).filter(Boolean).slice(0, 3) }
+        : {}),
+      ...(cleanSystemUses(surgeon.preferredSystems).length
+        ? { preferredSystems: cleanSystemUses(surgeon.preferredSystems).map(({ catalogId, name, companyId, catalogNumber, overrideUrl, repExpected }) => ({
+          catalogId, name, companyId, catalogNumber, overrideUrl, repExpected,
+        })) }
         : {}),
     },
     procedure: slimProcedure(procedure),

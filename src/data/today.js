@@ -78,7 +78,7 @@ export function todayItem({ day = localDay(), startsAt = '', room = '', surgeonN
  * @param {{ surgeons?: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure> }} book
  * @param {{ surgeonName?: string, procedureName?: string }} item
  * @returns {{ action: 'start-surgeon', surgeonName: string, procedureName: string }
- *   | { action: 'choose', surgeons: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure>, closest?: boolean }
+ *   | { action: 'choose', surgeons: Array<import('./types').Surgeon>, procedures?: Array<import('./types').Procedure>, closest?: boolean, flagged?: boolean }
  *   | { action: 'open', surgeon: import('./types').Surgeon, procedure: import('./types').Procedure }
  *   | { action: 'start-procedure', surgeon: import('./types').Surgeon, procedureName: string }}
  */
@@ -98,8 +98,9 @@ export function resolveTodayTap(book, item) {
     .map(procedure => ({ procedure, tier: procedureMatch(procedure, procedureName) }))
     .filter(entry => entry.tier);
   const exact = scored.filter(entry => entry.tier === 'exact').map(entry => entry.procedure);
-  if (exact.length === 1) return { action: 'open', surgeon, procedure: exact[0] };
-  if (exact.length > 1) return { action: 'choose', surgeons: [surgeon], procedures: exact };
+  const flagged = exact.some(procedure => procedure.disputed);
+  if (exact.length === 1 && !flagged) return { action: 'open', surgeon, procedure: exact[0] };
+  if (exact.length >= 1) return { action: 'choose', surgeons: [surgeon], procedures: exact, flagged };
   const closest = scored.map(entry => entry.procedure);
   if (closest.length) return { action: 'choose', surgeons: [surgeon], procedures: closest, closest: true };
   return { action: 'start-procedure', surgeon, procedureName };

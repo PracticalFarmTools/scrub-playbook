@@ -69,6 +69,95 @@ describe('ProcedureEditor', () => {
     expect(onSave.mock.calls[0][1]).toEqual({ by: 'Alex Rivera' });
   });
 
+  it('saves the glove for a person in the room', () => {
+    const onSave = vi.fn();
+    render(<ProcedureEditor surgeon={surgeon} procedure={partial} onClose={() => {}} onSave={onSave} />);
+    fireEvent.change(screen.getByLabelText('Person’s name'), { target: { value: 'Jake Rivera' } });
+    fireEvent.change(screen.getByLabelText('Glove for this person'), { target: { value: 'g7' } });
+    fireEvent.change(screen.getByLabelText('Glove size for this person'), { target: { value: '8.0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add person' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.people[0]).toMatchObject({
+      name: 'Jake Rivera', role: 'PA', gloveModel: 'Protexis PI', gloveSize: '8.0', gloveColor: 'Blue',
+    });
+  });
+
+  it('drops an implant product page when the name is no longer that product', () => {
+    const onSave = vi.fn();
+    const procedure = {
+      ...partial,
+      blocks: {
+        ...partial.blocks,
+        implants: [{ id: 'i1', systemName: 'ATTUNE Knee System', productId: 'imp-attune', repExpected: false, catalogNumber: '', overrideUrl: '' }],
+      },
+    };
+    render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
+    fireEvent.change(screen.getByLabelText('Implant 1, system name'), { target: { value: 'Persona Knee System' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.implants[0]).toMatchObject({ systemName: 'Persona Knee System', productId: null });
+  });
+
+  it('drops a tray’s system when that system is removed', () => {
+    const onSave = vi.fn();
+    const procedure = {
+      ...partial,
+      blocks: {
+        ...partial.blocks,
+        systems: [{ id: 'cs1', catalogId: 'sys-attune', name: 'Persona Knee System', companyId: 'depuy-synthes-j-and-j', catalogNumber: '', overrideUrl: '', repExpected: false }],
+        trays: [{ id: 't1', commonName: 'Knee tray', spdName: '', vendorName: '', openOrHold: 'open', systemId: 'cs1' }],
+      },
+    };
+    render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
+    expect(screen.getByLabelText('Tray 1, system').value).toBe('cs1');
+    expect(screen.getByRole('option', { name: 'ATTUNE Knee System (room calls it Persona Knee System)' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove system 1' }));
+    expect(screen.queryByLabelText('Tray 1, system')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.blocks.systems).toEqual([]);
+    expect(saved.blocks.trays[0].systemId).toBeUndefined();
+    expect(saved.blocks.trays[0].commonName).toBe('Knee tray');
+  });
+
+  it('keeps a stored glove and does not invent a size', () => {
+    const onSave = vi.fn();
+    const procedure = {
+      ...partial,
+      blocks: {
+        ...partial.blocks,
+        gloves: { outer: { model: 'House latex', brand: '', color: '', size: '', productId: null }, inner: null },
+      },
+    };
+    render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
+    expect(screen.getByRole('button', { name: 'Outer glove: House latex' })).toBeTruthy();
+    expect(screen.getByLabelText('Outer size').value).toBe('');
+    expect(screen.getByLabelText('Inner size').value).toBe('');
+    expect(screen.getByLabelText('Inner size').disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Outer size'), { target: { value: '8.0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.gloves.outer).toMatchObject({ model: 'House latex', size: '8.0', productId: null });
+    expect(onSave.mock.calls[0][0].blocks.gloves.inner).toBeNull();
+  });
+
+  it('shows a side disagreement and leaves an unmarked tray unset', () => {
+    const onSave = vi.fn();
+    const procedure = {
+      ...partial,
+      name: 'Right TKA',
+      approach: 'Left',
+      blocks: {
+        ...partial.blocks,
+        trays: [{ id: 't1', commonName: 'Knee tray', spdName: '', vendorName: '' }],
+      },
+    };
+    render(<ProcedureEditor surgeon={surgeon} procedure={procedure} onClose={() => {}} onSave={onSave} />);
+    expect(screen.getByText('The name says right. The approach says left. Check the side before you set up.')).toBeTruthy();
+    expect(screen.getByLabelText('Tray 1, open or hold').value).toBe('');
+    fireEvent.change(screen.getByLabelText('Tray 1, open or hold'), { target: { value: 'hold' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save procedure' }));
+    expect(onSave.mock.calls[0][0].blocks.trays[0].openOrHold).toBe('hold');
+  });
+
   it('closes on Escape', () => {
     const onClose = vi.fn();
     render(<ProcedureEditor surgeon={surgeon} procedure={partial} onClose={onClose} onSave={() => {}} />);

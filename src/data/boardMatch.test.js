@@ -36,7 +36,7 @@ describe('procedure names on the board', () => {
     expect(procedureTextMatch('Right TKA', 'Left TKA')).toBeNull();
     expect(procedureTextMatch('Right TKA', 'Bilateral TKA')).toBeNull();
     expect(procedureTextMatch('Right TKA', 'TKA')).toBe('partial');
-    expect(procedureTextMatch('TKA', 'L TKA')).toBe('exact');
+    expect(procedureTextMatch('TKA', 'L TKA')).toBe('partial');
     expect(procedureTextMatch('Laparoscopic cholecystectomy', 'Lap chole')).toBe('exact');
     expect(procedureTextMatch('Irrigation and debridement', 'I&D')).toBe('exact');
     expect(procedureTextMatch('Exploratory laparotomy', 'Ex-lap')).toBe('exact');
@@ -89,6 +89,55 @@ describe('board taps', () => {
   it('opens a card through its board name', () => {
     const hip = emptyProcedure('a', { id: 'h', name: 'Anterior hip', aliases: ['DAA THA'] });
     expect(resolveTodayTap({ surgeons: [amy], procedures: [hip] }, { surgeonName: 'Chen, A', procedureName: 'daa tha' }).procedure.id).toBe('h');
+  });
+
+  it('does not let an unsided board name open the other side', () => {
+    const right = emptyProcedure('a', { id: 'r', name: 'Right TKA', aliases: ['TKA'] });
+    const opened = resolveTodayTap({ surgeons: [amy], procedures: [right] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(opened.action).toBe('start-procedure');
+    const generic = emptyProcedure('a', { id: 'g', name: 'Total knee', aliases: ['TKA'] });
+    const asked = resolveTodayTap({ surgeons: [amy], procedures: [generic] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(asked).toMatchObject({ action: 'choose', closest: true });
+    const sided = emptyProcedure('a', { id: 's', name: 'Total knee', aliases: ['Left TKA'] });
+    const left = resolveTodayTap({ surgeons: [amy], procedures: [sided] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(left).toMatchObject({ action: 'open', procedure: { id: 's' } });
+  });
+
+  it('opens the same card for either side when both board names are listed', () => {
+    const both = emptyProcedure('a', { id: 'both', name: 'Total knee arthroplasty', aliases: ['R TKA', 'L TKA'] });
+    const right = resolveTodayTap({ surgeons: [amy], procedures: [both] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    const left = resolveTodayTap({ surgeons: [amy], procedures: [both] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(right).toMatchObject({ action: 'open', procedure: { id: 'both' } });
+    expect(left).toMatchObject({ action: 'open', procedure: { id: 'both' } });
+    const unsided = resolveTodayTap({ surgeons: [amy], procedures: [both] }, { surgeonName: 'Chen', procedureName: 'TKA' });
+    expect(unsided).toMatchObject({ action: 'choose', closest: true });
+  });
+
+  it('does not open a card whose name and approach name opposite sides', () => {
+    const conflict = emptyProcedure('a', { id: 'c', name: 'Right TKA', approach: 'Left' });
+    const right = resolveTodayTap({ surgeons: [amy], procedures: [conflict] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    const left = resolveTodayTap({ surgeons: [amy], procedures: [conflict] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(right).toMatchObject({ action: 'choose', closest: true, procedures: [{ id: 'c' }] });
+    expect(left).toMatchObject({ action: 'choose', closest: true, procedures: [{ id: 'c' }] });
+    const hip = resolveTodayTap({ surgeons: [amy], procedures: [conflict] }, { surgeonName: 'Chen', procedureName: 'Lap chole' });
+    expect(hip.action).toBe('start-procedure');
+  });
+
+  it('does not open a flagged card by itself', () => {
+    const flagged = emptyProcedure('a', { id: 'r', name: 'Right TKA', disputed: true, reportNote: 'Uses the small tray now' });
+    const result = resolveTodayTap({ surgeons: [amy], procedures: [flagged] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    expect(result).toMatchObject({ action: 'choose', flagged: true, procedures: [{ id: 'r' }] });
+    const other = emptyProcedure('a', { id: 'l', name: 'Left TKA' });
+    const kept = resolveTodayTap({ surgeons: [amy], procedures: [flagged, other] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(kept).toMatchObject({ action: 'open', procedure: { id: 'l' } });
+  });
+
+  it('keeps an approach side from being opened for the other side', () => {
+    const right = emptyProcedure('a', { id: 'r', name: 'Total knee arthroplasty', approach: 'Right', aliases: ['TKA'] });
+    const opened = resolveTodayTap({ surgeons: [amy], procedures: [right] }, { surgeonName: 'Chen', procedureName: 'L TKA' });
+    expect(opened.action).toBe('start-procedure');
+    const same = resolveTodayTap({ surgeons: [amy], procedures: [right] }, { surgeonName: 'Chen', procedureName: 'R TKA' });
+    expect(same).toMatchObject({ action: 'open', procedure: { id: 'r' } });
   });
 });
 

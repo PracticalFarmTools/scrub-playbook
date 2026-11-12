@@ -169,4 +169,13 @@ describe('pull checklist', () => {
     expect(loadPull('p1', '2026-10-24', stored)).toEqual({});
     expect(nextPull(stored, 'p1', { x: false }, '2026-10-23')).toEqual({});
   });
+
+  it('keeps two rooms that share a card on separate checklists', async () => {
+    const { loadPull, nextPull } = await import('./pull');
+    const day = '2026-11-07';
+    const first = nextPull({}, 'p1:room-a', { 'tray-t1': true }, day);
+    const second = nextPull(first, 'p1:room-b', { 'tray-t1': false }, day);
+    expect(loadPull('p1:room-a', day, second)).toEqual({ 'tray-t1': true });
+    expect(loadPull('p1:room-b', day, second)).toEqual({});
+  });
 });

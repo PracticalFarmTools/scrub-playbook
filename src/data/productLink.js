@@ -1,4 +1,4 @@
-import { SURGICAL_VENDORS } from './vendors';
+import { findCompany, getCompany } from './companies';
 import { getProduct } from './products';
 import { LINK_FRESH_DAYS } from './schema';
 import { daysSince } from './trust';
@@ -9,51 +9,56 @@ function isHttps(url) {
 }
 
 /** @returns {code is string} */
-function isCatalogCode(code) {
+export function isCatalogCode(code) {
   return typeof code === 'string' && /^[A-Za-z0-9][A-Za-z0-9-]{1,40}$/.test(code.trim());
 }
 
-function fold(value) {
-  return String(value || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-}
-
+/**
+ * Exact company name or exact alias. A fragment such as "S" or "PI" matches nothing.
+ * @param {string} [name]
+ */
 export function findVendor(name) {
-  if (!name) return null;
-  const q = fold(name);
-  return SURGICAL_VENDORS.find(v => fold(v.name) === q)
-    || SURGICAL_VENDORS.find(v => fold(v.name).includes(q) || q.includes(fold(v.name)))
-    || null;
+  const company = findCompany(name);
+  if (!company) return null;
+  return { name: company.name, url: company.url, blurb: company.blurb };
 }
 
 /**
- * Product-page and hospital links may replace the product name.
- * A company page or a search is never presented as the product page.
- * Catalog links exist only when the card stored a code.
+ * Separate doors, so a company instructions page is never the product page.
+ * A hospital link and a catalog code can sit beside a product page.
+ * @param {{ productId?: string, catalogNumber?: string, overrideUrl?: string, vendorName?: string, companyId?: string, now?: number }} [link]
+ */
+export function linkDoors({ productId, catalogNumber, overrideUrl, vendorName, companyId, now = Date.now() } = {}) {
+  const product = getProduct(productId);
+  const company = (companyId && getCompany(companyId)) || findCompany(vendorName || product?.vendor);
+  return {
+    hospital: isHttps(overrideUrl) ? { href: overrideUrl.trim(), label: 'Hospital item' } : null,
+    product: product?.linkKind === 'product-page' && isHttps(product.url) && daysSince(product.checkedAt, now) <= LINK_FRESH_DAYS
+      ? { href: product.url, label: product.name }
+      : null,
+    catalog: product?.urlTemplate && isCatalogCode(catalogNumber)
+      ? { href: product.urlTemplate.replace('{code}', encodeURIComponent(catalogNumber.trim())), label: 'This catalog code' }
+      : null,
+    instructions: company?.url && isHttps(company.url)
+      ? { href: company.url, label: `${company.name} instructions` }
+      : null,
+  };
+}
+
+/**
+ * The single best link, for a glove or suture name.
+ * Order: hospital address, catalog code, fresh product page, then instructions.
+ * The instructions result uses kind "company" so callers can keep it off the product name.
  * @param {{ productId?: string, catalogNumber?: string, overrideUrl?: string, vendorName?: string, now?: number }} [link]
  */
 export function resolveProductLink({ productId, catalogNumber, overrideUrl, vendorName, now = Date.now() } = {}) {
-  if (isHttps(overrideUrl)) {
-    return { href: overrideUrl.trim(), kind: 'hospital', label: 'Hospital link' };
+  const doors = linkDoors({ productId, catalogNumber, overrideUrl, vendorName, now });
+  if (doors.hospital) return { href: doors.hospital.href, kind: 'hospital', label: 'Hospital link' };
+  if (doors.catalog) {
+    const product = getProduct(productId);
+    return { href: doors.catalog.href, kind: 'catalog-code', label: product?.name || 'Catalog code' };
   }
-
-  const product = getProduct(productId);
-  const vendor = findVendor(vendorName || product?.vendor);
-
-  if (product?.urlTemplate && isCatalogCode(catalogNumber)) {
-    return {
-      href: product.urlTemplate.replace('{code}', encodeURIComponent(catalogNumber.trim())),
-      kind: 'catalog-code',
-      label: product.name,
-    };
-  }
-
-  if (product?.linkKind === 'product-page' && isHttps(product.url) && daysSince(product.checkedAt, now) <= LINK_FRESH_DAYS) {
-    return { href: product.url, kind: 'product-page', label: product.name };
-  }
-
-  if (vendor?.url && isHttps(vendor.url)) {
-    return { href: vendor.url, kind: 'company', label: `${vendor.name} page` };
-  }
-
+  if (doors.product) return { href: doors.product.href, kind: 'product-page', label: doors.product.label };
+  if (doors.instructions) return { href: doors.instructions.href, kind: 'company', label: doors.instructions.label };
   return null;
 }

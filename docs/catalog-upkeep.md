@@ -24,7 +24,7 @@ Each product in `products.js` has:
 1. A hospital link the card stores, if it starts with `https://`.
 2. A `catalog-code` template, only when the card stores a catalog number.
 3. A `product-page` address, only while `checkedAt` is less than `LINK_FRESH_DAYS` (180, in `src/data/schema.js`) old.
-4. The company page from `vendors.js`, labeled as the company page, never as the product.
+4. The company instructions page from `vendors.js`, labeled as instructions, never as the product.
 
 So an address nobody has re-checked in 180 days quietly falls back to the company page instead of pointing at a page that may have moved.
 
@@ -56,4 +56,23 @@ Then run `npm test` and `npm run check:links`, and open a pull request.
 
 ## Companies
 
-`vendors.js` lists each company's name, a short description, and its public page, often its instructions-for-use portal. The weekly check does not cover these. Review them once a year.
+`vendors.js` lists each company's name, a short description, and its public page, often its instructions-for-use portal. `companies.js` gives each one a stable id, exact aliases, and a specialty for the directory. The weekly check does not cover these pages. Review them once a year.
+
+An alias has to be the whole other name. "Ethicon" is an alias of Ethicon. "S" and "PI" are not aliases of anything, so a short search cannot attach the wrong company.
+
+A company can exist with an empty `url`. The directory then says no page is stored. Add a url only after opening that page.
+
+## Systems
+
+`systems.js` is the list of systems a room sets up: a knee system, a robot, a phaco machine, an energy device. Each row has a stable `id`, the company id, aliases, and, only when `products.js` already has a checked page, a `productId`.
+
+A surgeon stores up to 12 of these (`preferredSystems`). A card stores up to 12 for that case (`blocks.systems`), and a tray can point at one of them. The case view shows the card's systems, then any surgeon system the card does not already list. The Systems and companies panel browses companies by specialty, and its search also opens a matching system. Each one can open three different doors:
+
+- **Product page**, when `productId` points at a fresh `product-page`.
+- **This catalog code**, when the card stored a code and the product has a template. The code still shows as text, and travels in a shared message, when no template is stored yet.
+- **Hospital item**, when the card stored an `https://` address.
+- **Company instructions**, the company's own page, labeled with the word instructions.
+
+A typed name with no catalog id is kept. That is how a hospital names a system before it is in `systems.js`. Raise `SYSTEMS_MAX` when a unit needs more than 12 on one surgeon or one card. The screens already render the list they are given.
+
+To add a system: add a row with a new id and a `companyId` from `companies.js`. Set `productId` only after you have opened that product's page and added it to `products.js` with `checkedAt` set to that day. Run `npm test` and `npm run check:links`.

@@ -39,7 +39,7 @@ describe('TodayList', () => {
     expect(screen.getByText('07:30 · Rm 4 · CHEN, AMY · R TKA')).toBeTruthy();
     expect(screen.queryByText(/SMITH/)).toBeNull();
     fireEvent.click(screen.getByText('07:30 · Rm 4 · CHEN, AMY · R TKA'));
-    expect(props.onOpen).toHaveBeenCalledWith(right);
+    expect(props.onOpen).toHaveBeenCalledWith(right, expect.objectContaining({ room: '4', procedureName: 'R TKA', startsAt: '07:30' }));
   });
 
   it('edits a board line in place and keeps the edit after a reload', () => {
@@ -58,6 +58,24 @@ describe('TodayList', () => {
     cleanup();
     renderList();
     expect(screen.getByText('07:30 · Rm 7 · Chen · Left TKA')).toBeTruthy();
+  });
+
+  it('stops on a flagged card instead of opening it', () => {
+    const flagged = emptyProcedure('a', { id: 'r', name: 'Right TKA', disputed: true, reportNote: 'Uses the small tray now' });
+    const props = renderList({ book: { surgeons: [surgeon], procedures: [flagged] } });
+    fireEvent.click(screen.getByText('Paste the board'));
+    fireEvent.change(screen.getByLabelText(/Paste time, room, surgeon, and procedure/), {
+      target: { value: '07:30\tOR 4\tChen\tR TKA' },
+    });
+    fireEvent.click(screen.getByText('Read the lines'));
+    expect(screen.getByText('Flagged. Read it before you open it.')).toBeTruthy();
+    fireEvent.click(screen.getByText('Add 1 line to today'));
+    fireEvent.click(screen.getByText('07:30 · Rm 4 · Chen · R TKA'));
+    expect(screen.getByText('Flagged. Read it before you open it.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Right TKA · Flagged/ })).toBeTruthy();
+    expect(props.onOpen).not.toHaveBeenCalled();
+    expect(props.onOpenAll).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Open all/)).toBeNull();
   });
 
   it('shows the closest cards when the board names no side, with a way to start a new card', () => {

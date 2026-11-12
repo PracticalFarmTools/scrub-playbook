@@ -1,4 +1,5 @@
 import { migrateBook } from './migrate';
+import { cleanSystemUses } from './systems';
 
 /**
  * Legacy sample cards. The app does not load these until someone asks
@@ -91,6 +92,16 @@ export const DEMO_SURGEONS = [
   },
 ];
 
+const SAMPLE_PREFERRED = {
+  'demo-1': [{ catalogId: 'sys-triathlon' }, { catalogId: 'sys-mako' }],
+  'demo-miller': [{ catalogId: 'sys-centurion' }],
+  'demo-2': [{ catalogId: 'sys-centurion' }, { catalogId: 'sys-lumera' }],
+};
+
+const SAMPLE_CASE = {
+  'demo-1': [{ catalogId: 'sys-triathlon', repExpected: true }],
+};
+
 const SAMPLE_FIRST_CASE = {
   'demo-1': [
     'Calls the Cobb elevator “The Cobb.”',
@@ -123,12 +134,26 @@ export function buildSampleBook({ now = Date.now() } = {}) {
   const book = migrateBook(DEMO_SURGEONS);
   return {
     ...book,
-    surgeons: book.surgeons.map(surgeon => (
-      SAMPLE_FIRST_CASE[surgeon.id]
+    surgeons: book.surgeons.map(surgeon => {
+      const next = SAMPLE_FIRST_CASE[surgeon.id]
         ? { ...surgeon, firstCase: SAMPLE_FIRST_CASE[surgeon.id], firstCaseAt: surgeon.createdAt, firstCaseBy: surgeon.addedBy || '' }
-        : surgeon
-    )),
-    procedures: recentConfirmations(book.procedures, now).map(procedure => ({ ...procedure, name: 'Sample setup' })),
+        : { ...surgeon };
+      const preferred = cleanSystemUses(SAMPLE_PREFERRED[surgeon.id]);
+      return preferred.length ? { ...next, preferredSystems: preferred } : next;
+    }),
+    procedures: recentConfirmations(book.procedures, now).map(procedure => {
+      const note = String(procedure.blocks?.note?.text || '').replace(/\nCompanies:.*$/, '');
+      const systems = cleanSystemUses(SAMPLE_CASE[procedure.surgeonId]);
+      return {
+        ...procedure,
+        name: 'Sample setup',
+        blocks: {
+          ...procedure.blocks,
+          note: { ...procedure.blocks.note, text: note },
+          ...(systems.length ? { systems } : {}),
+        },
+      };
+    }),
   };
 }
 

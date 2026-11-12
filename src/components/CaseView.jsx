@@ -28,10 +28,16 @@ function wakeSupported() {
   return typeof navigator !== 'undefined' && typeof navigator.wakeLock?.request === 'function';
 }
 
-export default function CaseView({ surgeon, procedure, staleDays, trust, position, onClose, onSuggested, onConfirm, onFlag }) {
+/**
+ * @param {{ surgeon: any, procedure: any, staleDays?: number, trust?: any, position?: any,
+ *   board?: import('../data/types').TodayItem | null, onClose: () => void,
+ *   onSuggested?: any, onConfirm?: any, onFlag?: any }} props
+ */
+export default function CaseView({ surgeon, procedure, staleDays, trust, position, board = null, onClose, onSuggested, onConfirm, onFlag }) {
   const blocks = useMemo(() => normalizeBlocks(procedure?.blocks), [procedure]);
   const targets = useMemo(() => pullTargets(blocks), [blocks]);
-  const [checks, setChecks] = useState(() => (procedure ? loadPull(procedure.id) : {}));
+  const listId = board?.id ? `${procedure?.id}:${board.id}` : procedure?.id;
+  const [checks, setChecks] = useState(() => (listId ? loadPull(listId) : {}));
   const [confirmName, setConfirmName] = useState(readTechName);
   const [confirmedAs, setConfirmedAs] = useState('');
   const [flagging, setFlagging] = useState(false);
@@ -55,10 +61,9 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
     if (!surgeon || !procedure) onClose?.();
   }, [surgeon, procedure, onClose]);
 
-  const procedureId = procedure?.id;
   useEffect(() => {
-    if (procedureId) savePull(procedureId, checks);
-  }, [procedureId, checks]);
+    if (listId) savePull(listId, checks);
+  }, [listId, checks]);
 
   const dialogRef = useDialog({
     initialFocus: closeRef,
@@ -224,6 +229,7 @@ export default function CaseView({ surgeon, procedure, staleDays, trust, positio
           staleDays={staleDays}
           trust={trust}
           dark={dark}
+          board={board}
           checks={checks}
           onToggle={toggle}
         />

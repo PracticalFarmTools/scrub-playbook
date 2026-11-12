@@ -36,6 +36,30 @@ describe('CaseView', () => {
     expect(screen.getAllByText(/Bovie 35\/35/)).toHaveLength(2);
   });
 
+  it('reads the glove color, the assist’s glove, the suture code, and an unmarked tray', () => {
+    render(<CaseView surgeon={surgeon} staleDays={90} onClose={() => {}} procedure={procedureWith({
+      gloves: { outer: { model: 'Biogel Eclipse', size: '7.5', color: 'Green' }, inner: null },
+      sutures: [{ id: 'su1', layer: 'Skin', name: 'Nylon/Ethilon', size: '4-0', needle: 'PS-2', open: '1', hold: '', catalogNumber: '1698G' }],
+      people: [{ name: 'Jake Rivera', role: 'PA', gloveModel: 'Protexis PI', gloveSize: '8.0', gloveColor: 'Blue' }],
+      trays: [{ id: 't2', commonName: 'Extra', spdName: '', vendorName: '' }],
+    })} />);
+    expect(screen.getByRole('checkbox', { name: 'Outer · Biogel Eclipse 7.5 Green' })).toBeTruthy();
+    expect(screen.getByText('Jake Rivera · PA · Protexis PI 8.0 Blue')).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Skin · Nylon/Ethilon 4-0 PS-2 · open 1 · 1698G' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Extra · Open or hold not set' })).toBeTruthy();
+  });
+
+  it('says when the name and the approach name different sides', () => {
+    render(<CaseView surgeon={surgeon} staleDays={90} onClose={() => {}} procedure={procedureWith({}, { name: 'Right TKA', approach: 'Left' })} />);
+    expect(screen.getByText('The name says right. The approach says left. Check the side before you set up.')).toBeTruthy();
+  });
+
+  it('keeps the board line with the case, including the side the board wrote', () => {
+    const procedure = procedureWith();
+    render(<CaseView surgeon={surgeon} procedure={procedure} board={{ id: 'line-1', startsAt: '07:30', room: '4', procedureName: 'Left TKA' }} staleDays={90} onClose={() => {}} />);
+    expect(screen.getByText('Board: 07:30 · Room 4 · Left TKA')).toBeTruthy();
+  });
+
   it('closes on Escape, and Escape first leaves the suggestion form', () => {
     const onClose = vi.fn();
     render(<CaseView surgeon={surgeon} procedure={procedureWith()} staleDays={90} onClose={onClose} />);

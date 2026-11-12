@@ -150,8 +150,8 @@ function isSubset(small, big) {
 }
 
 /**
- * 'exact', 'partial', or null. A different side never matches. A card that names a side
- * is only 'partial' for a board line that names none, so the tech checks the side.
+ * 'exact', 'partial', or null. A different side never matches. A missing side on
+ * either name is only 'partial', so the tech checks the side before the card opens.
  */
 export function procedureTextMatch(cardText, boardText) {
   const card = procedureKey(cardText);
@@ -159,7 +159,7 @@ export function procedureTextMatch(cardText, boardText) {
   if (!card.words.size || !board.words.size) return null;
   if (card.sides && board.sides && card.sides !== board.sides) return null;
   const same = card.words.size === board.words.size && isSubset(card.words, board.words);
-  if (same) return card.sides && !board.sides ? 'partial' : 'exact';
+  if (same) return card.sides === board.sides ? 'exact' : 'partial';
   const [small, big] = card.words.size <= board.words.size ? [card.words, board.words] : [board.words, card.words];
   if (small.size >= 2 && isSubset(small, big)) return 'partial';
   return null;
@@ -180,18 +180,54 @@ export function cleanAliases(list) {
     .slice(0, 12);
 }
 
-/** Best match of a board procedure against a card's name, name with approach, and board names. */
+function wordsOverlap(a, b) {
+  const left = procedureKey(a).words;
+  const right = procedureKey(b).words;
+  if (!left.size || !right.size) return false;
+  const [small, big] = left.size <= right.size ? [left, right] : [right, left];
+  return isSubset(small, big);
+}
+
+function saySides(sides) {
+  return String(sides || '').replaceAll('+', ' and ');
+}
+
+/** The name and the approach name different sides, so the card cannot open by itself. */
+export function sideConflictText(procedure) {
+  const name = procedureKey(procedure?.name || '').sides;
+  const approach = procedureKey(procedure?.approach || '').sides;
+  if (!name || !approach || name === approach) return '';
+  return `The name says ${saySides(name)}. The approach says ${saySides(approach)}. Check the side before you set up.`;
+}
+
+/**
+ * Best match of a board procedure against a card's name, name with approach, and board names.
+ * A side on the card name, or on the approach when the name has none, cannot be overruled by another name.
+ * Each board name is scored on its own, so a card can list both R TKA and L TKA.
+ * A card that names a side stays partial when the board names none.
+ * A name and an approach that disagree never open by themselves.
+ */
 export function procedureMatch(procedure, boardText) {
   const names = [
     procedure?.name,
     procedure?.approach ? `${procedure.name} ${procedure.approach}` : '',
     ...cleanAliases(procedure?.aliases),
   ].filter(Boolean);
+  const boardSides = procedureKey(boardText).sides;
+  const nameSides = procedureKey(procedure?.name || '').sides;
+  const approachSides = procedureKey(procedure?.approach || '').sides;
+  if (nameSides && approachSides && nameSides !== approachSides) {
+    return wordsOverlap(procedure?.name || '', boardText) ? 'partial' : null;
+  }
+  const cardSides = nameSides || approachSides;
+  if (cardSides && boardSides && cardSides !== boardSides) return null;
   let best = null;
   for (const name of names) {
     const tier = procedureTextMatch(name, boardText);
     if (tier && (!best || PROCEDURE_RANK[tier] > PROCEDURE_RANK[best])) best = tier;
   }
+  const listedSides = [nameSides, approachSides, ...cleanAliases(procedure?.aliases).map(alias => procedureKey(alias).sides)].filter(Boolean);
+  if (best === 'exact' && !boardSides && listedSides.length) return 'partial';
   return best;
 }
 

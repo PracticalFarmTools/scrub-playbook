@@ -6,8 +6,8 @@ What Scrub Playbook keeps, where it keeps it, and every way something leaves the
 
 | Data | Example | Patient information? |
 | --- | --- | --- |
-| Surgeons | Name, specialty, facility, up to three first-case lines | No |
-| Procedures | Setup, case flow, instruments, trays, sutures, implants by product name, nicknames, gloves, a pointer to the official card | No |
+| Surgeons | Name, specialty, facility, up to three first-case lines, and up to 12 systems that surgeon uses | No |
+| Procedures | Setup, case flow, instruments, trays, sutures, implants by product name, the systems for that case, nicknames, gloves, a pointer to the official card | No |
 | People in the room | A PA's or resident's name, role, and glove size (`ProcedureEditor.jsx`, `PeopleEditor`) | No. This is workforce information. |
 | Confirmations | The name a tech typed and the time they confirmed a card | No. This is workforce information. |
 | Flags | The reason a tech gave, their name, and the time | No |

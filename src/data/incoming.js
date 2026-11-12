@@ -6,6 +6,7 @@ import { cleanAliases } from './boardMatch';
 import { SHARE_FENCE } from './share';
 import { mergeBackup } from './backup';
 import { TRAIL_MAX } from './editTrail';
+import { blocksWithCleanSystems, cleanSystemUses } from './systems';
 
 /** Reading what arrives: a shared card, a hand-off, a backup, a unit book, or a hand-over file. */
 
@@ -75,7 +76,7 @@ function cardToBook(data) {
         reviewedAt: null,
         note: data.procedure.official?.note || '',
       },
-      blocks: normalizeBlocks(data.procedure.blocks),
+      blocks: blocksWithCleanSystems(normalizeBlocks(data.procedure.blocks)),
       trail: Array.isArray(data.procedure.trail) ? data.procedure.trail.slice(-TRAIL_MAX) : undefined,
     });
     if (!procedure.trail) delete procedure.trail;
@@ -92,6 +93,7 @@ function cardToBook(data) {
         firstCase: cleanFirstCase(data.surgeon.firstCase),
         firstCaseAt: null,
         firstCaseBy: cleanFirstCase(data.surgeon.firstCase).length ? 'Imported' : '',
+        preferredSystems: cleanSystemUses(data.surgeon.preferredSystems),
         archived: false,
       }],
       procedures: [procedure],
@@ -191,7 +193,7 @@ export function placeIncomingCard(book, incomingBook, { surgeonId } = {}) {
     demo: false,
     updatedAt: now,
     baseUpdatedAt: now,
-    blocks: normalizeBlocks(procedure.blocks),
+    blocks: blocksWithCleanSystems(normalizeBlocks(procedure.blocks)),
   });
   return {
     kind: 'attach',
