@@ -332,7 +332,7 @@ export function useBook() {
         id: uid(),
         surgeonId: id,
         demo: false,
-        name: 'Copied setup',
+        name: String(p.name || '').trim() || 'Copied setup',
         updatedAt: now,
         baseUpdatedAt: now,
       }));

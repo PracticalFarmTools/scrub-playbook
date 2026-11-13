@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { findPhiSignals } from '../data/phi';
-import { boardProblemText, parseBoard, sideConflictText } from '../data/boardMatch';
+import { boardProblemText, markSampleLines, parseBoard, sideConflictText } from '../data/boardMatch';
 import { loadToday, localDay, resolveTodayTap, saveToday, todayItem, visibleDay } from '../data/today';
 import { TODAY_KEY } from '../data/schema';
 import { sourceLabel } from '../data/unitBook';
@@ -20,7 +20,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   const [choice, setChoice] = useState(/** @type {{ item: import('../data/types').TodayItem, surgeons: Array<any>, procedures?: Array<any>, closest?: boolean, flagged?: boolean } | null} */ (null));
   const [pasting, setPasting] = useState(false);
   const [pasteText, setPasteText] = useState('');
-  const [pasteLines, setPasteLines] = useState(/** @type {Array<{ line: string, item: object, problems: string[] }> | null} */ (null));
+  const [pasteLines, setPasteLines] = useState(/** @type {Array<{ line: string, item: object, problems: string[], sampleName?: string }> | null} */ (null));
   const activeDay = localDay(offset);
   const items = visibleDay(stored, activeDay);
   const ready = items.flatMap(item => {
@@ -71,7 +71,8 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
   };
 
   const readBoard = () => {
-    setPasteLines(parseBoard(pasteText, (book?.surgeons || []).filter(surgeon => !surgeon.demo && !surgeon.archived)));
+    const readable = (book?.surgeons || []).filter(surgeon => !surgeon.archived);
+    setPasteLines(markSampleLines(parseBoard(pasteText, readable), readable));
   };
   const usableLines = (pasteLines || []).filter(line => line.problems.length === 0);
   const closePaste = () => {
@@ -153,7 +154,7 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
                     <li key={index} className={`rounded-lg px-3 py-2 text-sm ${line.problems.length ? 'bg-rose-50 text-rose-800' : 'bg-slate-50 text-slate-800'}`}>
                       {line.problems.length ? (
                         <>
-                          Line {index + 1}: {boardProblemText(line.problems)}
+                          Line {index + 1}: {boardProblemText(line.problems, line.sampleName)}
                           {!line.problems.includes('phi') && !line.problems.includes('patient') && <span className="block text-xs opacity-80">{line.line}</span>}
                         </>
                       ) : (
@@ -166,9 +167,11 @@ export default function TodayList({ book, onOpen, onOpenAll, onPrintAll, onStart
                   ))}
                 </ul>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={addPasted} disabled={!usableLines.length} className="min-h-11 px-4 rounded-xl bg-medical-600 text-white text-sm font-bold disabled:opacity-40 cursor-pointer">
-                    Add {usableLines.length} {usableLines.length === 1 ? 'line' : 'lines'} to {offset === 0 ? 'today' : 'tomorrow'}
-                  </button>
+                  {usableLines.length > 0 && (
+                    <button type="button" onClick={addPasted} className="min-h-11 px-4 rounded-xl bg-medical-600 text-white text-sm font-bold cursor-pointer">
+                      Add {usableLines.length} {usableLines.length === 1 ? 'line' : 'lines'} to {offset === 0 ? 'today' : 'tomorrow'}
+                    </button>
+                  )}
                   <button type="button" onClick={closePaste} className="min-h-11 px-4 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold cursor-pointer">Cancel</button>
                 </div>
               </>

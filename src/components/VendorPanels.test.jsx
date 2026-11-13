@@ -8,6 +8,7 @@ afterEach(cleanup);
 describe('VendorLibrary', () => {
   it('finds a system by name and keeps the company list for a specialty', () => {
     render(<VendorLibrary onClose={() => {}} />);
+    expect(screen.getByRole('dialog', { name: 'Systems and companies' })).toBeTruthy();
     expect(screen.queryByText('Mako')).toBeNull();
     fireEvent.change(screen.getByLabelText('Find a system or company'), { target: { value: 'mako' } });
     expect(screen.getByRole('link', { name: 'Stryker instructions' }).getAttribute('href')).toBe('https://ifu.stryker.com');

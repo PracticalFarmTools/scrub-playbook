@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ExternalLink, X } from 'lucide-react';
 import { COMPANIES, SPECIALTIES, getCompany, specialtyLabel } from '../data/companies';
 import { SYSTEMS } from '../data/systems';
+import { useDialog } from '../hooks/useDialog';
 import { SystemDoors } from './Systems';
 
 function CompanyLink({ company }) {
@@ -122,22 +123,25 @@ export function VendorLibrary({ onClose }) {
     overrideUrl: '',
     repExpected: false,
   }));
+  const dialogRef = useDialog({ onClose });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 mt-4">
-      <div className="bg-white border border-slate-200 rounded-2xl p-5">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <p className="text-sm font-bold text-slate-700">{q ? 'Matching systems and companies' : `Companies (${COMPANIES.length})`}</p>
-          <button type="button" onClick={onClose} aria-label="Close systems and companies" className="min-h-11 min-w-11 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"><X size={16} /></button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Systems and companies" className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col focus:outline-none">
+        <div className="flex items-center justify-between px-5 py-2 bg-gradient-to-r from-medical-700 to-medical-800">
+          <p className="text-white font-bold text-sm">{q ? 'Matching systems and companies' : `Companies (${COMPANIES.length})`}</p>
+          <button type="button" onClick={onClose} aria-label="Close systems and companies" className="tap-icon text-medical-100 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
+        <div className="p-5 overflow-y-auto">
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
           aria-label="Find a system or company"
           placeholder="Find a system or company"
+          autoFocus
           className="w-full min-h-11 rounded-xl border border-slate-200 px-3 text-sm mb-4"
         />
-        <div className="max-h-[70vh] overflow-y-auto space-y-5">
+        <div className="space-y-5">
           {uses.length > 0 && (
             <section>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Systems ({uses.length})</h3>
@@ -159,6 +163,7 @@ export function VendorLibrary({ onClose }) {
             </section>
           ))}
           {uses.length === 0 && groups.length === 0 && <p className="text-sm text-slate-500">No system or company matches that.</p>}
+        </div>
         </div>
       </div>
     </div>
