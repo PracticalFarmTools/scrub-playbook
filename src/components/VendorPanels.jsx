@@ -128,19 +128,21 @@ export function VendorLibrary({ onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)' }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Systems and companies" className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col focus:outline-none">
-        <div className="flex items-center justify-between px-5 py-2 bg-gradient-to-r from-medical-700 to-medical-800">
+        <div className="flex items-center justify-between px-5 py-2 shrink-0 bg-gradient-to-r from-medical-700 to-medical-800">
           <p className="text-white font-bold text-sm">{q ? 'Matching systems and companies' : `Companies (${COMPANIES.length})`}</p>
           <button type="button" onClick={onClose} aria-label="Close systems and companies" className="tap-icon text-medical-100 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
-        <div className="p-5 overflow-y-auto">
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label="Find a system or company"
-          placeholder="Find a system or company"
-          autoFocus
-          className="w-full min-h-11 rounded-xl border border-slate-200 px-3 text-sm mb-4"
-        />
+        <div className="px-5 pt-5 shrink-0">
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            aria-label="Find a system or company"
+            placeholder="Find a system or company"
+            autoFocus
+            className="w-full min-h-11 rounded-xl border border-slate-200 px-3 text-sm"
+          />
+        </div>
+        <div className="p-5 overflow-y-auto flex-1 min-h-0">
         <div className="space-y-5">
           {uses.length > 0 && (
             <section>
