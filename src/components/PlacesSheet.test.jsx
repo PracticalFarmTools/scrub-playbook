@@ -20,6 +20,11 @@ function sections() {
 }
 
 describe('PlacesSheet', () => {
+  it('says sample hospitals are not places until a card is copied', () => {
+    render(<PlacesSheet book={{ surgeons: [{ id: 'demo-1', name: 'Dr. Chen', facility: 'Main Hospital OR', demo: true }], procedures: [] }} onClose={() => {}} onHandOff={() => {}} onArchive={() => {}} onDelete={() => {}} onPublish={() => {}} />);
+    expect(screen.getByText(/Hospitals on the sample cards stay on the preview/)).toBeTruthy();
+  });
+
   it('counts each group in words and deletes only that group', () => {
     const onDelete = vi.fn();
     const onHandOff = vi.fn();

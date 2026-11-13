@@ -78,6 +78,19 @@ describe('TodayList', () => {
     expect(screen.queryByText(/Open all/)).toBeNull();
   });
 
+  it('tells you to copy a sample surgeon before the board can use that card', () => {
+    const sample = { ...surgeon, id: 'demo-1', demo: true };
+    renderList({ book: { surgeons: [sample], procedures: [emptyProcedure('demo-1', { name: 'Right total knee arthroplasty', demo: true })] } });
+    fireEvent.click(screen.getByText('Paste the board'));
+    fireEvent.change(screen.getByLabelText(/Paste time, room, surgeon, and procedure/), {
+      target: { value: '07:30  OR 4  Chen  R TKA' },
+    });
+    fireEvent.click(screen.getByText('Read the lines'));
+    expect(screen.getByText(/Dr. Amy Chen is a sample/)).toBeTruthy();
+    expect(screen.getByText(/Copy into my book/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Add .* to today/ })).toBeNull();
+  });
+
   it('shows the closest cards when the board names no side, with a way to start a new card', () => {
     const props = renderList();
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '07:30' } });

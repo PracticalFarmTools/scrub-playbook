@@ -102,6 +102,13 @@ const SAMPLE_CASE = {
   'demo-1': [{ catalogId: 'sys-triathlon', repExpected: true }],
 };
 
+/** One real case per sample card, plus a second side for the knee so the board can tell them apart. */
+const SAMPLE_PROCEDURES = {
+  'demo-1': { name: 'Right total knee arthroplasty', aliases: ['R TKA', 'Right TKA'] },
+  'demo-miller': { name: 'Cataract extraction', aliases: ['Cataract'] },
+  'demo-2': { name: 'Phacoemulsification', aliases: ['Phaco'] },
+};
+
 const SAMPLE_FIRST_CASE = {
   'demo-1': [
     'Calls the Cobb elevator “The Cobb.”',
@@ -141,18 +148,28 @@ export function buildSampleBook({ now = Date.now() } = {}) {
       const preferred = cleanSystemUses(SAMPLE_PREFERRED[surgeon.id]);
       return preferred.length ? { ...next, preferredSystems: preferred } : next;
     }),
-    procedures: recentConfirmations(book.procedures, now).map(procedure => {
+    procedures: recentConfirmations(book.procedures, now).flatMap(procedure => {
       const note = String(procedure.blocks?.note?.text || '').replace(/\nCompanies:.*$/, '');
       const systems = cleanSystemUses(SAMPLE_CASE[procedure.surgeonId]);
-      return {
+      const spec = SAMPLE_PROCEDURES[procedure.surgeonId] || { name: procedure.name, aliases: [] };
+      const named = {
         ...procedure,
-        name: 'Sample setup',
+        name: spec.name,
+        aliases: spec.aliases,
         blocks: {
           ...procedure.blocks,
           note: { ...procedure.blocks.note, text: note },
           ...(systems.length ? { systems } : {}),
         },
       };
+      if (procedure.surgeonId !== 'demo-1') return [named];
+      const left = JSON.parse(JSON.stringify(named));
+      return [named, {
+        ...left,
+        id: 'demo-1-left-tka',
+        name: 'Left total knee arthroplasty',
+        aliases: ['L TKA', 'Left TKA'],
+      }];
     }),
   };
 }

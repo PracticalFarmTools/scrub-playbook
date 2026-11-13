@@ -512,6 +512,12 @@ describe('share', () => {
       'Jake Rivera usually assists.',
     ]);
     expect(samples.surgeons.find(item => item.id === 'demo-miller').firstCase[0]).toBe('Room lights off for the start.');
+    expect(samples.procedures.filter(item => item.surgeonId === 'demo-1').map(item => item.name).sort()).toEqual([
+      'Left total knee arthroplasty',
+      'Right total knee arthroplasty',
+    ]);
+    expect(samples.procedures.find(item => item.surgeonId === 'demo-miller').name).toBe('Cataract extraction');
+    expect(samples.procedures.find(item => item.surgeonId === 'demo-2').name).toBe('Phacoemulsification');
   });
 
   it('splits Mayo instruments from the rest and keeps a nickname', () => {

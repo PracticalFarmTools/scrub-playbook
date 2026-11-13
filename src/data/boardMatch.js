@@ -376,8 +376,32 @@ export function parseBoard(text, surgeons = []) {
     .map(line => parseLine(line, surgeons));
 }
 
-export function boardProblemText(problems) {
+/**
+ * A surgeon who exists only as a sample is named, and the line stays off the board.
+ * @param {Array<{ line: string, item: { surgeonName?: string }, problems: Array<string>, sampleName?: string }>} lines
+ * @param {Array<{ name: string, demo?: boolean }>} surgeons
+ * @returns {Array<{ line: string, item: { surgeonName?: string }, problems: Array<string>, sampleName?: string }>}
+ */
+export function markSampleLines(lines, surgeons) {
+  return (lines || []).map(line => {
+    const blocked = (line.problems || []).some(problem => problem === 'phi' || problem === 'patient' || problem === 'no-surgeon');
+    if (blocked) return line;
+    const matches = matchSurgeons(surgeons, line.item?.surgeonName);
+    if (!matches.length || matches.some(surgeon => !surgeon.demo)) return line;
+    return {
+      ...line,
+      problems: [...line.problems, 'sample'],
+      sampleName: matches.length === 1 ? matches[0].name : '',
+    };
+  });
+}
+
+export function boardProblemText(problems, sampleName = '') {
   if (problems.includes('phi') || problems.includes('patient')) return 'Left out: this line may carry a patient detail.';
+  if (problems.includes('sample')) {
+    const who = sampleName ? `${sampleName} is a sample` : 'That surgeon is a sample';
+    return `Left out: ${who}. Copy into my book, then paste this line.`;
+  }
   if (problems.includes('no-surgeon')) return 'Left out: no surgeon found. Add it by hand.';
   if (problems.includes('no-procedure')) return 'Left out: no procedure found. Add it by hand.';
   return '';
