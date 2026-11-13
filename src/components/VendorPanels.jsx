@@ -132,15 +132,17 @@ export function VendorLibrary({ onClose }) {
           <p className="text-white font-bold text-sm">{q ? 'Matching systems and companies' : `Companies (${COMPANIES.length})`}</p>
           <button type="button" onClick={onClose} aria-label="Close systems and companies" className="tap-icon text-medical-100 hover:text-white cursor-pointer"><X size={18} /></button>
         </div>
-        <div className="p-5 overflow-y-auto">
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label="Find a system or company"
-          placeholder="Find a system or company"
-          autoFocus
-          className="w-full min-h-11 rounded-xl border border-slate-200 px-3 text-sm mb-4"
-        />
+        <div className="px-5 pt-5">
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            aria-label="Find a system or company"
+            placeholder="Find a system or company"
+            autoFocus
+            className="w-full min-h-11 rounded-xl border border-slate-200 px-3 text-sm mb-4"
+          />
+        </div>
+        <div className="px-5 pb-5 overflow-y-auto">
         <div className="space-y-5">
           {uses.length > 0 && (
             <section>
