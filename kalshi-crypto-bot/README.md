@@ -106,12 +106,12 @@ fee again within a 15-minute horizon, and the market settles automatically.
 | Per-market worst-case loss | $40 | Includes fees; hedged pairs count as locked in |
 | Total worst-case loss | $120 | Across all open markets |
 | Daily loss limit | $100 | Today's realized loss **plus** open worst case; resets at midnight ET |
-| Orders per market / cooldown | 4 / 10 s | Prevents chasing a moving book |
+| Orders per market / cooldown | 4 / 10 s | Counts every order sent, filled or not, so an empty IOC is not resent each second |
 | Stale feed | 5 s | No orders on old prices |
 | Volatility warm-up | 20 samples | No orders before the estimate is meaningful |
 | Basis guard | on | Proxy feed must be calibrated to the strike |
 | Kill switch | `touch data/KILL` | Stops new orders immediately; delete the file to resume |
-| Ambiguous order outcome | halt market | A timeout or 5xx on order entry halts that market until you reconcile it on Kalshi |
+| Ambiguous order outcome | halt market | A timeout or 5xx on order entry halts that market, survives restarts, and reserves the order's maximum cost against the total and daily limits for the rest of the ET day |
 | Live confirmation | `--confirm-live` | Live mode refuses to start without it |
 
 ## Architecture
@@ -128,7 +128,7 @@ fee again within a 15-minute horizon, and the market settles automatically.
                                      │
                   PaperExecutor | LiveExecutor (IOC orders)      (execution.py)
                                      │
-                         Ledger (SQLite fills, settlements)      (ledger.py, positions.py)
+                         Ledger (SQLite orders, fills, settlements) (ledger.py, positions.py)
                                      │
                     settlement poller ──► realized PnL
 ```

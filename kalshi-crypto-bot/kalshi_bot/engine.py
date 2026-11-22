@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 from .assets import Asset, get_asset
 from .config import BotConfig, annual_vol_to_per_second
 from .execution import ExecutionResult, LiveExecutor, PaperExecutor
 from .feeds.base import PriceFeed
+from .fees import order_fee
 from .kalshi.client import KalshiClient
-from .ledger import FillRecord, Ledger
+from .ledger import FillRecord, Ledger, OrderRecord
 from .markets import Market, OrderBook
 from .positions import Position
 from .pricing import SETTLEMENT_WINDOW_S
@@ -60,6 +61,10 @@ class Engine:
         self._balance: tuple[float, float] | None = None
         self._stop = False
         self.min_sigma = annual_vol_to_per_second(cfg.strategy.min_annual_vol)
+        halted = ledger.halted_tickers()
+        if halted:
+            log.warning("Markets halted by earlier orders with unknown outcomes: %s", ", ".join(sorted(halted)))
+        self.risk.halted_markets |= halted
 
     def stop(self) -> None:
         self._stop = True
@@ -76,10 +81,12 @@ class Engine:
     def tick(self) -> None:
         now = self.clock()
         positions = self.ledger.open_positions()
-        realized_today = self.ledger.realized_pnl(self.risk.day_start(now))
+        day_start = self.risk.day_start(now)
+        realized_today = self.ledger.realized_pnl(day_start)
+        reserved = self.ledger.ambiguous_exposure(day_start)
         for symbol, state in self.states.items():
             try:
-                self._tick_asset(state, now, positions, realized_today)
+                self._tick_asset(state, now, positions, realized_today, reserved)
             except Exception:
                 log.exception("%s tick failed", symbol)
         try:
@@ -129,7 +136,9 @@ class Engine:
             self._balance = (now, self.balance_fn())
         return min(self._balance[1], self.cfg.risk.bankroll)
 
-    def _tick_asset(self, state: MarketState, now: float, positions: dict[str, Position], realized_today: float) -> None:
+    def _tick_asset(
+        self, state: MarketState, now: float, positions: dict[str, Position], realized_today: float, reserved: float = 0.0
+    ) -> None:
         symbol = state.asset.symbol
         market = state.market
         if (market is None or now >= market.close_ts) and now - state.last_refresh >= 2.0:
@@ -155,10 +164,15 @@ class Engine:
         book = OrderBook.from_api(self.client.get_orderbook(market.ticker), now)
         position = positions.get(market.ticker) or Position(market.ticker, symbol, market.close_ts)
         snap = Snapshot(symbol, market, book, now, spot, sigma, window_sum, window_n)
-        room = self.risk.room(market.ticker, positions, realized_today)
+        room = self.risk.room(market.ticker, positions, realized_today, reserved)
         ev = evaluate(snap, position, self.cfg.strategy, self._bankroll(), room, self.cfg.allow_fractional)
 
-        gate = self.risk.gate(position, now, now - tick_ts, vol_samples, realized_today)
+        # Unfilled orders count toward the cooldown and order cap too, so an empty IOC cannot be resent every tick.
+        sent, last_sent = self.ledger.order_activity(market.ticker)
+        activity = replace(
+            position, orders=max(position.orders, sent), last_order_ts=max(position.last_order_ts, last_sent)
+        )
+        gate = self.risk.gate(activity, now, now - tick_ts, vol_samples, realized_today)
         if gate is None and state.basis is None and not self.feed.is_settlement_index:
             # An unknown proxy-to-index offset can look like several cents of edge.
             gate = "proxy basis uncalibrated until the next market opens"
@@ -172,9 +186,27 @@ class Engine:
         if ev.signal:
             sig = ev.signal
             result = self.executor.execute(sig)
+            outcome = "ambiguous" if result.ambiguous else "filled" if result.filled > 0 else "unfilled"
+            self.ledger.record_order(
+                OrderRecord(
+                    ts=now,
+                    asset=symbol,
+                    ticker=market.ticker,
+                    close_ts=market.close_ts,
+                    side=sig.side,
+                    count=sig.count,
+                    limit_price=sig.limit_price,
+                    outcome=outcome,
+                    filled=result.filled,
+                    max_cost=sig.count * sig.limit_price + order_fee(sig.count, min(sig.limit_price, 0.5)),
+                    order_id=result.order_id,
+                )
+            )
             if result.ambiguous:
                 self.risk.halted_markets.add(market.ticker)
-                log.error("%s halted: reconcile %s manually on Kalshi", symbol, market.ticker)
+                log.error(
+                    "%s halted: reconcile %s (order %s) manually on Kalshi", symbol, market.ticker, result.order_id
+                )
             if result.filled > 0:
                 self._record(sig, result, market, now, spot)
                 positions[market.ticker] = position.with_fill(sig.side, result.filled, result.avg_price, result.fee)

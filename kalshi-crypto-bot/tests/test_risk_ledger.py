@@ -27,6 +27,8 @@ def test_room_respects_market_total_and_daily_limits():
     assert risk.room("C", positions, +100.0) == pytest.approx(5)  # profits do not raise limits
     assert risk.room("C", {}, 0.0) == pytest.approx(40)
     assert risk.room("C", positions, -10.0) == 0.0
+    assert risk.room("C", {}, 0.0, reserved=15.0) == pytest.approx(35)  # daily: 50 - 15
+    assert risk.room("C", positions, 0.0, reserved=5.0) == 0.0
 
 
 def test_gate_reasons(tmp_path):

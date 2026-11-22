@@ -21,10 +21,13 @@ class RiskManager:
         local = datetime.fromtimestamp(now, self.tz)
         return local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
 
-    def room(self, ticker: str, positions: dict[str, Position], realized_today: float) -> float:
-        """Additional worst-case loss, in dollars, that a new order in `ticker` may add."""
+    def room(self, ticker: str, positions: dict[str, Position], realized_today: float, reserved: float = 0.0) -> float:
+        """Additional worst-case loss, in dollars, that a new order in `ticker` may add.
+
+        `reserved` is exposure the ledger cannot see as positions, such as orders with unknown outcomes.
+        """
         market_wcl = positions[ticker].worst_case_loss() if ticker in positions else 0.0
-        total_wcl = sum(p.worst_case_loss() for p in positions.values())
+        total_wcl = sum(p.worst_case_loss() for p in positions.values()) + reserved
         market_room = self.cfg.max_market_risk - market_wcl
         total_room = self.cfg.max_total_risk - total_wcl
         daily_room = self.cfg.max_daily_loss + min(realized_today, 0.0) - total_wcl

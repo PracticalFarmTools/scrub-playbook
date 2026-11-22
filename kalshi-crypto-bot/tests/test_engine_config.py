@@ -5,7 +5,7 @@ import pytest
 from kalshi_bot.assets import get_asset
 from kalshi_bot.config import BotConfig, RiskConfig, StrategyConfig, load_config
 from kalshi_bot.engine import Engine
-from kalshi_bot.execution import PaperExecutor
+from kalshi_bot.execution import ExecutionResult, PaperExecutor
 from kalshi_bot.feeds.base import PriceFeed
 from kalshi_bot.ledger import Ledger
 from kalshi_bot.risk import RiskManager
@@ -159,6 +159,69 @@ def test_engine_waits_for_basis_when_started_mid_window(tmp_path):
     engine.tick()
     assert engine.states["BTC"].basis_source == "rolling"
     assert ledger.open_positions() != {}
+
+
+class StubExecutor:
+    def __init__(self, result):
+        self.result = result
+        self.calls = 0
+
+    def execute(self, signal):
+        self.calls += 1
+        return self.result
+
+
+def rally(feed, until):
+    for t in range(OPEN - 120, OPEN + 1):
+        feed._on_tick("BTC", float(t), STRIKE + PROXY_OFFSET)
+    for t in range(OPEN + 1, until + 1):
+        feed._on_tick("BTC", float(t), STRIKE * 1.005 + PROXY_OFFSET)
+
+
+def test_unfilled_orders_start_cooldown_and_count_toward_cap(tmp_path):
+    clock = Clock(OPEN + 300)
+    engine, client, feed, ledger = make_engine(tmp_path, clock)
+    engine.executor = stub = StubExecutor(ExecutionResult(0.0, order_id="empty"))
+    rally(feed, clock.t)
+
+    engine.tick()
+    assert stub.calls == 1
+    assert ledger.open_positions() == {}
+    assert ledger.order_activity("KXBTC15M-TEST-00") == (1, OPEN + 300)
+
+    for _ in range(5):  # inside the 10 s cooldown
+        clock.t += 1
+        feed._on_tick("BTC", clock.t, STRIKE * 1.005 + PROXY_OFFSET)
+        engine.tick()
+    assert stub.calls == 1
+
+    for _ in range(10):  # cap of 4 orders per market, filled or not
+        clock.t += 11
+        feed._on_tick("BTC", clock.t, STRIKE * 1.005 + PROXY_OFFSET)
+        engine.tick()
+    assert stub.calls == 4
+
+
+def test_ambiguous_order_halt_survives_restart(tmp_path):
+    clock = Clock(OPEN + 300)
+    engine, client, feed, ledger = make_engine(tmp_path, clock)
+    engine.executor = stub = StubExecutor(ExecutionResult(0.0, order_id="kb-lost", ambiguous=True))
+    rally(feed, clock.t)
+    engine.tick()
+    assert stub.calls == 1
+    assert ledger.halted_tickers() == {"KXBTC15M-TEST-00"}
+    reserved = ledger.ambiguous_exposure(engine.risk.day_start(clock.t))
+    assert 0 < reserved <= 40 + 1
+
+    # A fresh process on the same ledger stays halted, even after the cooldown has passed.
+    clock.t += 60
+    restarted, _, feed2, ledger2 = make_engine(tmp_path, clock)
+    restarted.executor = stub2 = StubExecutor(ExecutionResult(0.0))
+    rally(feed2, clock.t)
+    restarted.tick()
+    assert stub2.calls == 0
+    assert "KXBTC15M-TEST-00" in restarted.risk.halted_markets
+    assert ledger2.ambiguous_exposure(restarted.risk.day_start(clock.t)) == pytest.approx(reserved)
 
 
 def test_load_config_from_toml(tmp_path, monkeypatch):

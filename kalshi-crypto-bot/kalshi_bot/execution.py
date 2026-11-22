@@ -76,10 +76,10 @@ class LiveExecutor:
                 log.error("Order rejected for %s: %s", signal.ticker, exc)
                 return ExecutionResult(0.0)
             log.error("Order outcome unknown for %s (%s): %s", signal.ticker, client_order_id, exc)
-            return ExecutionResult(0.0, ambiguous=True)
+            return ExecutionResult(0.0, order_id=client_order_id, ambiguous=True)
         except Exception as exc:
             log.error("Order outcome unknown for %s (%s): %s", signal.ticker, client_order_id, exc)
-            return ExecutionResult(0.0, ambiguous=True)
+            return ExecutionResult(0.0, order_id=client_order_id, ambiguous=True)
 
         filled = float(resp.get("fill_count", 0) or 0)
         if filled <= 0:

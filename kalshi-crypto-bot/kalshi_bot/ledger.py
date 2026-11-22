@@ -39,6 +39,21 @@ CREATE TABLE IF NOT EXISTS settlements (
     fees REAL NOT NULL,
     pnl REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    asset TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    close_ts REAL NOT NULL,
+    side TEXT NOT NULL CHECK (side IN ('yes', 'no')),
+    count REAL NOT NULL,
+    limit_price REAL NOT NULL,
+    outcome TEXT NOT NULL CHECK (outcome IN ('filled', 'unfilled', 'ambiguous')),
+    filled REAL NOT NULL,
+    max_cost REAL NOT NULL,
+    order_id TEXT
+);
+CREATE INDEX IF NOT EXISTS orders_ticker ON orders (ticker);
 """
 
 
@@ -58,6 +73,21 @@ class FillRecord:
     edge: float | None = None
     spot: float | None = None
     strike: float | None = None
+
+
+@dataclass
+class OrderRecord:
+    ts: float
+    asset: str
+    ticker: str
+    close_ts: float
+    side: str
+    count: float
+    limit_price: float
+    outcome: str  # "filled", "unfilled" or "ambiguous"
+    filled: float
+    max_cost: float  # the most the order could have spent, fees included
+    order_id: str | None = None
 
 
 class Ledger:
@@ -95,6 +125,38 @@ class Ledger:
             pos.last_order_ts = max(pos.last_order_ts, r["ts"])
             positions[r["ticker"]] = pos
         return positions
+
+    def record_order(self, o: OrderRecord) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO orders (ts, asset, ticker, close_ts, side, count, limit_price, outcome, filled,"
+                " max_cost, order_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    o.ts, o.asset, o.ticker, o.close_ts, o.side, o.count, o.limit_price, o.outcome, o.filled,
+                    o.max_cost, o.order_id,
+                ),
+            )
+
+    def order_activity(self, ticker: str) -> tuple[int, float]:
+        """Number of orders sent in `ticker`, filled or not, and when the last one went out."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*), COALESCE(MAX(ts), 0) FROM orders WHERE ticker = ?", (ticker,)
+            ).fetchone()
+        return int(row[0]), float(row[1])
+
+    def halted_tickers(self) -> set[str]:
+        with self._lock:
+            rows = self._conn.execute("SELECT DISTINCT ticker FROM orders WHERE outcome = 'ambiguous'").fetchall()
+        return {r[0] for r in rows}
+
+    def ambiguous_exposure(self, since_ts: float) -> float:
+        """Worst-case cost of orders with unknown outcomes; they may have filled and lost."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COALESCE(SUM(max_cost), 0) FROM orders WHERE outcome = 'ambiguous' AND ts >= ?", (since_ts,)
+            ).fetchone()
+        return float(row[0])
 
     def record_settlement(self, pos: Position, result: str, ts: float, expiration_value: float | None) -> float:
         payout = pos.payout(result)
