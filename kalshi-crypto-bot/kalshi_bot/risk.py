@@ -16,6 +16,12 @@ class RiskManager:
         self.tz = ZoneInfo(timezone)
         self.kill_file = Path(kill_file) if kill_file else None
         self.halted_markets: set[str] = set()
+        # Order attempts, filled or not, so a flickering book can't dodge the cooldown/cap by never filling.
+        self._order_attempts: dict[str, tuple[int, float]] = {}
+
+    def record_order_attempt(self, ticker: str, now: float) -> None:
+        count, _ = self._order_attempts.get(ticker, (0, 0.0))
+        self._order_attempts[ticker] = (count + 1, now)
 
     def day_start(self, now: float) -> float:
         local = datetime.fromtimestamp(now, self.tz)
@@ -49,8 +55,9 @@ class RiskManager:
             return f"price feed stale ({feed_age_s:.1f}s)"
         if vol_samples < self.cfg.min_vol_samples:
             return f"volatility warming up ({vol_samples}/{self.cfg.min_vol_samples} samples)"
-        if position.orders >= self.cfg.max_orders_per_market:
+        attempt_count, attempt_ts = self._order_attempts.get(position.ticker, (0, 0.0))
+        if max(position.orders, attempt_count) >= self.cfg.max_orders_per_market:
             return "max orders for this market"
-        if now - position.last_order_ts < self.cfg.order_cooldown_s:
+        if now - max(position.last_order_ts, attempt_ts) < self.cfg.order_cooldown_s:
             return "order cooldown"
         return None

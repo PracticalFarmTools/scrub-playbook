@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS settlements (
     fees REAL NOT NULL,
     pnl REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS halts (
+    ticker TEXT PRIMARY KEY,
+    ts REAL NOT NULL,
+    reason TEXT
+);
 """
 
 
@@ -95,6 +100,17 @@ class Ledger:
             pos.last_order_ts = max(pos.last_order_ts, r["ts"])
             positions[r["ticker"]] = pos
         return positions
+
+    def record_halt(self, ticker: str, ts: float, reason: str = "") -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO halts (ticker, ts, reason) VALUES (?,?,?)", (ticker, ts, reason)
+            )
+
+    def halted_tickers(self) -> set[str]:
+        with self._lock:
+            rows = self._conn.execute("SELECT ticker FROM halts").fetchall()
+        return {r["ticker"] for r in rows}
 
     def record_settlement(self, pos: Position, result: str, ts: float, expiration_value: float | None) -> float:
         payout = pos.payout(result)

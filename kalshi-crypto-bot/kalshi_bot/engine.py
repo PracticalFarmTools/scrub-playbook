@@ -60,6 +60,8 @@ class Engine:
         self._balance: tuple[float, float] | None = None
         self._stop = False
         self.min_sigma = annual_vol_to_per_second(cfg.strategy.min_annual_vol)
+        # Ambiguous-order halts must survive a restart, since the outcome is still unresolved on Kalshi.
+        self.risk.halted_markets.update(self.ledger.halted_tickers())
 
     def stop(self) -> None:
         self._stop = True
@@ -172,8 +174,10 @@ class Engine:
         if ev.signal:
             sig = ev.signal
             result = self.executor.execute(sig)
+            self.risk.record_order_attempt(market.ticker, now)
             if result.ambiguous:
                 self.risk.halted_markets.add(market.ticker)
+                self.ledger.record_halt(market.ticker, now, "ambiguous order outcome")
                 log.error("%s halted: reconcile %s manually on Kalshi", symbol, market.ticker)
             if result.filled > 0:
                 self._record(sig, result, market, now, spot)
