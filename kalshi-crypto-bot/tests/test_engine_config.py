@@ -224,6 +224,54 @@ def test_ambiguous_order_halt_survives_restart(tmp_path):
     assert ledger2.ambiguous_exposure(restarted.risk.day_start(clock.t)) == pytest.approx(reserved)
 
 
+class TwoCoinKalshi(FakeKalshi):
+    def market_for(self, series):
+        m = self.market()
+        m["ticker"], m["event_ticker"] = f"{series}-TEST-00", f"{series}-TEST"
+        return m
+
+    def get_markets(self, series_ticker, **params):
+        return {"markets": [self.market_for(series_ticker)]}
+
+    def get_market(self, ticker):
+        return self.market_for(ticker.split("-")[0])
+
+
+class TwoCoinFeed(FakeFeed):
+    def __init__(self):
+        PriceFeed.__init__(self, [get_asset("BTC"), get_asset("ETH")])
+
+
+def test_ambiguous_order_shrinks_room_for_later_coins_in_the_same_tick(tmp_path):
+    clock = Clock(OPEN + 300)
+    cfg = BotConfig(
+        assets=["BTC", "ETH"],
+        data_dir=str(tmp_path),
+        strategy=StrategyConfig(market_blend=0.0, min_edge=0.04),
+        risk=RiskConfig(bankroll=1000, max_market_risk=40, max_total_risk=50, max_daily_loss=100, min_vol_samples=5),
+    )
+    feed = TwoCoinFeed()
+    for symbol in ("BTC", "ETH"):
+        feed.states[symbol].vol.seed((0.6 / (365 * 24 * 3600) ** 0.5) ** 2, 100)
+        for t in range(OPEN - 120, OPEN + 1):
+            feed._on_tick(symbol, float(t), STRIKE)
+        for t in range(OPEN + 1, OPEN + 301):
+            feed._on_tick(symbol, float(t), STRIKE * 1.005)
+    ledger = Ledger(tmp_path / "paper.sqlite")
+    stub = StubExecutor(ExecutionResult(0.0, order_id="kb-lost", ambiguous=True))
+    sent = []
+    stub.execute = lambda sig: sent.append(sig) or stub.result
+    engine = Engine(cfg, TwoCoinKalshi(), feed, stub, ledger, RiskManager(cfg.risk), clock=clock)
+
+    engine.tick()
+    assert [s.asset for s in sent] == ["BTC", "ETH"]
+    first = sent[0].count * sent[0].limit_price
+    assert first > 10  # BTC took most of the $50 total budget
+    assert sent[1].count * sent[1].limit_price <= 50 - first + 1e-9
+    # Reserves use an upper-bound fee, so the total can exceed the cap by a few cents of fees.
+    assert ledger.ambiguous_exposure(0) <= 50 + 0.10
+
+
 def test_load_config_from_toml(tmp_path, monkeypatch):
     monkeypatch.delenv("KALSHI_API_KEY_ID", raising=False)
     monkeypatch.delenv("KALSHI_ENV", raising=False)

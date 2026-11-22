@@ -83,10 +83,9 @@ class Engine:
         positions = self.ledger.open_positions()
         day_start = self.risk.day_start(now)
         realized_today = self.ledger.realized_pnl(day_start)
-        reserved = self.ledger.ambiguous_exposure(day_start)
         for symbol, state in self.states.items():
             try:
-                self._tick_asset(state, now, positions, realized_today, reserved)
+                self._tick_asset(state, now, positions, realized_today, day_start)
             except Exception:
                 log.exception("%s tick failed", symbol)
         try:
@@ -137,7 +136,7 @@ class Engine:
         return min(self._balance[1], self.cfg.risk.bankroll)
 
     def _tick_asset(
-        self, state: MarketState, now: float, positions: dict[str, Position], realized_today: float, reserved: float = 0.0
+        self, state: MarketState, now: float, positions: dict[str, Position], realized_today: float, day_start: float
     ) -> None:
         symbol = state.asset.symbol
         market = state.market
@@ -164,6 +163,8 @@ class Engine:
         book = OrderBook.from_api(self.client.get_orderbook(market.ticker), now)
         position = positions.get(market.ticker) or Position(market.ticker, symbol, market.close_ts)
         snap = Snapshot(symbol, market, book, now, spot, sigma, window_sum, window_n)
+        # Read per coin so an unknown outcome earlier in this tick shrinks room for the rest.
+        reserved = self.ledger.ambiguous_exposure(day_start)
         room = self.risk.room(market.ticker, positions, realized_today, reserved)
         ev = evaluate(snap, position, self.cfg.strategy, self._bankroll(), room, self.cfg.allow_fractional)
 
