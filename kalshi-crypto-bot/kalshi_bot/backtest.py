@@ -294,11 +294,14 @@ def run_backtest(
     csv_path: str | None = None,
     client: KalshiClient | None = None,
     vol_sweep: list[float] | None = None,
+    offset_days: float = 0.0,
 ) -> BacktestReport:
     client = client or KalshiClient(cfg.env)
     session = requests.Session()
-    end = int(time.time() // 900 * 900)
+    end = int((time.time() - offset_days * 86400) // 900 * 900)
     start = int(end - days * 86400)
+    fmt = "%Y-%m-%d %H:%M %Z"
+    print(f"Window: {time.strftime(fmt, time.localtime(start))} to {time.strftime(fmt, time.localtime(end))}\n")
     reports = []
     for symbol in assets:
         report = backtest_asset(get_asset(symbol), cfg, client, session, start, end, depth)

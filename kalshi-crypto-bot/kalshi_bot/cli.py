@@ -215,7 +215,9 @@ def cmd_backtest(args: argparse.Namespace) -> int:
     cfg = load_config(args.config, assets=_assets_arg(args.assets))
     setup_logging(None, args.verbose)
     sweep = [float(x) for x in args.vol_sweep.split(",")] if args.vol_sweep else None
-    run_backtest(cfg, cfg.assets, args.days, depth=args.depth, csv_path=args.csv, vol_sweep=sweep)
+    run_backtest(
+        cfg, cfg.assets, args.days, depth=args.depth, csv_path=args.csv, vol_sweep=sweep, offset_days=args.offset_days
+    )
     return 0
 
 
@@ -244,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("backtest", help="replay the strategy on recently settled markets")
     p.add_argument("--assets")
     p.add_argument("--days", type=float, default=1.0)
+    p.add_argument("--offset-days", type=float, default=0.0, help="end the window this many days ago (out-of-sample checks)")
     p.add_argument("--depth", type=float, default=50.0, help="contracts assumed available at each quote")
     p.add_argument("--csv", help="write trades to this CSV file")
     p.add_argument("--vol-sweep", help="re-score the model at these vol multipliers, e.g. 0.7,0.85,1.0")
