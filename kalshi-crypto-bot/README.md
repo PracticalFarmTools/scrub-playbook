@@ -182,7 +182,62 @@ With credentials, `price_source = "auto"` switches to the CF Benchmarks feed.
 
 ## Backtest results
 
-RESULTS_PLACEHOLDER
+Default settings, $500 bankroll, $40 per-market risk cap, 5 coins. Each run
+replays every settled market in the window, deciding once a minute (minutes
+1–14 of each market).
+
+**Tuning window, Nov 18 11:00 PM – Nov 21 11:00 PM ET.** `vol_multiplier` and
+`market_blend` were chosen here, so these numbers are in-sample.
+
+| Coin | Markets | Trades (markets traded) | Net PnL | Deployed | ROI | Brier model / market |
+| - | - | - | - | - | - | - |
+| BTC | 281 | 92 (58) | +$363.69 | $1,019 | +35.7% | 0.1622 / 0.1633 |
+| ETH | 281 | 107 (63) | +$229.35 | $967 | +23.7% | 0.1632 / 0.1609 |
+| SOL | 281 | 60 (36) | −$66.37 | $631 | −10.5% | 0.1505 / 0.1509 |
+| XRP | 281 | 100 (54) | +$160.98 | $864 | +18.6% | 0.1432 / 0.1417 |
+| DOGE | 281 | 223 (123) | +$516.36 | $2,378 | +21.7% | 0.1428 / 0.1427 |
+| **All** | 1,405 | 582 (334) | **+$1,204.01** | $5,860 | **+20.5%** | 0.1527 / 0.1522 |
+
+**Out-of-sample, Nov 15 11:15 PM – Nov 18 11:15 PM ET**, the preceding three
+days with parameters frozen:
+
+| Coin | Markets | Trades (markets traded) | Net PnL | Deployed | ROI | Brier model / market |
+| - | - | - | - | - | - | - |
+| BTC | 289 | 75 (43) | +$103.33 | $855 | +12.1% | 0.1507 / 0.1504 |
+| ETH | 289 | 111 (63) | −$83.54 | $1,012 | −8.3% | 0.1476 / 0.1448 |
+| SOL | 289 | 69 (33) | +$291.20 | $599 | +48.6% | 0.1593 / 0.1576 |
+| XRP | 289 | 75 (48) | +$116.92 | $724 | +16.1% | 0.1633 / 0.1634 |
+| DOGE | 289 | 251 (127) | +$914.94 | $2,384 | +38.4% | 0.1550 / 0.1544 |
+| **All** | 1,445 | 581 (314) | **+$1,342.86** | $5,573 | **+24.1%** | 0.1552 / 0.1541 |
+
+PnL is after $216 (in-sample) and $213 (out-of-sample) of taker fees.
+
+Volatility sweep, all coins (model Brier; lower is better):
+
+| Multiplier | 0.8 | 0.9 | 1.0 | 1.15 | 50% blend at 0.9 | Market mid |
+| - | - | - | - | - | - | - |
+| Tuning window | 0.1529 | **0.1527** | 0.1530 | 0.1543 | **0.1517** | 0.1522 |
+| Out-of-sample | 0.1557 | **0.1552** | 0.1553 | — | **0.1539** | 0.1541 |
+
+How to read this:
+
+* **Forecast quality.** On its own, the model is about as accurate as the
+  market, slightly worse overall. Blended 50/50 with the market mid, it beats
+  the market in both windows, by a thin margin. The 0.9 multiplier held up out
+  of sample.
+* **PnL is an optimistic upper bound.** Fills are assumed at each minute's
+  closing quote with 50 contracts available, with no latency and no queue.
+  Real fills will be worse, especially for the cheap 20–35¢ contracts the bot
+  favours. Per-coin results swing between windows (SOL went from −10.5% to
+  +48.6%, ETH from +23.7% to −8.3%), so six days is not enough to trust any
+  single coin.
+* **Model shape.** Calibration tables (printed by `backtest`) showed the
+  original 1.15 multiplier overrating underdogs. In the 0.1–0.3 buckets, the
+  realized YES rate was about half the predicted rate. That finding drove the
+  move to 0.9 and the 50/50 blend.
+
+Rerun any time with `backtest --days 3 --vol-sweep 0.8,0.9,1.0`, and use
+`--offset-days` to test a window the parameters were not fit on.
 
 ## Limitations and next steps
 
