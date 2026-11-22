@@ -1,0 +1,37 @@
+# Copy to config.toml and pass with: python -m kalshi_bot -c config.toml <command>
+# Every key is optional; the values shown are the defaults.
+
+[bot]
+assets = ["BTC", "ETH", "SOL"]      # also XRP, DOGE, ADA, BCH, NEAR, ZEC, BNB, HYPE, TON
+env = "prod"                        # "demo" for Kalshi's sandbox (can also set KALSHI_ENV)
+price_source = "auto"               # "kalshi_cfb" (needs API key), "public", or auto
+poll_interval_s = 1.0
+data_dir = "data"                   # ledger, logs, and the KILL switch file live here
+timezone = "America/New_York"       # defines "today" for the daily loss limit
+allow_fractional = true             # the 15-minute markets accept 0.01-contract sizes
+log_every_s = 15.0
+
+[strategy]
+min_edge = 0.04                     # $ of expected profit per contract after taker fees
+market_blend = 0.5                  # fair = (1 - w) * model + w * order-book mid
+min_price = 0.05                    # never buy a side cheaper than this...
+max_price = 0.95                    # ...or dearer than this
+max_spread = 0.08                   # skip books wider than this
+entry_after_open_s = 60.0
+stop_before_close_s = 20.0
+kelly_fraction = 0.15
+min_order_dollars = 2.0
+vol_multiplier = 0.9                # tune with: backtest --vol-sweep 0.8,0.9,1.0
+min_annual_vol = 0.20
+vol_halflife_s = 1800.0
+vol_sample_s = 5.0
+
+[risk]
+bankroll = 500.0                    # paper starting balance; live uses min(this, Kalshi balance)
+max_market_risk = 40.0              # worst-case $ loss in any one market, fees included
+max_total_risk = 120.0              # across all open markets
+max_daily_loss = 100.0              # realized loss today + open worst case
+max_orders_per_market = 4
+order_cooldown_s = 10.0
+max_feed_staleness_s = 5.0
+min_vol_samples = 20
