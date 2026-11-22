@@ -241,6 +241,11 @@ Rerun any time with `backtest --days 3 --vol-sweep 0.8,0.9,1.0`, and use
 
 ## Limitations and next steps
 
+* **Correlated bets across coins.** BTC, ETH, SOL, XRP, and DOGE usually move
+  together within a 15-minute window. YES on three coins in the same window is
+  close to one bet placed three times. The total-risk cap bounds the damage, but
+  a per-window, per-direction exposure limit would size this honestly. In paper
+  trading, three cheap YES entries in the same minute all lost together.
 * **The edge is not proven.** The model is roughly as accurate as the market
   and wins by a small margin only when blended with it. Most of the realistic
   edge is latency: reacting to index moves before market makers re-quote. A
