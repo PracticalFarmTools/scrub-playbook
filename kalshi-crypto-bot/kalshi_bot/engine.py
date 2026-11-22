@@ -86,7 +86,7 @@ class Engine:
         reserved = self.ledger.ambiguous_exposure(day_start)
         for symbol, state in self.states.items():
             try:
-                self._tick_asset(state, now, positions, realized_today, reserved)
+                reserved += self._tick_asset(state, now, positions, realized_today, reserved)
             except Exception:
                 log.exception("%s tick failed", symbol)
         try:
@@ -138,21 +138,22 @@ class Engine:
 
     def _tick_asset(
         self, state: MarketState, now: float, positions: dict[str, Position], realized_today: float, reserved: float = 0.0
-    ) -> None:
+    ) -> float:
+        """Run one asset's tick. Returns additional risk to reserve for later assets this tick."""
         symbol = state.asset.symbol
         market = state.market
         if (market is None or now >= market.close_ts) and now - state.last_refresh >= 2.0:
             self._refresh_market(state, now)
             market = state.market
         if market is None or now >= market.close_ts:
-            return
+            return 0.0
         if market.strike is None and now - state.last_refresh >= 2.0:
             state.last_refresh = now
             state.market = market = Market.from_api(self.client.get_market(market.ticker))
 
         latest = self.feed.latest(symbol)
         if latest is None:
-            return
+            return 0.0
         tick_ts, raw_spot = latest
         basis = self._basis(state, market)
         spot = raw_spot + basis
@@ -187,6 +188,7 @@ class Engine:
             sig = ev.signal
             result = self.executor.execute(sig)
             outcome = "ambiguous" if result.ambiguous else "filled" if result.filled > 0 else "unfilled"
+            max_cost = sig.count * sig.limit_price + order_fee(sig.count, min(sig.limit_price, 0.5))
             self.ledger.record_order(
                 OrderRecord(
                     ts=now,
@@ -198,7 +200,7 @@ class Engine:
                     limit_price=sig.limit_price,
                     outcome=outcome,
                     filled=result.filled,
-                    max_cost=sig.count * sig.limit_price + order_fee(sig.count, min(sig.limit_price, 0.5)),
+                    max_cost=max_cost,
                     order_id=result.order_id,
                 )
             )
@@ -207,11 +209,13 @@ class Engine:
                 log.error(
                     "%s halted: reconcile %s (order %s) manually on Kalshi", symbol, market.ticker, result.order_id
                 )
+                return max_cost
             if result.filled > 0:
                 self._record(sig, result, market, now, spot)
                 positions[market.ticker] = position.with_fill(sig.side, result.filled, result.avg_price, result.fee)
-            elif not result.ambiguous:
+            else:
                 log.info("%s %s order for %s got no fill", symbol, sig.side.upper(), market.ticker)
+        return 0.0
 
     def _record(self, sig, result: ExecutionResult, market: Market, now: float, spot: float) -> None:
         self.ledger.record_fill(
